@@ -1,5 +1,5 @@
 import hmac, hashlib, logging, time
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.responses import PlainTextResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -59,6 +59,16 @@ def healthz():
         "panic_stop": settings.PANIC_STOP,
         "batch_size": settings.BATCH_SIZE,
     }
+
+@app.get("/api-key", tags=["ops"])
+def get_api_key():
+    """Get API key for local development. Only works when DRY_RUN is enabled."""
+    if not settings.DRY_RUN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API key endpoint only available in development mode (DRY_RUN=true)"
+        )
+    return {"api_key": settings.API_KEY}
 
 @app.get("/metrics", response_class=PlainTextResponse, tags=["ops"])
 def metrics():

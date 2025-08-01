@@ -37,8 +37,22 @@ export default function App() {
     }
   }
 
+  async function loadApiKey() {
+    try {
+      const data = await apiFetch<{api_key: string}>('/api-key');
+      if (data.api_key && !apiKey) {
+        setApiKey(data.api_key);
+        setStoredApiKey(data.api_key);
+      }
+    } catch (error) {
+      // API key endpoint not available or failed - that's fine for production
+      console.log('API key auto-fetch not available (production mode)');
+    }
+  }
+
   useEffect(() => {
     loadHealth();
+    loadApiKey();
   }, []);
 
   async function updateDryRun(next: boolean) {
