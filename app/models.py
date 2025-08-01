@@ -30,3 +30,16 @@ class Report(Base):
     dedupe_key = Column(Text, unique=True, nullable=False)
     comment = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+class Config(Base):
+    __tablename__ = "config"
+    key = Column(Text, primary_key=True)
+    value = Column(JSON, nullable=False)
+    updated_by = Column(Text)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+class Cursor(Base):
+    __tablename__ = "cursors"
+    name = Column(Text, primary_key=True)
+    position = Column(Text, nullable=False)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

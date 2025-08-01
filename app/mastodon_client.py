@@ -1,4 +1,4 @@
-import httpx
+import httpx, hashlib
 from app.config import get_settings
 from app.rate_limit import update_from_headers, throttle_if_needed
 from app.metrics import api_call_seconds, http_errors
@@ -10,7 +10,8 @@ class MastoClient:
         self._token = token
         self._base = str(settings.MST_BASE_URL).rstrip("/")
         self._ua = settings.USER_AGENT
-        self._bucket_key = f"{self._base}:{hash(token)}"
+        tok = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        self._bucket_key = f"{self._base}:{tok}"
 
     def _client(self):
         return httpx.Client(timeout=30.0, headers={

@@ -7,3 +7,4 @@ http_errors = Counter("sidecar_http_errors_total", "HTTP errors", ["endpoint","c
 queue_backlog = Gauge("sidecar_queue_backlog", "Queue backlog", ["queue"])
 report_latency = Histogram("sidecar_report_latency_seconds", "Latency from analysis to report")
 api_call_seconds = Histogram("sidecar_api_call_seconds", "API call duration seconds", ["endpoint"])
+redis_degraded = Counter("sidecar_redis_degraded_total", "Redis unavailable fallbacks")

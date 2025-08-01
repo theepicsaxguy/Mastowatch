@@ -10,7 +10,7 @@ docker compose up -d db redis
 # wait until db is healthy
 docker compose run --rm migrate
 docker compose up -d api worker beat
-````
+```
 
 Set these in `docker-compose.yml`:
 
@@ -30,7 +30,7 @@ Endpoints:
 ## Notes
 
 * Celery Beat schedules polling every 30 seconds.
-* Alembic migrations run via the `migrate` service.
+* Alembic migrations run via the `migrate` service. Note that `alembic.ini` leaves `sqlalchemy.url` empty; the `DATABASE_URL` environment variable is used instead.
 * Add Prometheus to scrape `/metrics` as desired.
 
 ```
