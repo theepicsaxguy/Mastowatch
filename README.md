@@ -12,7 +12,7 @@ docker compose run --rm migrate
 docker compose up -d api worker beat
 ```
 
-Set these in `docker-compose.yml`:
+Set these in `docker-compose.yml` or a `.env` file (recommended for local development):
 
 * `MST_BASE_URL`: your instance base URL
 * `BOT_TOKEN`: token with `write:reports`

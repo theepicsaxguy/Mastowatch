@@ -28,8 +28,16 @@ class DryRunToggle(BaseModel):
 
 @app.post("/config/dry_run", tags=["ops"])
 def set_dry_run(body: DryRunToggle):
+    if body.dry_run is None:
+        raise HTTPException(status_code=400, detail="dry_run flag cannot be null")
+    
+    # Ensure only 'dry_run' key can be updated via this endpoint
+    # The Config model's 'key' is a primary key, so merge handles upsert.
+    # We explicitly set the key here to 'dry_run' to prevent arbitrary key updates.
+    config_key = "dry_run"
+
     with SessionLocal() as db:
-        db.merge(Config(key="dry_run", value={"enabled": body.dry_run}, updated_by=body.updated_by))
+        db.merge(Config(key=config_key, value={"enabled": body.dry_run}, updated_by=body.updated_by))
         db.commit()
     settings.DRY_RUN = bool(body.dry_run)
     return {"dry_run": settings.DRY_RUN, "persisted": True}

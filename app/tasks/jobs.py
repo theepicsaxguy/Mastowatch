@@ -9,7 +9,7 @@ from app.util import make_dedupe_key
 from app.metrics import analyses_flagged, reports_submitted
 import logging, re, urllib.parse
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from app.models import Config
+from app.models import Config, Cursor
 from app.db import SessionLocal
 from sqlalchemy import text
 
@@ -36,14 +36,14 @@ def _parse_next_max_id(link_header: str) -> str | None:
     return None
 
 @shared_task(name="app.tasks.jobs.poll_admin_accounts",
-             autoretry_for=(Exception,), retry_backbackoff=2, retry_backoff_max=60, retry_jitter=True)
+             autoretry_for=(Exception,), retry_backoff=2, retry_backoff_max=60, retry_jitter=True)
 def poll_admin_accounts():
     # read cursor
     with SessionLocal() as db:
         pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": CURSOR_NAME}).scalar()
     pages = 0
     next_max = pos
-    while pages < 3:  # hard cap per beat tick
+    while pages < settings.MAX_PAGES_PER_POLL:  # hard cap per beat tick
         params = {"origin":"remote", "status":"active", "limit": settings.BATCH_SIZE}
         if next_max:
             params["max_id"] = next_max
@@ -56,8 +56,9 @@ def poll_admin_accounts():
         new_next = _parse_next_max_id(link)
         with SessionLocal() as db:
             if new_next:
-                db.execute(text("INSERT INTO cursors(name, position) VALUES(:n,:p)                                  ON CONFLICT (name) DO UPDATE SET position = excluded.position, updated_at = now()"),
-                           {"n": CURSOR_NAME, "p": new_next})
+                stmt = pg_insert(Cursor).values(name=CURSOR_NAME, position=new_next)
+                stmt = stmt.on_conflict_do_update(index_elements=['name'], set_=dict(position=new_next, updated_at=func.now()))
+                db.execute(stmt)
                 db.commit()
         if not new_next:
             break
@@ -100,7 +101,7 @@ def analyze_and_maybe_report(admin_account_obj: dict):
 
         # Try UPSERT via RETURNING: if row already exists, result is None
         # UPSERT report row to enforce idempotency before hitting the API
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
         stmt = pg_insert(Report).values(
                 mastodon_account_id=acct_id,
                 status_id=status_ids[0] if status_ids else None,

@@ -1,7 +1,7 @@
 import time, hashlib
 import redis
 from app.config import get_settings
-from app.metrics import redis_degraded
+from app.metrics import redis_degraded, rate_limit_sleeps
 
 settings = get_settings()
 rcli = redis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -32,6 +32,7 @@ def throttle_if_needed(key):
             if int(rem) <= 1 and now < int(rst):
                 sleep_for = max(0, int(rst) - now) + 1
                 time.sleep(min(sleep_for, 60))
+                rate_limit_sleeps.inc()
                 return
     except Exception:
         redis_degraded.inc()

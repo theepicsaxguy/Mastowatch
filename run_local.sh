@@ -13,13 +13,19 @@ export BATCH_SIZE="80"
 
 echo "Starting local Mastowatch development environment..."
 
-# Start Docker Compose services for DB and Redis
-echo "Starting database and Redis using Docker Compose..."
-docker compose up -d db redis
+# Check if Docker Compose services are already running
+DB_RUNNING=$(docker compose ps -q db)
+REDIS_RUNNING=$(docker compose ps -q redis)
 
-# Wait for DB to be healthy
-echo "Waiting for database to be healthy..."
-docker compose run --rm migrate # This command waits for the DB healthcheck
+if [ -z "$DB_RUNNING" ] || [ -z "$REDIS_RUNNING" ]; then
+    echo "Starting database and Redis using Docker Compose..."
+    docker compose up -d db redis
+    # Wait for DB to be healthy
+    echo "Waiting for database to be healthy..."
+    docker compose run --rm migrate # This command waits for the DB healthcheck
+else
+    echo "Database and Redis are already running."
+fi
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
