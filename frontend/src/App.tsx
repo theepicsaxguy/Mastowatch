@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AppShell, Group, Text, Container, Card, Stack, Badge, Button, Switch,
-  TextInput, ActionIcon, Tooltip, Divider, Skeleton
+  ActionIcon, Tooltip, Divider, Skeleton,
+  TextInput
 } from '@mantine/core';
-import { IconRefresh, IconKey } from '@tabler/icons-react';
-import { apiFetch, getStoredApiKey, setStoredApiKey } from './api';
+import { IconRefresh } from '@tabler/icons-react';
+import { apiFetch } from './api';
 
 type Health = {
   ok: boolean;
@@ -16,7 +17,6 @@ type Health = {
 };
 
 export default function App() {
-  const [apiKey, setApiKey] = useState<string>(getStoredApiKey() ?? '');
   const [health, setHealth] = useState<Health | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -37,22 +37,8 @@ export default function App() {
     }
   }
 
-  async function loadApiKey() {
-    try {
-      const data = await apiFetch<{api_key: string}>('/api-key');
-      if (data.api_key && !apiKey) {
-        setApiKey(data.api_key);
-        setStoredApiKey(data.api_key);
-      }
-    } catch (error) {
-      // API key endpoint not available or failed - that's fine for production
-      console.log('API key auto-fetch not available (production mode)');
-    }
-  }
-
   useEffect(() => {
     loadHealth();
-    loadApiKey();
   }, []);
 
   async function updateDryRun(next: boolean) {
@@ -90,11 +76,6 @@ export default function App() {
     }
   }
 
-  function persistKey(v: string) {
-    setApiKey(v);
-    setStoredApiKey(v);
-  }
-
   return (
     <AppShell
       header={{ height: 56 }}
@@ -109,14 +90,6 @@ export default function App() {
               {statusBadge}
             </Group>
             <Group>
-              <TextInput
-                leftSection={<IconKey size={16} />}
-                placeholder="API key"
-                value={apiKey}
-                onChange={(e) => persistKey(e.currentTarget.value)}
-                w={280}
-                aria-label="API key"
-              />
               <Tooltip label="Refresh health">
                 <ActionIcon variant="light" onClick={loadHealth} aria-label="Refresh health">
                   <IconRefresh size={16} />
@@ -157,7 +130,7 @@ export default function App() {
             <Card withBorder radius="md" padding="md">
               <Stack gap="xs">
                 <Text fw={600}>Controls</Text>
-                <Text c="dimmed" size="sm">Toggle runtime behavior (requires API key).</Text>
+                <Text c="dimmed" size="sm">Toggle runtime behavior.</Text>
               </Stack>
               <Divider my="md" />
               <Stack gap="md">

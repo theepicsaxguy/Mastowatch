@@ -60,16 +60,6 @@ def healthz():
         "batch_size": settings.BATCH_SIZE,
     }
 
-@app.get("/api-key", tags=["ops"])
-def get_api_key():
-    """Get API key for local development. Only works when DRY_RUN is enabled."""
-    if not settings.DRY_RUN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="API key endpoint only available in development mode (DRY_RUN=true)"
-        )
-    return {"api_key": settings.API_KEY}
-
 @app.get("/metrics", response_class=PlainTextResponse, tags=["ops"])
 def metrics():
     return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
