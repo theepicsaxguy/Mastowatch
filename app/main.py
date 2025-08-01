@@ -326,6 +326,6 @@ def get_account_analyses(account_id: str, limit: int = 50, offset: int = 0):
 def get_current_rules():
     """Get current rule configuration"""
     return {
-        "rules": rules.to_dict(),
-        "report_threshold": rules.report_threshold
+        "rules": rules.cfg,
+        "report_threshold": rules.cfg.get("report_threshold", 1.0)
     }
