@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cmd="${1:-}"
+
+# Simple check for required tools
+check_prerequisites() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "❌ Docker is not installed. Please install Docker: https://docs.docker.com/get-docker/"
+    exit 1
+  fi
+  
+  if ! docker compose version >/dev/null 2>&1; then
+    echo "❌ Docker Compose is not available. Please install Docker Compose."
+    exit 1
+  fi
+  
+  if ! docker version >/dev/null 2>&1; then
+    echo "❌ Docker daemon is not running or not accessible."
+    echo "   Try: sudo systemctl start docker"
+    echo "   Or: sudo usermod -aG docker $USER && newgrp docker"
+    exit 1
+  fi
+}
+
+case "$cmd" in
+  up)
+    check_prerequisites
+    [[ -f .env ]] || cp .env.example .env
+    echo "🚀 Starting Mastowatch development environment..."
+    # Try with host networking first for network issue workaround
+    if docker compose -f docker-compose.dev.yml --env-file .env up --build -d 2>/dev/null; then
+      echo "✅ Development environment is running (host networking)!"
+    else
+      echo "⚠️  Host networking failed, trying bridge networking..."
+      docker compose --env-file .env up --build -d
+      echo "✅ Development environment is running!"
+    fi
+    echo "   API: http://localhost:8080"
+    echo "   Frontend dev: ./dev frontend"
+    echo "   Logs: ./dev logs"
+    ;;
+  down)
+    echo "🛑 Stopping development environment..."
+    docker compose -f docker-compose.dev.yml down -v 2>/dev/null || docker compose down -v
+    echo "✅ Stopped and cleaned up."
+    ;;
+  logs)
+    if docker compose -f docker-compose.dev.yml ps -q >/dev/null 2>&1; then
+      docker compose -f docker-compose.dev.yml logs -f
+    else
+      docker compose logs -f
+    fi
+    ;;
+  build)
+    check_prerequisites
+    echo "🔨 Building containers..."
+    docker compose build --no-cache
+    echo "✅ Build complete."
+    ;;
+  frontend)
+    if [[ ! -d "frontend" ]]; then
+      echo "❌ Frontend directory not found"
+      exit 1
+    fi
+    echo "🎨 Starting frontend development server..."
+    cd frontend
+    if [[ ! -d "node_modules" ]]; then
+      echo "📦 Installing frontend dependencies..."
+      npm install
+    fi
+    npm run dev
+    ;;
+  local)
+    echo "🔧 Setting up local development (non-Docker)..."
+    [[ -f .env ]] || cp .env.example .env
+    
+    # Start only DB and Redis in Docker
+    echo "Starting PostgreSQL and Redis..."
+    docker run -d --name mastowatch-db -p 5432:5432 \
+      -e POSTGRES_DB=mastowatch -e POSTGRES_USER=mastowatch -e POSTGRES_PASSWORD=mastowatch \
+      postgres:16 || echo "DB already running"
+    
+    docker run -d --name mastowatch-redis -p 6379:6379 \
+      redis:7 redis-server --appendonly yes || echo "Redis already running"
+    
+    echo "✅ Database services running. To run the app locally:"
+    echo "   pip install -r requirements.txt"
+    echo "   export DATABASE_URL='postgresql+psycopg://mastowatch:mastowatch@localhost:5432/mastowatch'"
+    echo "   export REDIS_URL='redis://localhost:6379/0'"
+    echo "   alembic upgrade head"
+    echo "   uvicorn app.main:app --reload --port 8080"
+    ;;
+  local-down)
+    echo "🛑 Stopping local development services..."
+    docker stop mastowatch-db mastowatch-redis 2>/dev/null || true
+    docker rm mastowatch-db mastowatch-redis 2>/dev/null || true
+    echo "✅ Local services stopped."
+    ;;
+  *)
+    echo "Mastowatch Development Commands:"
+    echo "  ./dev up          - Start full development environment"
+    echo "  ./dev down        - Stop and clean up"
+    echo "  ./dev logs        - Show container logs"
+    echo "  ./dev build       - Rebuild containers"
+    echo "  ./dev frontend    - Start frontend dev server"
+    echo "  ./dev local       - Start only DB/Redis, run app locally"
+    echo "  ./dev local-down  - Stop local development services"
+    exit 2
+    ;;
+esac

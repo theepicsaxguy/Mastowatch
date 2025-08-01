@@ -3,7 +3,7 @@ from pydantic import AnyUrl
 from functools import lru_cache
 
 class Settings(BaseSettings):
-    MST_BASE_URL: AnyUrl
+    INSTANCE_BASE: AnyUrl
     BOT_TOKEN: str
     ADMIN_TOKEN: str
     DATABASE_URL: str

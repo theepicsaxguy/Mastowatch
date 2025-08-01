@@ -4,21 +4,36 @@ Analyze accounts/statuses and **file reports via API** so human moderators act i
 
 ## Quick start
 
+To get a working stack, follow these steps:
+
+### 1) Host "dev-doctor" (one-time fix)
+
+Run the `scripts/dev-doctor.sh` script to ensure your host is set up correctly for Docker development. This script will install Docker (if missing), enable required kernel modules and sysctls, and verify the bridge/veth networking.
+
 ```bash
-docker compose build
-docker compose up -d db redis
-# wait until db is healthy
-docker compose run --rm migrate
-docker compose up -d api worker beat
+./scripts/dev-doctor.sh
 ```
 
-Set these in `docker-compose.yml` or a `.env` file (recommended for local development):
+This script is designed for Debian/Ubuntu-like systems. If you are on a different OS, or encounter issues, please refer to the Docker documentation for your specific environment.
 
-* `MST_BASE_URL`: your instance base URL
+### 2) One-command dev spin-up
+
+Use the `dev` script for easy spin-up:
+
+```bash
+./dev up      # Builds, brings up, and detaches
+./dev logs    # Follows logs
+./dev down    # Tears down
+```
+
+Set these in `.env` (copied from `.env.example`):
+
+* `INSTANCE_BASE`: your instance base URL
 * `BOT_TOKEN`: token with `write:reports`
 * `ADMIN_TOKEN`: token with the minimal admin read scopes you use
 * `DRY_RUN`: `true` to log without sending reports
 * `BATCH_SIZE`: admin polling batch size (default 80)
+
 
 Endpoints:
 

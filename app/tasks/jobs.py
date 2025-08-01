@@ -51,7 +51,7 @@ def _persist_account(a: dict):
     if not acct_obj:
         return
     acct = acct_obj.get("acct") or ""
-    domain = (acct.split(" @")[-1] if " @" in acct else "local")
+    domain = (acct.split("@")[-1] if "@" in acct else "local")
     with SessionLocal() as db:
         stmt = pg_insert(Account).values(
             mastodon_account_id=acct_obj.get("id"),
@@ -65,7 +65,7 @@ def _persist_account(a: dict):
         db.commit()
 
 @shared_task(name="app.tasks.jobs.poll_admin_accounts",
-             autoretry_for=(Exception,), retry_backoff=2, retry_backbackoff_max=60, retry_jitter=True)
+             autoretry_for=(Exception,), retry_backoff=2, retry_backoff_max=60, retry_jitter=True)
 def poll_admin_accounts():
     if _should_pause():
         logging.warning("PANIC_STOP enabled; skipping remote account poll")
@@ -218,7 +218,7 @@ def analyze_and_maybe_report(payload: dict):
         # Reporting category/forward per Mastodon API
         payload["category"] = settings.REPORT_CATEGORY_DEFAULT
         acct_acct = acct.get("acct","")
-        is_remote = " @" in acct_acct
+        is_remote = "@" in acct_acct
         if is_remote:
             payload["forward"] = settings.FORWARD_REMOTE_REPORTS
         # Optional: map rule names -> instance rule IDs if configured server rules are available
@@ -237,7 +237,7 @@ def analyze_and_maybe_report(payload: dict):
             )
             db.commit()
 
-        domain = (acct.get("acct","").split(" @")[-1] if " @" in acct.get("acct","") else "local")
+        domain = (acct.get("acct","").split("@")[-1] if "@" in acct.get("acct","") else "local")
         reports_submitted.labels(domain=domain).inc()
         report_latency.observe(max(0.0, time.time() - started))
     except Exception as e:
