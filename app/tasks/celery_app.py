@@ -14,6 +14,14 @@ celery_app.conf.update(
         "poll-admin-accounts-every-30s": {
             "task": "app.tasks.jobs.poll_admin_accounts",
             "schedule": 30.0,
+        },
+        "poll-admin-accounts-local-every-30s": {
+            "task": "app.tasks.jobs.poll_admin_accounts_local",
+            "schedule": 30.0,
+        },
+        "queue-stats-every-15s": {
+            "task": "app.tasks.jobs.record_queue_stats",
+            "schedule": 15.0,
         }
     }
 )

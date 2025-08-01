@@ -35,6 +35,13 @@ services:
       REDIS_URL: "redis://redis:6379/0"
       DRY_RUN: "true"
       BATCH_SIZE: "80"
+      MAX_STATUSES_TO_FETCH: "5"
+      REPORT_CATEGORY_DEFAULT: "spam"
+      FORWARD_REMOTE_REPORTS: "false"
+      POLICY_VERSION: "v1"
+      API_KEY: "REPLACE_WITH_API_KEY"
+      WEBHOOK_SECRET: "REPLACE_WITH_WEBHOOK_SECRET"
+      CORS_ORIGINS: '["http://localhost:5173"]'
     ports: ["8080:8080"]
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 
@@ -60,6 +67,13 @@ services:
       REDIS_URL: "redis://redis:6379/0"
       DRY_RUN: "true"
       BATCH_SIZE: "80"
+      MAX_STATUSES_TO_FETCH: "5"
+      REPORT_CATEGORY_DEFAULT: "spam"
+      FORWARD_REMOTE_REPORTS: "false"
+      POLICY_VERSION: "v1"
+      API_KEY: "REPLACE_WITH_API_KEY"
+      WEBHOOK_SECRET: "REPLACE_WITH_WEBHOOK_SECRET"
+      CORS_ORIGINS: '["http://localhost:5173"]'
     command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
 
   beat:
@@ -74,4 +88,11 @@ services:
       REDIS_URL: "redis://redis:6379/0"
       DRY_RUN: "true"
       BATCH_SIZE: "80"
+      MAX_STATUSES_TO_FETCH: "5"
+      REPORT_CATEGORY_DEFAULT: "spam"
+      FORWARD_REMOTE_REPORTS: "false"
+      POLICY_VERSION: "v1"
+      API_KEY: "REPLACE_WITH_API_KEY"
+      WEBHOOK_SECRET: "REPLACE_WITH_WEBHOOK_SECRET"
+      CORS_ORIGINS: '["http://localhost:5173"]'
     command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]

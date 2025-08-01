@@ -7,3 +7,5 @@
 
 # Celery beat schedule file
 celerybeat-schedule
+**/node_modules/**
+**/dist/**
