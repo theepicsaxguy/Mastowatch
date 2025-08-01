@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AppShell, Group, Text, Container, Card, Stack, Badge, Button, Switch,
-  ActionIcon, Tooltip, Divider, Skeleton,
-  TextInput
+  ActionIcon, Tooltip, Divider, Skeleton, Grid, Table, Modal, Alert, 
+  Tabs, Select, Progress, Code, ScrollArea, TextInput, Title
 } from '@mantine/core';
-import { IconRefresh } from '@tabler/icons-react';
+import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler } from '@tabler/icons-react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area
+} from 'recharts';
 import { apiFetch } from './api';
+import { 
+  fetchOverview, fetchTimeline, fetchAccounts, fetchReports, 
+  fetchAccountAnalyses, fetchCurrentRules, OverviewMetrics, 
+  TimelineData, AccountData, ReportData, AnalysisData, RulesData 
+} from './analytics';
 
 type Health = {
   ok: boolean;
