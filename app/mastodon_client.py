@@ -8,7 +8,7 @@ settings = get_settings()
 class MastoClient:
     def __init__(self, token: str):
         self._token = token
-        self._base = str(settings.MST_BASE_URL).rstrip("/")
+        self._base = str(settings.INSTANCE_BASE).rstrip("/")
         self._ua = settings.USER_AGENT
         tok = hashlib.sha256(token.encode("utf-8")).hexdigest()
         self._bucket_key = f"{self._base}:{tok}"

@@ -21,49 +21,48 @@ check_prerequisites() {
 setup_local_services() {
   echo "🚀 Starting development services..."
   
-  # Check if local services are already running
-  if nc -z localhost 5432 2>/dev/null && nc -z localhost 6379 2>/dev/null; then
-    echo "✅ Local PostgreSQL and Redis are running"
-    return 0
+  # Try PostgreSQL locally first
+  if command -v postgresql-16 >/dev/null 2>&1 || command -v postgres >/dev/null 2>&1; then
+    echo "📋 Found local PostgreSQL. Consider using: sudo systemctl start postgresql"
   fi
   
-  # Try to start local services first
-  if command -v systemctl >/dev/null 2>&1; then
-    echo "Attempting to start local services..."
-    if sudo systemctl start postgresql redis-server 2>/dev/null; then
-      sleep 2
-      if nc -z localhost 5432 2>/dev/null && nc -z localhost 6379 2>/dev/null; then
-        echo "✅ Local PostgreSQL and Redis started successfully"
-        return 0
-      fi
-    fi
-  fi
-  
-  # Fallback to Docker if local services aren't available
-  echo "Trying Docker containers as fallback..."
-  
-  echo "Starting PostgreSQL (Docker)..."
+  # Try simple Docker run without networking issues
+  echo "Starting PostgreSQL (simple mode)..."
   if docker run -d --name mastowatch-db-simple \
     -e POSTGRES_DB=mastowatch -e POSTGRES_USER=mastowatch -e POSTGRES_PASSWORD=mastowatch \
     -e POSTGRES_HOST_AUTH_METHOD=trust \
     -p 127.0.0.1:5432:5432 \
     postgres:16 >/dev/null 2>&1; then
-    echo "✅ PostgreSQL started in Docker"
+    echo "✅ PostgreSQL started"
   else
-    echo "⚠️  PostgreSQL container may already exist"
+    echo "⚠️  Using existing PostgreSQL container or local installation"
   fi
   
-  echo "Starting Redis (Docker)..."
+  echo "Starting Redis (simple mode)..."
   if docker run -d --name mastowatch-redis-simple \
     -p 127.0.0.1:6379:6379 \
     redis:7 redis-server --appendonly yes >/dev/null 2>&1; then
-    echo "✅ Redis started in Docker"
+    echo "✅ Redis started"
   else
-    echo "⚠️  Redis container may already exist"
+    echo "⚠️  Using existing Redis container or local installation"
   fi
   
-  # Give Docker services a moment to start
+  # Give services a moment to start
   sleep 3
+  
+  # Test connectivity
+  echo "Testing database connection..."
+  if nc -z 127.0.0.1 5432 2>/dev/null; then
+    echo "✅ PostgreSQL is accessible on localhost:5432"
+  else
+    echo "❌ PostgreSQL is not accessible. Check if it's running locally or in Docker."
+  fi
+  
+  if nc -z 127.0.0.1 6379 2>/dev/null; then
+    echo "✅ Redis is accessible on localhost:6379"
+  else
+    echo "❌ Redis is not accessible. Check if it's running locally or in Docker."
+  fi
 }
 
 case "$cmd" in
@@ -116,19 +115,8 @@ case "$cmd" in
     export DATABASE_URL='postgresql+psycopg://mastowatch:mastowatch@localhost:5432/mastowatch'
     export REDIS_URL='redis://localhost:6379/0'
     
-    if ! python3 -c "
-import psycopg
-try:
-    conn = psycopg.connect('dbname=mastowatch user=mastowatch password=mastowatch host=localhost')
-    conn.close()
-    print('✅ Database connection successful')
-except Exception as e:
-    print(f'Database connection failed: {e}')
-    exit(1)
-" 2>/dev/null; then
-      echo "❌ Cannot connect to database. Make sure PostgreSQL is running and user/database exist."
-      echo "   Try: sudo systemctl status postgresql"
-      echo "   Or: sudo -u postgres psql -c \"CREATE USER mastowatch WITH PASSWORD 'mastowatch' CREATEDB;\""
+    if ! python3 -c "import psycopg; psycopg.connect('$DATABASE_URL')" 2>/dev/null; then
+      echo "❌ Cannot connect to database. Make sure './dev up' is running successfully."
       exit 1
     fi
     

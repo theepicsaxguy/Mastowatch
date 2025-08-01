@@ -2,32 +2,18 @@
 
 ## Quick Start
 
-### Option 1: Full Docker Environment
 ```bash
-./dev up        # Start all services
-./dev frontend  # Start frontend dev server (separate terminal)
-./dev logs      # View logs
-./dev down      # Stop everything
-```
-
-### Option 2: Local Development (Hybrid)
-If you have Docker networking issues, use local development:
-```bash
-./dev local     # Start only DB/Redis in Docker
-# Then follow the printed instructions to run the app locally
-./dev local-down # Stop services when done
-```
-
-### Option 3: Frontend Only
-```bash
-./dev frontend  # Just work on the frontend
+./dev up        # Start database services
+./dev api       # Start API server (new terminal)
+./dev frontend  # Start frontend dev server (new terminal) 
+./dev down      # Stop everything when done
 ```
 
 ## Prerequisites
 
-- **Docker & Docker Compose**: Required for all options
-- **Node.js 20+**: Required for frontend development
-- **Python 3.11+**: Required for local backend development
+- **Docker**: Required for PostgreSQL and Redis
+- **Python 3.11+**: For backend development
+- **Node.js 20+**: For frontend development
 
 ## Environment Setup
 
@@ -39,37 +25,72 @@ If you have Docker networking issues, use local development:
    - `API_KEY`: Random string for API authentication
    - `WEBHOOK_SECRET`: Random string for webhook validation
 
+### Getting Mastodon Access Tokens
+
+This application requires **two access tokens** from your Mastodon instance:
+
+#### Creating Admin Token
+1. Go to your Mastodon instance → **Settings → Development**
+2. Click **"New Application"**
+3. Set **Application name**: `MastoWatch Admin`
+4. **Important**: Set scopes to `admin:read` and `admin:write`
+5. Click **"Submit"**
+6. Copy **"Your access token"** and paste as `ADMIN_TOKEN` in `.env`
+
+#### Creating Bot Token  
+1. Create another new application in the same place
+2. Set **Application name**: `MastoWatch Bot`
+3. **Important**: Set scopes to `read` and `write:reports`
+4. Click **"Submit"**
+5. Copy **"Your access token"** and paste as `BOT_TOKEN` in `.env`
+
+**Note**: This app uses direct access tokens, not OAuth2 client credentials. You only need the "Your access token" value from each application, not the client key/secret.
+
 ## Development Commands
 
 | Command | Description |
 |---------|-------------|
-| `./dev up` | Start full development environment |
+| `./dev up` | Start database services (PostgreSQL + Redis) |
 | `./dev down` | Stop and clean up all services |
-| `./dev logs` | Show container logs |
-| `./dev build` | Rebuild containers |
+| `./dev api` | Start API server (run after `up`) |
 | `./dev frontend` | Start frontend dev server |
-| `./dev local` | Start DB/Redis only, run app locally |
-| `./dev local-down` | Stop local development services |
+| `./dev logs` | Show container logs |
+| `./dev shell` | Shell with development environment |
 
 ## Accessing Services
 
 - **API**: http://localhost:8080
-- **Frontend**: http://localhost:5173 (when running `./dev frontend`)
+- **Frontend**: http://localhost:5173
 - **PostgreSQL**: localhost:5432
 - **Redis**: localhost:6379
 
+## Typical Development Workflow
+
+1. **Start databases**: `./dev up`
+2. **Start API** (new terminal): `./dev api`
+3. **Start frontend** (new terminal): `./dev frontend`
+4. **Make changes** to code - both servers auto-reload
+5. **Stop everything**: `./dev down`
+
+## Architecture
+
+This setup uses:
+- **Docker with host networking** for databases (avoids networking issues)
+- **Local Python environment** for the API server (fast iteration)
+- **Local Node.js** for the frontend dev server (hot reload)
+
 ## Troubleshooting
 
-### Docker Network Issues
-If you see "operation not supported" errors:
-```bash
-./dev local  # Use hybrid local development instead
-```
-
-### Database Issues
+### Database Connection Issues
 ```bash
 ./dev down   # Clean up
 ./dev up     # Restart fresh
+```
+
+### Python Environment Issues
+```bash
+rm -rf venv  # Remove virtual environment
+./dev api    # Will recreate and install dependencies
 ```
 
 ### Frontend Issues
@@ -79,33 +100,18 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+### Database Migrations
+```bash
+./dev shell  # Enter development shell
+alembic upgrade head  # Run migrations manually
+```
+
 ## Project Structure
 
 ```
 app/           # Backend Python code
 frontend/      # React/TypeScript frontend
 db/migrations/ # Database migrations
-scripts/       # Development scripts
-docker-compose.yml      # Production Docker setup
-docker-compose.dev.yml  # Development Docker setup (host networking)
+venv/          # Python virtual environment (auto-created)
+.env           # Environment variables (copy from .env.example)
 ```
-
-## Common Workflows
-
-### Backend Development
-1. `./dev local` - Start services
-2. Follow printed instructions to run locally
-3. Make changes to `app/` files
-4. Server auto-reloads with `--reload` flag
-
-### Frontend Development
-1. `./dev up` - Start backend services
-2. `./dev frontend` - Start frontend dev server
-3. Make changes to `frontend/src/` files
-4. Hot reload handles updates
-
-### Full Stack Development
-1. `./dev up` - Start all services
-2. `./dev frontend` - Start frontend dev server
-3. Work on both frontend and backend
-4. Use `./dev logs` to monitor backend

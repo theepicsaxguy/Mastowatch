@@ -3,7 +3,7 @@
 # This script runs the Mastowatch application locally for development.
 
 # Set environment variables for local development
-export MST_BASE_URL="http://localhost:3000" # Replace with your Mastodon instance URL if needed
+export INSTANCE_BASE="http://localhost:3000" # Replace with your Mastodon instance URL if needed
 export BOT_TOKEN="YOUR_BOT_TOKEN" # Replace with your bot token
 export ADMIN_TOKEN="YOUR_ADMIN_TOKEN" # Replace with your admin token
 export DATABASE_URL="postgresql+psycopg://mastowatch:mastowatch@localhost:5432/mastowatch"
