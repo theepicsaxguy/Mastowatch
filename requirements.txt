@@ -5,7 +5,7 @@ pydantic==2.7.4
 pydantic-settings==2.2.1 # Added for BaseSettings
 SQLAlchemy==2.0.42
 psycopg[binary]==3.1.19
-redis==5.3.1
+redis==6.2.0
 celery==5.4.0
 alembic==1.16.4
 prometheus-client==0.20.0
