@@ -4,9 +4,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.validation_error_details_additional_property_item import (
-        ValidationErrorDetailsAdditionalPropertyItem,
-    )
+    from ..models.validation_error_details_additional_property_item import \
+        ValidationErrorDetailsAdditionalPropertyItem
 
 
 T = TypeVar("T", bound="ValidationErrorDetails")
@@ -16,9 +15,9 @@ T = TypeVar("T", bound="ValidationErrorDetails")
 class ValidationErrorDetails:
     """Detailed validation errors for each field."""
 
-    additional_properties: dict[
-        str, list["ValidationErrorDetailsAdditionalPropertyItem"]
-    ] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, list["ValidationErrorDetailsAdditionalPropertyItem"]] = _attrs_field(
+        init=False, factory=dict
+    )
 
     def to_dict(self) -> dict[str, Any]:
         field_dict: dict[str, Any] = {}
@@ -32,9 +31,8 @@ class ValidationErrorDetails:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.validation_error_details_additional_property_item import (
-            ValidationErrorDetailsAdditionalPropertyItem,
-        )
+        from ..models.validation_error_details_additional_property_item import \
+            ValidationErrorDetailsAdditionalPropertyItem
 
         d = src_dict.copy()
         validation_error_details = cls()
@@ -44,10 +42,8 @@ class ValidationErrorDetails:
             additional_property = []
             _additional_property = prop_dict
             for additional_property_item_data in _additional_property:
-                additional_property_item = (
-                    ValidationErrorDetailsAdditionalPropertyItem.from_dict(
-                        additional_property_item_data
-                    )
+                additional_property_item = ValidationErrorDetailsAdditionalPropertyItem.from_dict(
+                    additional_property_item_data
                 )
 
                 additional_property.append(additional_property_item)
@@ -61,14 +57,10 @@ class ValidationErrorDetails:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(
-        self, key: str
-    ) -> list["ValidationErrorDetailsAdditionalPropertyItem"]:
+    def __getitem__(self, key: str) -> list["ValidationErrorDetailsAdditionalPropertyItem"]:
         return self.additional_properties[key]
 
-    def __setitem__(
-        self, key: str, value: list["ValidationErrorDetailsAdditionalPropertyItem"]
-    ) -> None:
+    def __setitem__(self, key: str, value: list["ValidationErrorDetailsAdditionalPropertyItem"]) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

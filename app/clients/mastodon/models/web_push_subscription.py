@@ -62,7 +62,8 @@ class WebPushSubscription:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.web_push_subscription_alerts import WebPushSubscriptionAlerts
+        from ..models.web_push_subscription_alerts import \
+            WebPushSubscriptionAlerts
 
         d = src_dict.copy()
         alerts = WebPushSubscriptionAlerts.from_dict(d.pop("alerts"))

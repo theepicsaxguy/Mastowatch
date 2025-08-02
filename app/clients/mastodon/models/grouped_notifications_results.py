@@ -53,9 +53,7 @@ class GroupedNotificationsResults:
         elif isinstance(self.partial_accounts, list):
             partial_accounts = []
             for partial_accounts_type_0_item_data in self.partial_accounts:
-                partial_accounts_type_0_item = (
-                    partial_accounts_type_0_item_data.to_dict()
-                )
+                partial_accounts_type_0_item = partial_accounts_type_0_item_data.to_dict()
                 partial_accounts.append(partial_accounts_type_0_item)
 
         else:
@@ -79,7 +77,8 @@ class GroupedNotificationsResults:
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
         from ..models.account import Account
         from ..models.notification_group import NotificationGroup
-        from ..models.partial_account_with_avatar import PartialAccountWithAvatar
+        from ..models.partial_account_with_avatar import \
+            PartialAccountWithAvatar
         from ..models.status import Status
 
         d = src_dict.copy()
@@ -112,9 +111,7 @@ class GroupedNotificationsResults:
                 partial_accounts_type_0 = []
                 _partial_accounts_type_0 = data
                 for partial_accounts_type_0_item_data in _partial_accounts_type_0:
-                    partial_accounts_type_0_item = PartialAccountWithAvatar.from_dict(
-                        partial_accounts_type_0_item_data
-                    )
+                    partial_accounts_type_0_item = PartialAccountWithAvatar.from_dict(partial_accounts_type_0_item_data)
 
                     partial_accounts_type_0.append(partial_accounts_type_0_item)
 

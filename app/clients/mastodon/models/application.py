@@ -51,9 +51,7 @@ class Application:
 
         scopes = []
         for componentsschemas_o_auth_scopes_item_data in self.scopes:
-            componentsschemas_o_auth_scopes_item = (
-                componentsschemas_o_auth_scopes_item_data.value
-            )
+            componentsschemas_o_auth_scopes_item = componentsschemas_o_auth_scopes_item_data.value
             scopes.append(componentsschemas_o_auth_scopes_item)
 
         vapid_key = self.vapid_key
@@ -95,9 +93,7 @@ class Application:
         scopes = []
         _scopes = d.pop("scopes")
         for componentsschemas_o_auth_scopes_item_data in _scopes:
-            componentsschemas_o_auth_scopes_item = OAuthScope(
-                componentsschemas_o_auth_scopes_item_data
-            )
+            componentsschemas_o_auth_scopes_item = OAuthScope(componentsschemas_o_auth_scopes_item_data)
 
             scopes.append(componentsschemas_o_auth_scopes_item)
 

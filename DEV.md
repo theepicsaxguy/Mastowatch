@@ -1,5 +1,27 @@
 # Mastowatch Development Setup
 
+## Production-Ready Development Environment
+
+MastoWatch now includes comprehensive production-readiness features:
+
+### 🔧 Enhanced Development Features
+- **Comprehensive error handling** with structured logging and request IDs
+- **Extensive test coverage** with 22 edge case scenarios
+- **Real-time settings interface** with error states and validation
+- **CI/CD integration** with automated testing and static analysis
+- **Security features** including webhook signature validation and API authentication
+
+### 🧪 Testing Infrastructure
+- **Edge case testing**: 22 comprehensive test scenarios covering webhooks, health checks, and configuration
+- **Mocked dependencies**: Isolated testing with database, Redis, and Celery mocks
+- **Environment controls**: `SKIP_STARTUP_VALIDATION=1` for test environments
+
+### 📊 Monitoring & Observability
+- **Structured JSON logging** with request IDs for tracing
+- **Health endpoints** returning proper HTTP status codes (503 for service failures)
+- **Prometheus metrics** with detailed application metrics
+- **Analytics dashboard** with real-time system status
+
 ## Quick Start
 
 ```bash
@@ -30,11 +52,65 @@ make help          # See all available commands
 
 1. Copy environment file: `cp .env.example .env`
 2. Edit `.env` with your Mastodon instance details:
+
+### Required Production Settings
    - `INSTANCE_BASE`: Your Mastodon instance URL
    - `ADMIN_TOKEN`: Admin access token from your instance
    - `BOT_TOKEN`: Bot access token from your instance
-   - `API_KEY`: Random string for API authentication
-   - `WEBHOOK_SECRET`: Random string for webhook validation
+   - `API_KEY`: Random string for API authentication (production security)
+   - `WEBHOOK_SECRET`: Random string for webhook validation (production security)
+
+### OAuth Admin Login (for Web UI)
+   - `OAUTH_CLIENT_ID`: OAuth application client ID
+   - `OAUTH_CLIENT_SECRET`: OAuth application client secret
+   - `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `http://localhost:8000/admin/callback` for dev)
+   - `SESSION_SECRET_KEY`: Random secret for session cookies (generate with `openssl rand -base64 32`)
+
+### Development Settings
+   - `DRY_RUN`: Set to `true` for development to avoid sending actual reports
+   - `PANIC_STOP`: Emergency stop flag (default: `false`)
+   - `SKIP_STARTUP_VALIDATION`: Set to `true` when running tests (bypasses connectivity checks)
+
+### Database & Cache
+   - `DATABASE_URL`: PostgreSQL connection (auto-configured in Docker)
+   - `REDIS_URL`: Redis connection (auto-configured in Docker)
+
+## Testing
+
+### Running Tests
+```bash
+# Run all tests
+python -m unittest discover tests
+
+# Run specific test suite
+python -m unittest tests.test_edge_cases -v
+
+# Run individual test
+python -m unittest tests.test_edge_cases.TestEdgeCasesAndErrorHandling.test_webhook_valid_signature -v
+```
+
+### Test Environment Configuration
+Tests automatically use these environment variables:
+```bash
+SKIP_STARTUP_VALIDATION=1  # Bypass connectivity checks
+API_KEY=test_api_key_123   # For authenticated endpoint tests
+WEBHOOK_SECRET=test_webhook_secret_123  # For webhook signature tests
+```
+
+### Static Analysis & Code Quality
+```bash
+# Auto-format code
+black app tests
+
+# Organize imports  
+isort app tests
+
+# Check critical linting issues
+flake8 app tests --select=E9,F63,F7,F82
+
+# Security scanning
+bandit -r app
+```
 
 ### Getting Mastodon Access Tokens
 
@@ -62,9 +138,67 @@ This application requires **two access tokens** from your Mastodon instance:
 ## Project Structure
 
 ```
-app/           # Backend Python code
-frontend/      # React/TypeScript frontend
-db/migrations/ # Database migrations
-venv/          # Python virtual environment (auto-created)
-.env           # Environment variables (copy from .env.example)
+app/                    # Backend Python code
+├── auth.py            # API key authentication  
+├── main.py            # FastAPI application with enhanced error handling
+├── config.py          # Configuration management
+├── models.py          # SQLAlchemy database models
+├── startup_validation.py  # Environment validation with test bypass
+├── clients/mastodon/  # Type-safe Mastodon API client
+└── tasks/             # Celery background tasks
+
+frontend/              # React/TypeScript frontend
+├── src/App.tsx       # Enhanced settings interface with error states
+└── src/api.ts        # Frontend API client
+
+db/migrations/         # Database migrations
+├── 003_add_foreign_keys.py      # Data integrity constraints
+└── 004_add_performance_indexes.py  # Query optimization
+
+tests/                 # Comprehensive test suite
+├── test_edge_cases.py # 22 edge case scenarios
+├── test_api.py        # API endpoint tests
+└── test_config.py     # Configuration tests
+
+.github/workflows/     # CI/CD pipeline
+└── python-ci.yml      # Automated testing and static analysis
+
+.env                   # Environment variables (copy from .env.example)
+```
+
+## Database Features
+
+### Production-Ready Database Schema
+- **Foreign Keys**: Proper relationships between accounts, analyses, and reports with CASCADE deletion
+- **Performance Indexes**: Strategic indexes on commonly queried fields:
+  - `created_at` fields for time-based queries
+  - `mastodon_account_id` for account lookups
+  - `rule_key` for analysis filtering
+  - `domain` and `acct` for account searches
+
+### Migration Management
+```bash
+# Migrations run automatically in Docker, but for manual management:
+alembic upgrade head    # Apply all migrations
+alembic current        # Show current migration version
+alembic history        # Show migration history
+```
+
+## Frontend Development
+
+### Enhanced Settings Interface
+The frontend now includes:
+- **Real-time configuration** with immediate feedback
+- **Error handling** with user-friendly alerts
+- **System status monitoring** with service health indicators  
+- **Analytics dashboard** with account and report metrics
+- **Persistence validation** ensuring settings are properly saved
+
+### Frontend Development Commands
+```bash
+cd frontend
+npm install     # Install dependencies
+npm run dev     # Start development server
+npm run build   # Build for production
+npm run preview # Preview production build
 ```

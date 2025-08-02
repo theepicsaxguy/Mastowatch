@@ -6,12 +6,10 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.create_push_subscription_body_data import (
-        CreatePushSubscriptionBodyData,
-    )
-    from ..models.create_push_subscription_body_subscription import (
-        CreatePushSubscriptionBodySubscription,
-    )
+    from ..models.create_push_subscription_body_data import \
+        CreatePushSubscriptionBodyData
+    from ..models.create_push_subscription_body_subscription import \
+        CreatePushSubscriptionBodySubscription
 
 
 T = TypeVar("T", bound="CreatePushSubscriptionBody")
@@ -50,17 +48,13 @@ class CreatePushSubscriptionBody:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.create_push_subscription_body_data import (
-            CreatePushSubscriptionBodyData,
-        )
-        from ..models.create_push_subscription_body_subscription import (
-            CreatePushSubscriptionBodySubscription,
-        )
+        from ..models.create_push_subscription_body_data import \
+            CreatePushSubscriptionBodyData
+        from ..models.create_push_subscription_body_subscription import \
+            CreatePushSubscriptionBodySubscription
 
         d = src_dict.copy()
-        subscription = CreatePushSubscriptionBodySubscription.from_dict(
-            d.pop("subscription")
-        )
+        subscription = CreatePushSubscriptionBodySubscription.from_dict(d.pop("subscription"))
 
         _data = d.pop("data", UNSET)
         data: Union[Unset, CreatePushSubscriptionBodyData]

@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.scheduled_status_params_visibility import ScheduledStatusParamsVisibility
+from ..models.scheduled_status_params_visibility import \
+    ScheduledStatusParamsVisibility
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.scheduled_status_params_poll_type_0 import (
-        ScheduledStatusParamsPollType0,
-    )
+    from ..models.scheduled_status_params_poll_type_0 import \
+        ScheduledStatusParamsPollType0
 
 
 T = TypeVar("T", bound="ScheduledStatusParams")
@@ -52,9 +52,8 @@ class ScheduledStatusParams:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.scheduled_status_params_poll_type_0 import (
-            ScheduledStatusParamsPollType0,
-        )
+        from ..models.scheduled_status_params_poll_type_0 import \
+            ScheduledStatusParamsPollType0
 
         application_id = self.application_id
 
@@ -148,9 +147,8 @@ class ScheduledStatusParams:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.scheduled_status_params_poll_type_0 import (
-            ScheduledStatusParamsPollType0,
-        )
+        from ..models.scheduled_status_params_poll_type_0 import \
+            ScheduledStatusParamsPollType0
 
         d = src_dict.copy()
         application_id = d.pop("application_id")

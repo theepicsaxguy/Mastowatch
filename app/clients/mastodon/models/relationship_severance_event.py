@@ -5,7 +5,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
-from ..models.relationship_severance_event_type import RelationshipSeveranceEventType
+from ..models.relationship_severance_event_type import \
+    RelationshipSeveranceEventType
 
 T = TypeVar("T", bound="RelationshipSeveranceEvent")
 

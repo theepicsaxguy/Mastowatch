@@ -7,7 +7,8 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.create_marker_body_home import CreateMarkerBodyHome
-    from ..models.create_marker_body_notifications import CreateMarkerBodyNotifications
+    from ..models.create_marker_body_notifications import \
+        CreateMarkerBodyNotifications
 
 
 T = TypeVar("T", bound="CreateMarkerBody")
@@ -47,9 +48,8 @@ class CreateMarkerBody:
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
         from ..models.create_marker_body_home import CreateMarkerBodyHome
-        from ..models.create_marker_body_notifications import (
-            CreateMarkerBodyNotifications,
-        )
+        from ..models.create_marker_body_notifications import \
+            CreateMarkerBodyNotifications
 
         d = src_dict.copy()
         _home = d.pop("home", UNSET)

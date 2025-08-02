@@ -2,6 +2,17 @@
 
 Analyze accounts/statuses and **file reports via API** so human moderators act in Mastodon's admin UI. **No auto-enforcement.**
 
+## Production-Ready Features
+
+- ✅ **Enhanced Error Handling**: Comprehensive API error responses with structured logging and request IDs
+- ✅ **Health Checks**: Robust health monitoring with proper HTTP status codes (503 for service unavailability)
+- ✅ **Security**: Webhook signature validation, API key authentication, and security scanning
+- ✅ **Database**: Foreign keys, performance indexes, reliable migrations
+- ✅ **Monitoring**: Prometheus metrics, structured JSON logging, and detailed analytics
+- ✅ **Frontend**: Enhanced settings interface with error states and real-time configuration
+- ✅ **Testing**: Comprehensive edge case test coverage (22 test scenarios)
+- ✅ **CI/CD**: Automated testing, static analysis, and code formatting
+
 ## Quick start
 
 To get a working stack, run:
@@ -16,13 +27,28 @@ If you want to develop locally, you can use the override file:
 docker compose -f docker-compose.yml -f docker-compose.override.yml up
 ```
 
+## Configuration
+
 Set these in `.env` (copied from `.env.example`):
 
+### Required Settings
 * `INSTANCE_BASE`: your instance base URL
 * `BOT_TOKEN`: token with `write:reports` scope
 * `ADMIN_TOKEN`: token with admin read scopes
-* `DRY_RUN`: `true` to log without sending reports
-* `MAX_PAGES_PER_POLL`: admin polling pages per batch (default 3)
+* `API_KEY`: random string for API authentication
+* `WEBHOOK_SECRET`: random string for webhook signature validation
+
+### OAuth Admin Login (Required for Web UI)
+* `OAUTH_CLIENT_ID`: OAuth application client ID
+* `OAUTH_CLIENT_SECRET`: OAuth application client secret
+* `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `https://your.instance/admin/callback`)
+* `SESSION_SECRET_KEY`: Random secret for session cookies
+
+### Optional Settings
+* `DRY_RUN`: `true` to log without sending reports (default: `false`)
+* `PANIC_STOP`: `true` to halt all processing (default: `false`)
+* `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
+* `SKIP_STARTUP_VALIDATION`: `true` to skip startup checks (for testing only)
 
 ### Getting Mastodon Access Tokens
 
@@ -46,6 +72,16 @@ This application uses **direct access tokens** rather than OAuth2 client credent
 4. Copy the **"Your access token"** → use as `BOT_TOKEN` in `.env`
 
 **Note**: You only need the access tokens, not the client key/secret shown in the application details.
+
+#### 3. OAuth Application (for admin web interface)
+1. Create a third application for OAuth login
+2. Configure:
+   - **Application name**: `MastoWatch OAuth`
+   - **Scopes**: Select `read:accounts` (for user verification)
+   - **Redirect URI**: Your callback URL (e.g., `https://your.domain/admin/callback`)
+3. Click **"Submit"**
+4. Copy the **"Client key"** → use as `OAUTH_CLIENT_ID` in `.env`
+5. Copy the **"Client secret"** → use as `OAUTH_CLIENT_SECRET` in `.env`
 
 ## API Client
 
@@ -76,15 +112,46 @@ See [docs/mastodon-api-client.md](docs/mastodon-api-client.md) for detailed docu
 
 Endpoints:
 
-* `GET /healthz`
-* `GET /metrics`
-* `POST /config/dry_run`  (body: `{"dry_run": true|false, "updated_by": "optional-string"}`)
-* `POST /dryrun/evaluate` (body: `{"account": {...}, "statuses": [...]}`)
+### API Endpoints
+
+#### Health & Monitoring
+* `GET /healthz` - Health check with service status (returns 503 if services unavailable)
+* `GET /metrics` - Prometheus metrics for monitoring
+
+#### Configuration Management (requires admin login)
+* `POST /config/dry_run` - Toggle dry run mode (body: `{"dry_run": true|false, "updated_by": "optional-string"}`)
+* `POST /config/panic_stop` - Emergency stop all processing (body: `{"panic_stop": true|false, "updated_by": "optional-string"}`)
+* `POST /config/rules/reload` - Reload rules.yml configuration
+
+#### Analytics & Data (requires admin login)
+* `GET /analytics/overview` - System analytics overview with account/report metrics
+* `GET /analytics/timeline?days=N` - Timeline analytics for the past N days (1-365)
+
+#### Authentication
+* `GET /admin/login` - Initiate OAuth login flow for admin access
+* `GET /admin/callback` - OAuth callback handler
+* `POST /admin/logout` - Clear admin session
+* `GET /api/v1/me` - Get current user information
+
+#### Testing & Validation  
+* `POST /dryrun/evaluate` - Test rule evaluation (body: `{"account": {...}, "statuses": [...]})`)
+
+#### Webhooks
+* `POST /webhooks/status` - Webhook endpoint for Mastodon status updates (requires signature validation)
+
+### Error Handling
+All API endpoints return structured error responses with:
+- **Request IDs** for tracing and debugging
+- **Detailed error messages** with context
+- **Proper HTTP status codes** (400/401/404/422/500/503)
+- **Structured logging** with JSON format for monitoring
 
 ## Notes
 
 * Celery Beat schedules polling every 30 seconds.
+* All endpoints use structured JSON logging with request IDs for troubleshooting.
 * Alembic migrations run via the `migrate` service. Note that `alembic.ini` leaves `sqlalchemy.url` empty; the `DATABASE_URL` environment variable is used instead.
 * Add Prometheus to scrape `/metrics` as desired.
+* Foreign keys ensure data integrity; performance indexes optimize common queries.
 
 ```

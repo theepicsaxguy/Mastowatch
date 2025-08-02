@@ -6,7 +6,8 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 if TYPE_CHECKING:
-    from ..models.admin_email_domain_block_history import AdminEmailDomainBlockHistory
+    from ..models.admin_email_domain_block_history import \
+        AdminEmailDomainBlockHistory
 
 
 T = TypeVar("T", bound="AdminEmailDomainBlock")
@@ -63,9 +64,8 @@ class AdminEmailDomainBlock:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.admin_email_domain_block_history import (
-            AdminEmailDomainBlockHistory,
-        )
+        from ..models.admin_email_domain_block_history import \
+            AdminEmailDomainBlockHistory
 
         d = src_dict.copy()
         created_at = isoparse(d.pop("created_at"))

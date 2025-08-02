@@ -4,9 +4,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.status_edit_poll_type_0_options_item import (
-        StatusEditPollType0OptionsItem,
-    )
+    from ..models.status_edit_poll_type_0_options_item import \
+        StatusEditPollType0OptionsItem
 
 
 T = TypeVar("T", bound="StatusEditPollType0")
@@ -42,9 +41,8 @@ class StatusEditPollType0:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.status_edit_poll_type_0_options_item import (
-            StatusEditPollType0OptionsItem,
-        )
+        from ..models.status_edit_poll_type_0_options_item import \
+            StatusEditPollType0OptionsItem
 
         d = src_dict.copy()
         options = []

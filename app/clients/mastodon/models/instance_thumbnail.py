@@ -6,9 +6,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.instance_thumbnail_versions_type_0 import (
-        InstanceThumbnailVersionsType0,
-    )
+    from ..models.instance_thumbnail_versions_type_0 import \
+        InstanceThumbnailVersionsType0
 
 
 T = TypeVar("T", bound="InstanceThumbnail")
@@ -33,9 +32,8 @@ class InstanceThumbnail:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.instance_thumbnail_versions_type_0 import (
-            InstanceThumbnailVersionsType0,
-        )
+        from ..models.instance_thumbnail_versions_type_0 import \
+            InstanceThumbnailVersionsType0
 
         url = self.url
 
@@ -69,9 +67,8 @@ class InstanceThumbnail:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.instance_thumbnail_versions_type_0 import (
-            InstanceThumbnailVersionsType0,
-        )
+        from ..models.instance_thumbnail_versions_type_0 import \
+            InstanceThumbnailVersionsType0
 
         d = src_dict.copy()
         url = d.pop("url")

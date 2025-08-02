@@ -1,5 +1,6 @@
-from celery import Celery
 import os
+
+from celery import Celery
 
 broker_url = os.environ.get("REDIS_URL")
 backend_url = os.environ.get("REDIS_URL")
@@ -22,6 +23,6 @@ celery_app.conf.update(
         "queue-stats-every-15s": {
             "task": "app.tasks.jobs.record_queue_stats",
             "schedule": 15.0,
-        }
-    }
+        },
+    },
 )

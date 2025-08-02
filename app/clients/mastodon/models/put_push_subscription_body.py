@@ -6,7 +6,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.put_push_subscription_body_data import PutPushSubscriptionBodyData
+    from ..models.put_push_subscription_body_data import \
+        PutPushSubscriptionBodyData
 
 
 T = TypeVar("T", bound="PutPushSubscriptionBody")
@@ -44,7 +45,8 @@ class PutPushSubscriptionBody:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.put_push_subscription_body_data import PutPushSubscriptionBodyData
+        from ..models.put_push_subscription_body_data import \
+            PutPushSubscriptionBodyData
 
         d = src_dict.copy()
         _data = d.pop("data", UNSET)

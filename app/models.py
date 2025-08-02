@@ -1,6 +1,8 @@
-from sqlalchemy import Column, BigInteger, Text, TIMESTAMP, JSON, Numeric
+from sqlalchemy import JSON, TIMESTAMP, BigInteger, Column, Numeric, Text
 from sqlalchemy.sql import func
+
 from app.db import Base
+
 
 class Account(Base):
     __tablename__ = "accounts"
@@ -10,6 +12,7 @@ class Account(Base):
     domain = Column(Text, nullable=False)
     last_checked_at = Column(TIMESTAMP(timezone=True))
     last_status_seen_id = Column(Text)
+
 
 class Analysis(Base):
     __tablename__ = "analyses"
@@ -21,6 +24,7 @@ class Analysis(Base):
     evidence = Column(JSON, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
+
 class Report(Base):
     __tablename__ = "reports"
     id = Column(BigInteger, primary_key=True)
@@ -31,12 +35,14 @@ class Report(Base):
     comment = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
+
 class Config(Base):
     __tablename__ = "config"
     key = Column(Text, primary_key=True)
     value = Column(JSON, nullable=False)
     updated_by = Column(Text)
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+
 
 class Cursor(Base):
     __tablename__ = "cursors"

@@ -80,18 +80,14 @@ class DiscoverOauthServerConfigurationResponse:
 
         scopes_supported = []
         for componentsschemas_o_auth_scopes_item_data in self.scopes_supported:
-            componentsschemas_o_auth_scopes_item = (
-                componentsschemas_o_auth_scopes_item_data.value
-            )
+            componentsschemas_o_auth_scopes_item = componentsschemas_o_auth_scopes_item_data.value
             scopes_supported.append(componentsschemas_o_auth_scopes_item)
 
         service_documentation = self.service_documentation
 
         token_endpoint = self.token_endpoint
 
-        token_endpoint_auth_methods_supported = (
-            self.token_endpoint_auth_methods_supported
-        )
+        token_endpoint_auth_methods_supported = self.token_endpoint_auth_methods_supported
 
         userinfo_endpoint = self.userinfo_endpoint
 
@@ -124,9 +120,7 @@ class DiscoverOauthServerConfigurationResponse:
 
         authorization_endpoint = d.pop("authorization_endpoint")
 
-        code_challenge_methods_supported = cast(
-            list[str], d.pop("code_challenge_methods_supported")
-        )
+        code_challenge_methods_supported = cast(list[str], d.pop("code_challenge_methods_supported"))
 
         grant_types_supported = cast(list[str], d.pop("grant_types_supported"))
 
@@ -141,9 +135,7 @@ class DiscoverOauthServerConfigurationResponse:
         scopes_supported = []
         _scopes_supported = d.pop("scopes_supported")
         for componentsschemas_o_auth_scopes_item_data in _scopes_supported:
-            componentsschemas_o_auth_scopes_item = OAuthScope(
-                componentsschemas_o_auth_scopes_item_data
-            )
+            componentsschemas_o_auth_scopes_item = OAuthScope(componentsschemas_o_auth_scopes_item_data)
 
             scopes_supported.append(componentsschemas_o_auth_scopes_item)
 
@@ -151,9 +143,7 @@ class DiscoverOauthServerConfigurationResponse:
 
         token_endpoint = d.pop("token_endpoint")
 
-        token_endpoint_auth_methods_supported = cast(
-            list[str], d.pop("token_endpoint_auth_methods_supported")
-        )
+        token_endpoint_auth_methods_supported = cast(list[str], d.pop("token_endpoint_auth_methods_supported"))
 
         userinfo_endpoint = d.pop("userinfo_endpoint")
 

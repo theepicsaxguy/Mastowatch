@@ -6,9 +6,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.media_attachment_meta_focus_type_0 import (
-        MediaAttachmentMetaFocusType0,
-    )
+    from ..models.media_attachment_meta_focus_type_0 import \
+        MediaAttachmentMetaFocusType0
 
 
 T = TypeVar("T", bound="MediaAttachmentMeta")
@@ -28,9 +27,8 @@ class MediaAttachmentMeta:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.media_attachment_meta_focus_type_0 import (
-            MediaAttachmentMetaFocusType0,
-        )
+        from ..models.media_attachment_meta_focus_type_0 import \
+            MediaAttachmentMetaFocusType0
 
         focus: Union[None, Unset, dict[str, Any]]
         if isinstance(self.focus, Unset):
@@ -50,9 +48,8 @@ class MediaAttachmentMeta:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.media_attachment_meta_focus_type_0 import (
-            MediaAttachmentMetaFocusType0,
-        )
+        from ..models.media_attachment_meta_focus_type_0 import \
+            MediaAttachmentMetaFocusType0
 
         d = src_dict.copy()
 
