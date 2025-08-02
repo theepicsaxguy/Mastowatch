@@ -1,5 +1,5 @@
 ### --- Base --- ###
-FROM python:3.11-slim as base
+FROM python:3.13-slim as base
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
