@@ -1,6 +1,7 @@
 import hmac, hashlib, logging, time
 from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.responses import PlainTextResponse, HTMLResponse
+from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -45,7 +46,7 @@ def healthz():
     redis_ok = False
     try:
         with SessionLocal() as db:
-            db.execute("SELECT 1")
+            db.execute(text("SELECT 1"))
             db_ok = True
     except Exception:
         db_ok = False
