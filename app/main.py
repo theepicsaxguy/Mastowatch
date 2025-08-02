@@ -133,6 +133,20 @@ def sync_default_rules():
                 session.commit()
                 logger.info(f"Added {len(default_rules)} default rules to database")
             
+            # Ensure report_threshold config exists
+            existing_config = session.execute(
+                text("SELECT value FROM config WHERE key='report_threshold'")
+            ).scalar()
+            
+            if not existing_config:
+                session.merge(Config(
+                    key="report_threshold", 
+                    value={"threshold": 1.0}, 
+                    updated_by="system"
+                ))
+                session.commit()
+                logger.info("Added default report_threshold configuration")
+            
     except Exception as e:
         logger.error(f"Failed to sync default rules: {e}")
 

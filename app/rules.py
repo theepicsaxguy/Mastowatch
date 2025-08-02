@@ -3,7 +3,6 @@ import re
 from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime
 
-import yaml
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 
@@ -16,19 +15,6 @@ class Rules:
         self.cfg = config
         self.ruleset_sha256 = ruleset_sha256
         self.db_rules = db_rules or []
-
-    @staticmethod
-    def from_yaml(path="rules.yml"):
-        with open(path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f) or {}
-        with open(path, "rb") as f:
-            ruleset_sha256 = hashlib.sha256(f.read()).hexdigest()
-        
-        # Load database rules
-        with Session(engine) as session:
-            db_rules = session.query(Rule).all()
-        
-        return Rules(config, ruleset_sha256, db_rules)
 
     @staticmethod
     def from_database():
@@ -59,28 +45,12 @@ class Rules:
         return Rules(config, ruleset_sha256, db_rules)
 
     def get_all_rules(self) -> Dict[str, List[Dict[str, Any]]]:
-        """Get combined rules from file and database with enhanced metadata"""
+        """Get rules from database only with enhanced metadata"""
         all_rules = {
             "username_regex": [],
             "display_name_regex": [],
             "content_regex": []
         }
-        
-        # Add file-based rules (marked as default)
-        for rule_type in all_rules.keys():
-            if rule_type in self.cfg:
-                for rule in self.cfg[rule_type]:
-                    all_rules[rule_type].append({
-                        **rule,
-                        "enabled": True,
-                        "is_default": True,
-                        "id": None,
-                        "trigger_count": 0,
-                        "last_triggered_at": None,
-                        "last_triggered_content": None,
-                        "created_by": "system",
-                        "description": None
-                    })
         
         # Add database rules with enhanced metadata
         for rule in self.db_rules:

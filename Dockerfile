@@ -25,7 +25,6 @@ RUN pip install --no-cache-dir /wheels/*.whl && \
 COPY app /app/app
 COPY alembic.ini /app/alembic.ini
 COPY db/migrations /app/db/migrations
-COPY rules.yml /app/rules.yml
 COPY --from=fe /fe/dist /app/static/dashboard
 
 EXPOSE 8080
