@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import logging
 import re
 import time
@@ -1281,22 +1282,60 @@ def update_rule(
             raise HTTPException(status_code=404, detail="Rule not found")
         
         if rule.is_default:
-            raise HTTPException(status_code=400, detail="Cannot modify default rules from file")
+            # Instead of preventing edits, create a custom copy of the default rule
+            custom_rule = Rule(
+                name=rule.name + " (Custom)",
+                rule_type=rule.rule_type,
+                pattern=rule.pattern,
+                weight=rule.weight,
+                enabled=rule.enabled,
+                is_default=False,
+                created_by=_.username if _ else "admin"
+            )
+            session.add(custom_rule)
+            session.flush()  # Get the new ID
+            
+            # Disable the default rule instead of modifying it
+            rule.enabled = False
+            rule_id = custom_rule.id  # Use the new custom rule ID for response
         
-        # Update allowed fields
-        if "name" in rule_data:
-            rule.name = rule_data["name"]
-        if "pattern" in rule_data:
-            # Test regex pattern
-            try:
-                re.compile(rule_data["pattern"])
-                rule.pattern = rule_data["pattern"]
-            except re.error as e:
-                raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
-        if "weight" in rule_data:
-            rule.weight = rule_data["weight"]
-        if "enabled" in rule_data:
-            rule.enabled = rule_data["enabled"]
+        else:
+            # Update allowed fields for non-default rules
+            if "name" in rule_data:
+                rule.name = rule_data["name"]
+            if "pattern" in rule_data:
+                # Test regex pattern
+                try:
+                    re.compile(rule_data["pattern"])
+                    rule.pattern = rule_data["pattern"]
+                except re.error as e:
+                    raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
+            if "weight" in rule_data:
+                rule.weight = rule_data["weight"]
+            if "enabled" in rule_data:
+                rule.enabled = rule_data["enabled"]
+            
+            rule_id = rule.id
+        
+        # Apply updates to the appropriate rule (either existing or new custom rule)
+        if rule_id != rule.id:  # We created a custom rule
+            custom_rule = session.query(Rule).filter(Rule.id == rule_id).first()
+            target_rule = custom_rule
+            # Apply the updates to the custom rule
+            if "name" in rule_data:
+                target_rule.name = rule_data.get("name", rule.name)
+            if "pattern" in rule_data:
+                try:
+                    re.compile(rule_data["pattern"])
+                    target_rule.pattern = rule_data["pattern"]
+                except re.error as e:
+                    raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
+            if "weight" in rule_data:
+                target_rule.weight = rule_data["weight"]
+            if "enabled" in rule_data:
+                target_rule.enabled = rule_data["enabled"]
+        else:
+            target_rule = rule
         
         session.commit()
         
@@ -1305,13 +1344,14 @@ def update_rule(
         rules = Rules.from_yaml("rules.yml")
         
         return {
-            "id": rule.id,
-            "name": rule.name,
-            "rule_type": rule.rule_type,
-            "pattern": rule.pattern,
-            "weight": float(rule.weight),
-            "enabled": rule.enabled,
-            "is_default": rule.is_default
+            "id": target_rule.id,
+            "name": target_rule.name,
+            "rule_type": target_rule.rule_type,
+            "pattern": target_rule.pattern,
+            "weight": float(target_rule.weight),
+            "enabled": target_rule.enabled,
+            "is_default": target_rule.is_default,
+            "message": "Custom rule created from default" if target_rule.id != rule.id else "Rule updated"
         }
         
     except HTTPException:
@@ -1458,25 +1498,37 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
 
 @app.get("/analytics/domains", tags=["analytics"])
 def get_domain_analytics(_: User = Depends(require_admin_hybrid)):
-    """Get domain-level analytics and defederation status"""
+    """Get domain-level analytics with real-time metrics (15-second refresh capability)"""
     try:
         enhanced_scanner = EnhancedScanningSystem()
         domain_alerts = enhanced_scanner.get_domain_alerts(100)
         
-        # Calculate summary statistics
+        # Calculate comprehensive summary statistics
         total_domains = len(domain_alerts)
-        defederated_count = sum(1 for alert in domain_alerts if alert["is_defederated"])
+        defederated_count = sum(1 for alert in domain_alerts if alert.get("is_defederated", False))
         high_risk_count = sum(1 for alert in domain_alerts 
-                            if alert["violation_count"] >= alert["defederation_threshold"] * 0.8)
+                            if alert.get("violation_count", 0) >= alert.get("defederation_threshold", 10) * 0.8
+                            and not alert.get("is_defederated", False))
+        monitored_count = total_domains - defederated_count
+        
+        # Get active scanning status
+        current_time = datetime.utcnow()
         
         return {
             "summary": {
                 "total_domains": total_domains,
+                "monitored_domains": monitored_count,
+                "high_risk_domains": high_risk_count, 
                 "defederated_domains": defederated_count,
-                "high_risk_domains": high_risk_count,
-                "monitored_domains": total_domains - defederated_count
+                "scan_in_progress": False  # TODO: Get from Redis/Celery
             },
-            "domain_alerts": domain_alerts[:20]  # Return top 20 for UI
+            "domain_alerts": domain_alerts[:20],  # Top 20 for UI
+            "metadata": {
+                "last_updated": current_time.isoformat(),
+                "refresh_interval_seconds": 15,
+                "cache_status": "fresh",
+                "supports_real_time": True
+            }
         }
     except Exception as e:
         logger.error("Failed to fetch domain analytics", extra={"error": str(e)})
@@ -1499,31 +1551,63 @@ def trigger_federated_scan(
     domains: List[str] = None, 
     _: User = Depends(require_admin_hybrid)
 ):
-    """Trigger a federated content scan"""
+    """Trigger a federated content scan with improved error handling"""
     try:
+        # Validate domains if provided
+        if domains:
+            for domain in domains:
+                if not domain or len(domain) > 255:
+                    raise HTTPException(status_code=400, detail=f"Invalid domain: {domain}")
+        
         task = scan_federated_content.delay(domains)
         return {
             "task_id": task.id,
             "message": "Federated scan started",
-            "target_domains": domains or "all_active"
+            "target_domains": domains or "all_active",
+            "status": "queued"
         }
+    except HTTPException:
+        raise
+    except ConnectionError as e:
+        logger.error("Connection error during federated scan", extra={"error": str(e), "domains": domains})
+        raise HTTPException(status_code=503, detail="Cannot connect to Mastodon instance for federated scan")
     except Exception as e:
-        logger.error("Failed to trigger federated scan", extra={"error": str(e), "domains": domains})
-        raise HTTPException(status_code=500, detail="Failed to trigger federated scan")
+        error_msg = str(e)
+        if "422" in error_msg or "Unprocessable" in error_msg:
+            logger.warning("422 error in federated scan - invalid content", extra={"error": error_msg, "domains": domains})
+            raise HTTPException(status_code=422, detail="Federated scan failed due to invalid content format")
+        elif "Connection refused" in error_msg:
+            logger.error("Connection refused during federated scan", extra={"error": error_msg, "domains": domains})
+            raise HTTPException(status_code=503, detail="Connection refused - Mastodon instance may be unavailable")
+        else:
+            logger.error("Failed to trigger federated scan", extra={"error": error_msg, "domains": domains})
+            raise HTTPException(status_code=500, detail=f"Failed to trigger federated scan: {error_msg}")
 
 
 @app.post("/scanning/domain-check", tags=["scanning"])
 def trigger_domain_check(_: User = Depends(require_admin_hybrid)):
-    """Trigger domain violation check"""
+    """Trigger domain violation check with improved error handling"""
     try:
         task = check_domain_violations.delay()
         return {
             "task_id": task.id,
-            "message": "Domain violation check started"
+            "message": "Domain violation check started",
+            "status": "queued"
         }
+    except ConnectionError as e:
+        logger.error("Connection error during domain check", extra={"error": str(e)})
+        raise HTTPException(status_code=503, detail="Cannot connect to services for domain validation")
     except Exception as e:
-        logger.error("Failed to trigger domain check", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Failed to trigger domain check")
+        error_msg = str(e)
+        if "Connection refused" in error_msg or "localhost" in error_msg:
+            logger.error("Domain validation connection error", extra={"error": error_msg})
+            raise HTTPException(status_code=503, detail="Domain validation service unavailable - connection refused")
+        elif "hostname defaulting" in error_msg:
+            logger.error("Hostname resolution error", extra={"error": error_msg})
+            raise HTTPException(status_code=502, detail="Domain hostname resolution failed")
+        else:
+            logger.error("Failed to trigger domain check", extra={"error": error_msg})
+            raise HTTPException(status_code=500, detail=f"Failed to trigger domain check: {error_msg}")
 
 
 @app.post("/scanning/invalidate-cache", tags=["scanning"])
@@ -1531,18 +1615,70 @@ def invalidate_scan_cache(
     rule_changes: bool = False,
     _: User = Depends(require_admin_hybrid)
 ):
-    """Invalidate content scan cache to force re-scanning"""
+    """Invalidate content scan cache with frontend update coordination"""
     try:
         enhanced_scanner = EnhancedScanningSystem()
         enhanced_scanner.invalidate_content_scans(rule_changes=rule_changes)
         
+        # Store invalidation event in Redis for frontend coordination
+        try:
+            import redis
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            invalidation_event = {
+                "type": "cache_invalidation",
+                "rule_changes": rule_changes,
+                "invalidated_at": datetime.utcnow().isoformat(),
+                "invalidated_by": _.username if _ else "system"
+            }
+            # Store for 5 minutes to allow frontend to detect changes
+            r.setex("cache_invalidation_event", 300, json.dumps(invalidation_event))
+        except Exception as redis_error:
+            logger.warning(f"Failed to store cache invalidation event in Redis: {redis_error}")
+        
         return {
-            "message": "Scan cache invalidated",
-            "rule_changes": rule_changes
+            "message": "Scan cache invalidated successfully",
+            "rule_changes": rule_changes,
+            "invalidated_at": datetime.utcnow().isoformat(),
+            "frontend_refresh_recommended": True,
+            "invalidated_by": _.username if _ else "system"
         }
     except Exception as e:
         logger.error("Failed to invalidate scan cache", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail="Failed to invalidate scan cache")
+
+
+@app.get("/scanning/cache-status", tags=["scanning"])
+def get_cache_status(_: User = Depends(require_admin_hybrid)):
+    """Get cache status and invalidation events for frontend coordination"""
+    try:
+        import redis
+        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        
+        # Check for recent cache invalidation events
+        invalidation_data = r.get("cache_invalidation_event")
+        
+        if invalidation_data:
+            invalidation_event = json.loads(invalidation_data)
+            return {
+                "cache_status": "invalidated",
+                "last_invalidation": invalidation_event,
+                "refresh_recommended": True
+            }
+        else:
+            return {
+                "cache_status": "valid",
+                "last_invalidation": None,
+                "refresh_recommended": False
+            }
+            
+    except Exception as e:
+        logger.error("Failed to get cache status", extra={"error": str(e)})
+        return {
+            "cache_status": "unknown",
+            "last_invalidation": None,
+            "refresh_recommended": True,
+            "error": "Failed to check cache status"
+        }
 
 
 # Enhanced Rules Management
