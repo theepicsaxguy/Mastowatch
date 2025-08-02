@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     # CORS for dashboard if served separately (not required when embedded)
     CORS_ORIGINS: list[str] = []
 
+    # OAuth Configuration for admin login
+    OAUTH_CLIENT_ID: str | None = None
+    OAUTH_CLIENT_SECRET: str | None = None
+    OAUTH_REDIRECT_URI: str | None = None
+    SESSION_SECRET_KEY: str | None = None
+    SESSION_COOKIE_NAME: str = "mastowatch_session"
+    SESSION_COOKIE_MAX_AGE: int = 86400  # 24 hours in seconds
+
     class Config:
         case_sensitive = True
         env_file = ".env"

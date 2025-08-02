@@ -13,6 +13,8 @@ pyyaml==6.0.2
 python-json-logger==3.3.0
 python-dotenv==1.1.1
 openapi-python-client==0.22.0
+authlib==1.4.0
+itsdangerous==2.2.0
 
 # Development dependencies (also needed for CI)
 flake8==7.3.0

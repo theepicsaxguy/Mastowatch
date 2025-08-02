@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AppShell, Group, Text, Container, Card, Stack, Badge, Button, Switch,
   ActionIcon, Tooltip, Divider, Skeleton, Grid, Table, Modal, Alert, 
-  Tabs, Select, Progress, Code, ScrollArea, TextInput, Title
+  Tabs, Select, Progress, Code, ScrollArea, TextInput, Title, Menu
 } from '@mantine/core';
-import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler } from '@tabler/icons-react';
+import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler, IconInfoCircle, IconLogout, IconLogin, IconUser } from '@tabler/icons-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 import { apiFetch } from './api';
+import { getCurrentUser, logout, redirectToLogin, User } from './auth';
 import { 
   fetchOverview, fetchTimeline, fetchAccounts, fetchReports, 
   fetchAccountAnalyses, fetchCurrentRules, OverviewMetrics, 
@@ -43,12 +44,37 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const statusBadge = useMemo(() => {
     if (!health) return null;
     const color = health.ok ? 'green' : 'red';
     return <Badge color={color}>{health.ok ? 'Healthy' : 'Degraded'}</Badge>;
   }, [health]);
+
+  async function checkAuth() {
+    try {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setCurrentUser(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Clear user anyway
+      setCurrentUser(null);
+    }
+  }
 
   async function loadHealth() {
     try {
@@ -130,8 +156,14 @@ export default function App() {
   }
 
   useEffect(() => {
-    refreshAllData();
+    checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (currentUser && !authLoading) {
+      refreshAllData();
+    }
+  }, [currentUser, authLoading]);
 
   useEffect(() => {
     loadTimeline();
@@ -171,6 +203,42 @@ export default function App() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Show login screen if not authenticated
+  if (authLoading) {
+    return (
+      <Container size="sm" mt="xl">
+        <Card withBorder padding="xl" ta="center">
+          <Skeleton height={20} width="60%" mx="auto" mb="sm" />
+          <Skeleton height={16} width="40%" mx="auto" />
+        </Card>
+      </Container>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <Container size="sm" mt="xl">
+        <Card withBorder padding="xl" ta="center">
+          <Stack gap="lg">
+            <div>
+              <Title order={2} mb="sm">MastoWatch Analytics</Title>
+              <Text c="dimmed">
+                Please sign in with your Mastodon admin account to access the dashboard.
+              </Text>
+            </div>
+            <Button 
+              leftSection={<IconLogin size={16} />}
+              onClick={redirectToLogin}
+              size="lg"
+            >
+              Sign In with Mastodon
+            </Button>
+          </Stack>
+        </Card>
+      </Container>
+    );
   }
 
   return (
@@ -695,7 +763,19 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, onReloadRules, sav
         <Stack gap="md">
           <Group justify="space-between" align="flex-start">
             <div>
-              <Text fw={500}>Dry Run Mode</Text>
+              <Group gap="xs" align="center">
+                <Text fw={500}>Dry Run Mode</Text>
+                <Tooltip 
+                  label="When enabled, no reports are sent; use this to test your rules safely."
+                  withArrow
+                  position="top"
+                  multiline
+                  w={300}
+                  aria-label="Dry Run Mode information"
+                >
+                  <IconInfoCircle size={16} style={{ color: 'var(--mantine-color-dimmed)', cursor: 'help' }} />
+                </Tooltip>
+              </Group>
               <Text size="sm" c="dimmed">
                 When enabled, analyses will run but no reports will be submitted to Mastodon.
                 Use this for testing rules and configurations safely.
@@ -725,7 +805,19 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, onReloadRules, sav
           
           <Group justify="space-between" align="flex-start">
             <div>
-              <Text fw={500}>Panic Stop</Text>
+              <Group gap="xs" align="center">
+                <Text fw={500}>Panic Stop</Text>
+                <Tooltip 
+                  label="When active, all polling and reporting pauses immediately."
+                  withArrow
+                  position="top"
+                  multiline
+                  w={300}
+                  aria-label="Panic Stop information"
+                >
+                  <IconInfoCircle size={16} style={{ color: 'var(--mantine-color-dimmed)', cursor: 'help' }} />
+                </Tooltip>
+              </Group>
               <Text size="sm" c="dimmed">
                 Emergency stop for all polling and reporting operations. 
                 Use this to immediately halt all automated moderation activities.
@@ -755,7 +847,19 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, onReloadRules, sav
           
           <Group justify="space-between" align="flex-start">
             <div>
-              <Text fw={500}>Rules Configuration</Text>
+              <Group gap="xs" align="center">
+                <Text fw={500}>Rules Configuration</Text>
+                <Tooltip 
+                  label="Reloads rules.yml into memory without restarting."
+                  withArrow
+                  position="top"
+                  multiline
+                  w={300}
+                  aria-label="Rules Configuration information"
+                >
+                  <IconInfoCircle size={16} style={{ color: 'var(--mantine-color-dimmed)', cursor: 'help' }} />
+                </Tooltip>
+              </Group>
               <Text size="sm" c="dimmed">
                 Reload moderation rules from the configuration file. 
                 This will apply any changes made to rules.yml without restarting the service.

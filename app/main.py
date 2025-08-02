@@ -2,22 +2,34 @@ import hashlib
 import hmac
 import logging
 import time
+import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy import desc, func, text
+import httpx
 
 from app.auth import require_api_key
 from app.config import get_settings
 from app.db import SessionLocal
 from app.logging_conf import setup_logging
 from app.models import Account, Analysis, Config, Report
+from app.oauth import (
+    get_oauth_config, 
+    get_current_user, 
+    require_admin, 
+    require_authenticated,
+    create_session_cookie,
+    clear_session_cookie,
+    User
+)
 from app.rules import Rules
 from app.startup_validation import run_all_startup_validations
 from app.tasks.jobs import analyze_and_maybe_report  # reuse pipeline
@@ -131,7 +143,7 @@ class DryRunToggle(BaseModel):
 
 
 @app.post("/config/dry_run", tags=["ops"])
-def set_dry_run(body: DryRunToggle, _: bool = Depends(require_api_key)):
+def set_dry_run(body: DryRunToggle, _: User = Depends(require_admin)):
     """Toggle dry run mode and persist to database"""
     try:
         if body.dry_run is None:
@@ -194,7 +206,7 @@ class PanicToggle(BaseModel):
 
 
 @app.post("/config/panic_stop", tags=["ops"])
-def set_panic_stop(body: PanicToggle, _: bool = Depends(require_api_key)):
+def set_panic_stop(body: PanicToggle, _: User = Depends(require_admin)):
     """Toggle panic stop mode and persist to database"""
     try:
         if body.panic_stop is None:
@@ -247,7 +259,7 @@ def set_panic_stop(body: PanicToggle, _: bool = Depends(require_api_key)):
 
 
 @app.post("/config/rules/reload", tags=["ops"])
-def reload_rules(_: bool = Depends(require_api_key)):
+def reload_rules(_: User = Depends(require_admin)):
     """Reload rules from rules.yml file"""
     try:
         global rules
@@ -516,9 +528,132 @@ async def webhook_status(request: Request):
         )
 
 
+# OAuth Authentication Routes
+@app.get("/admin/login", tags=["auth"])
+async def admin_login(request: Request):
+    """Initiate OAuth login flow"""
+    oauth_config = get_oauth_config()
+    
+    if not oauth_config.configured:
+        raise HTTPException(
+            status_code=503,
+            detail="OAuth not configured - admin login unavailable"
+        )
+    
+    # Generate state parameter for CSRF protection
+    state = secrets.token_urlsafe(32)
+    
+    # Store state in session (you might want to use Redis for this in production)
+    redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+    
+    # Build authorization URL
+    params = {
+        "client_id": settings.OAUTH_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "read:accounts",
+        "state": state
+    }
+    
+    auth_url = f"{settings.INSTANCE_BASE}/oauth/authorize?" + urlencode(params)
+    
+    logger.info(f"Redirecting to OAuth login: {auth_url}")
+    return RedirectResponse(url=auth_url)
+
+
+@app.get("/admin/callback", tags=["auth"])
+async def admin_callback(request: Request, response: Response, code: str = None, error: str = None):
+    """Handle OAuth callback"""
+    oauth_config = get_oauth_config()
+    
+    if not oauth_config.configured:
+        raise HTTPException(status_code=503, detail="OAuth not configured")
+    
+    if error:
+        logger.warning(f"OAuth error: {error}")
+        raise HTTPException(status_code=400, detail=f"OAuth error: {error}")
+    
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+    
+    try:
+        # Exchange code for access token
+        redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+        
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                f"{settings.INSTANCE_BASE}/oauth/token",
+                data={
+                    "client_id": settings.OAUTH_CLIENT_ID,
+                    "client_secret": settings.OAUTH_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": redirect_uri,
+                },
+                timeout=10.0
+            )
+            
+            if token_response.status_code != 200:
+                logger.error(f"Token exchange failed: {token_response.status_code} {token_response.text}")
+                raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+            
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            
+            if not access_token:
+                raise HTTPException(status_code=400, detail="No access token received")
+        
+        # Fetch user information
+        user = await oauth_config.fetch_user_info(access_token)
+        
+        if not user:
+            raise HTTPException(status_code=400, detail="Failed to fetch user information")
+        
+        if not user.is_admin:
+            logger.warning(f"Non-admin user attempted login: {user.acct}")
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Create session cookie
+        create_session_cookie(response, user, settings)
+        
+        logger.info(f"Admin user logged in: {user.acct}")
+        
+        # Redirect to dashboard
+        return RedirectResponse(url="/dashboard", status_code=302)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"OAuth callback error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
+
+@app.post("/admin/logout", tags=["auth"])
+async def admin_logout(response: Response):
+    """Logout and clear session"""
+    clear_session_cookie(response, settings)
+    return {"logged_out": True}
+
+
+@app.get("/api/v1/me", tags=["auth"])
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """Get current user information"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "acct": current_user.acct,
+        "display_name": current_user.display_name,
+        "is_admin": current_user.is_admin,
+        "avatar": current_user.avatar
+    }
+
+
 # Analytics and Dashboard Endpoints
 @app.get("/analytics/overview", tags=["analytics"])
-def get_analytics_overview():
+def get_analytics_overview(_: User = Depends(require_admin)):
     """Get overview metrics for the dashboard"""
     try:
         with SessionLocal() as db:
@@ -577,7 +712,7 @@ def get_analytics_overview():
 
 
 @app.get("/analytics/timeline", tags=["analytics"])
-def get_analytics_timeline(days: int = 7):
+def get_analytics_timeline(days: int = 7, _: User = Depends(require_admin)):
     """Get timeline data for analyses and reports"""
     try:
         if days < 1 or days > 365:
@@ -624,7 +759,7 @@ def get_analytics_timeline(days: int = 7):
 
 
 @app.get("/analytics/accounts", tags=["analytics"])
-def get_account_details(limit: int = 50, offset: int = 0):
+def get_account_details(limit: int = 50, offset: int = 0, _: User = Depends(require_admin)):
     """Get detailed account information with analysis counts"""
     with SessionLocal() as db:
         accounts = (
@@ -661,7 +796,7 @@ def get_account_details(limit: int = 50, offset: int = 0):
 
 
 @app.get("/analytics/reports", tags=["analytics"])
-def get_report_details(limit: int = 50, offset: int = 0):
+def get_report_details(limit: int = 50, offset: int = 0, _: User = Depends(require_admin)):
     """Get detailed report information"""
     with SessionLocal() as db:
         reports = (
@@ -690,7 +825,7 @@ def get_report_details(limit: int = 50, offset: int = 0):
 
 
 @app.get("/analytics/analyses/{account_id}", tags=["analytics"])
-def get_account_analyses(account_id: str, limit: int = 50, offset: int = 0):
+def get_account_analyses(account_id: str, limit: int = 50, offset: int = 0, _: User = Depends(require_admin)):
     """Get detailed analysis information for a specific account"""
     with SessionLocal() as db:
         analyses = (
@@ -718,6 +853,6 @@ def get_account_analyses(account_id: str, limit: int = 50, offset: int = 0):
 
 
 @app.get("/rules/current", tags=["rules"])
-def get_current_rules():
+def get_current_rules(_: User = Depends(require_admin)):
     """Get current rule configuration"""
     return {"rules": rules.cfg, "report_threshold": rules.cfg.get("report_threshold", 1.0)}
