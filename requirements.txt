@@ -18,4 +18,4 @@ openapi-python-client==0.22.0
 flake8==7.3.0
 black==24.10.0
 mypy==1.10.1
-types-PyYAML==6.0.12.20241223
+types-PyYAML==6.0.12.20250516
