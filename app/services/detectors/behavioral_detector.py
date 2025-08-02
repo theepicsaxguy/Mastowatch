@@ -9,7 +9,7 @@ from app.models import InteractionHistory, AccountBehaviorMetrics
 
 
 class BehavioralDetector(BaseDetector):
-    def evaluate(self, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
+    def evaluate(self, rule: Any, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
         violations: List[Violation] = []
         mastodon_account_id = account_data.get("mastodon_account_id")
 
@@ -24,11 +24,11 @@ class BehavioralDetector(BaseDetector):
                 InteractionHistory.created_at >= one_hour_ago
             ).count()
 
-            if posts_last_1h > 50:  # Example threshold for rapid posting
+            if posts_last_1h >= rule.trigger_threshold:
                 violations.append(
                     Violation(
-                        rule_name="Rapid Posting",
-                        score=0.8, # High score for rapid posting
+                        rule_name=rule.name,
+                        score=rule.weight,
                         evidence=Evidence(
                             matched_terms=[],
                             matched_status_ids=[],
@@ -47,11 +47,11 @@ class BehavioralDetector(BaseDetector):
             for interaction in recent_interactions:
                 unique_targets.add(interaction.target_account_id)
             
-            if len(unique_targets) > 50: # Example threshold for broad interaction
+            if len(unique_targets) >= rule.trigger_threshold:
                 violations.append(
                     Violation(
-                        rule_name="Broad Interaction Pattern",
-                        score=0.6, # Moderate score
+                        rule_name=rule.name,
+                        score=rule.weight,
                         evidence=Evidence(
                             matched_terms=[],
                             matched_status_ids=[],

@@ -1,3 +1,4 @@
+import redis
 import hashlib
 import hmac
 import json
@@ -491,16 +492,24 @@ async def webhook_mastodon_events(request: Request):
 
         # Route events to appropriate Celery tasks
         task_id = None
+        # Deduplication using Redis SETNX
+        r = redis.from_url(settings.REDIS_URL)
+        event_dedupe_key = f"webhook_dedupe:{event_type}:{payload.get("id", hashlib.sha256(body).hexdigest())}"
+        if r.setnx(event_dedupe_key, "1"):
+            r.expire(event_dedupe_key, 60) # Deduplicate for 60 seconds
+        else:
+            logger.info(f"Duplicate webhook event received: {event_type}", extra={"request_id": request_id})
+            return {"ok": True, "message": f"Duplicate event: {event_type}", "request_id": request_id}
+
         if event_type == "report.created":
             report_id = payload.get("report", {}).get("id")
             logger.info(f"Enqueuing report.created event for report ID: {report_id}", extra={"request_id": request_id})
-            task = analyze_and_maybe_report.delay(payload) # Re-using analyze_and_maybe_report for now
+            task = process_new_report.delay(payload)
             task_id = task.id
         elif event_type == "status.created":
             status_id = payload.get("status", {}).get("id")
             logger.info(f"Enqueuing status.created event for status ID: {status_id}", extra={"request_id": request_id})
-            # Enqueue for high-speed analysis of public posts
-            task = analyze_and_maybe_report.delay(payload) # Re-using analyze_and_maybe_report for now
+            task = process_new_status.delay(payload)
             task_id = task.id
         else:
             logger.info(f"Received unhandled Mastodon event type: {event_type}", extra={"request_id": request_id})
@@ -1449,90 +1458,7 @@ def get_rule_creation_help():
     }
 
 
-@app.post("/rules/validate-pattern", tags=["rules"])
-def validate_rule_pattern(
-    pattern_data: dict,
-    _: User = Depends(require_admin_hybrid)
-):
-    """Validate a regex pattern and provide feedback"""
-    try:
-        pattern = pattern_data.get("pattern", "")
-        test_strings = pattern_data.get("test_strings", [])
-        
-        if not pattern:
-            raise HTTPException(status_code=400, detail="Pattern is required")
-        
-        # Test if the regex is valid
-        try:
-            compiled_pattern = re.compile(pattern)
-        except re.error as e:
-            return {
-                "valid": False,
-                "error": f"Invalid regex pattern: {str(e)}",
-                "suggestions": [
-                    "Check for unescaped special characters: . ? + * [ ] ( ) { } ^ $ |",
-                    "Ensure balanced parentheses and brackets",
-                    "Use raw strings (r'pattern') to avoid escape issues",
-                    "Test your pattern on regex101.com first"
-                ]
-            }
-        
-        # Test against provided strings
-        test_results = []
-        if test_strings:
-            for test_string in test_strings[:10]:  # Limit to 10 test strings
-                try:
-                    match = compiled_pattern.search(str(test_string))
-                    test_results.append({
-                        "string": test_string,
-                        "matches": bool(match),
-                        "match_text": match.group(0) if match else None
-                    })
-                except Exception as e:
-                    test_results.append({
-                        "string": test_string,
-                        "matches": False,
-                        "error": str(e)
-                    })
-        
-        # Pattern complexity analysis
-        complexity_score = 0
-        complexity_notes = []
-        
-        if len(pattern) > 100:
-            complexity_score += 1
-            complexity_notes.append("Long pattern - consider breaking into multiple rules")
-        
-        if pattern.count('.*') > 3:
-            complexity_score += 1
-            complexity_notes.append("Many .* wildcards - may be too broad")
-        
-        if '|' in pattern and pattern.count('|') > 5:
-            complexity_score += 1
-            complexity_notes.append("Many alternatives - consider separate rules")
-        
-        complexity_level = "Low" if complexity_score == 0 else "Medium" if complexity_score == 1 else "High"
-        
-        return {
-            "valid": True,
-            "pattern": pattern,
-            "test_results": test_results,
-            "complexity": {
-                "level": complexity_level,
-                "score": complexity_score,
-                "notes": complexity_notes
-            },
-            "recommendations": [
-                "Test with a variety of strings before deploying",
-                "Start with a low weight (0.1-0.3) for new patterns",
-                "Monitor false positives after deployment",
-                "Consider case sensitivity for your use case"
-            ]
-        }
-        
-    except Exception as e:
-        logger.error("Failed to validate pattern", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Failed to validate pattern")
+
 
 
 @app.put("/rules/{rule_id}", tags=["rules"])
@@ -1745,6 +1671,8 @@ def get_rule_statistics(_: User = Depends(require_admin_hybrid)):
         rule_stats = rule_service.get_rule_statistics()
         return rule_stats
     except Exception as e:
+        logger.error("Failed to fetch rule statistics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch rule statistics")
 
 
 

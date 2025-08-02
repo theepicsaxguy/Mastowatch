@@ -34,7 +34,7 @@ class EnforcementService:
         
         self._api_call_timestamps.append(time.time())
 
-    async def perform_account_action(
+    def perform_account_action(
         self,
         account_id: str,
         action_type: str,
@@ -51,7 +51,7 @@ class EnforcementService:
         try:
             # Call the generated client's admin.take_action_on_account (or equivalent)
             # This is a placeholder, actual method name might vary based on client generation
-            api_response = await self.mastodon_client.admin.take_action_on_account(
+            api_response = self.mastodon_client.admin.take_action_on_account(
                 account_id=account_id,
                 type=action_type,
                 report_id=report_id,
@@ -94,27 +94,27 @@ class EnforcementService:
             logger.error(f"Failed to perform {action_type} on account {account_id}: {e}")
             raise
 
-    async def unsilence_account(self, account_id: str):
+    def unsilence_account(self, account_id: str):
         """
         Reverses a silence action on an account.
         """
         logger.info(f"Unsliencing account {account_id}")
-        return await self.perform_account_action(account_id, "unsilence") # Assuming 'unsilence' is a valid type
+        return self.perform_account_action(account_id, "none")
 
-    async def unsuspend_account(self, account_id: str):
+    def unsuspend_account(self, account_id: str):
         """
         Reverses a suspend action on an account.
         """
         logger.info(f"Unsuspending account {account_id}")
-        return await self.perform_account_action(account_id, "unsuspend") # Assuming 'unsuspend' is a valid type
+        return self.perform_account_action(account_id, "none")
 
-    async def block_domain(self, domain: str, severity: str, public_comment: Optional[str] = None, private_comment: Optional[str] = None):
+    def block_domain(self, domain: str, severity: str, public_comment: Optional[str] = None, private_comment: Optional[str] = None):
         """
         Blocks a domain.
         """
         self._check_rate_limit()
         try:
-            api_response = await self.mastodon_client.admin.create_domain_block(
+            api_response = self.mastodon_client.admin.create_domain_block(
                 domain=domain,
                 severity=severity,
                 public_comment=public_comment,
@@ -136,7 +136,7 @@ class EnforcementService:
             logger.error(f"Failed to block domain {domain}: {e}")
             raise
 
-    async def resolve_report(self, report_id: str):
+    def resolve_report(self, report_id: str):
         """
         Resolves a Mastodon report.
         """

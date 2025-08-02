@@ -6,5 +6,5 @@ from app.schemas import Violation
 
 class BaseDetector(ABC):
     @abstractmethod
-    def evaluate(self, account_data: Dict, statuses: List[Dict]) -> List[Violation]:
+    def evaluate(self, rule: Any, account_data: Dict, statuses: List[Dict]) -> List[Violation]:
         pass

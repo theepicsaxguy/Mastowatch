@@ -306,7 +306,7 @@ class RuleService:
             # The current detectors are designed to return all potential violations.
             # The filtering by trigger_threshold will happen here.
             
-            violations_from_detector = detector.evaluate(account_data, statuses)
+            violations_from_detector = detector.evaluate(rule, account_data, statuses)
             
             for violation in violations_from_detector:
                 # Filter violations based on the rule's trigger_threshold

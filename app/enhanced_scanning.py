@@ -218,17 +218,12 @@ class EnhancedScanningSystem:
             if cursor:
                 params["max_id"] = cursor
             
-            accounts = admin_client.get_admin_accounts(
+            accounts, next_cursor = admin_client.get_admin_accounts(
                 origin=session_type,
                 status="active",
                 limit=limit,
                 max_id=cursor
             )
-            
-            # The generated client returns a list of dictionaries directly, no need for .json()
-            # The Link header parsing is now handled within the generated client if needed, or we adapt.
-            # For now, assume get_admin_accounts returns the list directly and we don't need to parse a cursor from headers.
-            next_cursor = None # Assuming the generated client handles pagination internally or we adapt this later
             
             return accounts, next_cursor
             

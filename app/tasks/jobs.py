@@ -132,14 +132,13 @@ def poll_admin_accounts():
             
             # Update cursor after processing the page
             with SessionLocal() as db:
-                if new_next:
-                    stmt = pg_insert(Cursor).values(name=CURSOR_NAME, position=new_next)
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=["name"], 
-                        set_=dict(position=new_next, updated_at=func.now())
-                    )
-                    db.execute(stmt)
-                    db.commit()
+                stmt = pg_insert(Cursor).values(name=CURSOR_NAME, position=new_next)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["name"], 
+                    set_=dict(position=new_next, updated_at=func.now())
+                )
+                db.execute(stmt)
+                db.commit()
             
             # Update cursor lag metric
             cursor_lag_pages.labels(cursor=CURSOR_NAME).set(1.0 if new_next else 0.0)
@@ -220,14 +219,13 @@ def poll_admin_accounts_local():
             
             # Update cursor after processing the page
             with SessionLocal() as db:
-                if new_next:
-                    stmt = pg_insert(Cursor).values(name=CURSOR_NAME_LOCAL, position=new_next)
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=["name"], 
-                        set_=dict(position=new_next, updated_at=func.now())
-                    )
-                    db.execute(stmt)
-                    db.commit()
+                stmt = pg_insert(Cursor).values(name=CURSOR_NAME_LOCAL, position=new_next)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["name"], 
+                    set_=dict(position=new_next, updated_at=func.now())
+                )
+                db.execute(stmt)
+                db.commit()
             
             # Update cursor lag metric
             cursor_lag_pages.labels(cursor=CURSOR_NAME_LOCAL).set(1.0 if new_next else 0.0)
@@ -501,9 +499,68 @@ def process_expired_actions():
 def process_new_report(report_payload: dict):
     """Processes a new report webhook payload."""
     logging.info(f"Processing new report: {report_payload.get('id')}")
-    # Placeholder for report processing logic
-    # This task will eventually call rule_service.evaluate_account and enforcement_service.perform_account_action
-    pass
+    try:
+        if _should_pause():
+            logging.warning("PANIC_STOP enabled; skipping new report processing")
+            return
+
+        report_data = report_payload.get("report", {})
+        account_data = report_data.get("account", {})
+        status_ids = report_data.get("status_ids", [])
+
+        if not account_data.get("id"):
+            logging.warning("Report payload missing account ID, skipping processing.")
+            return
+
+        admin_client = _get_admin_client()
+        enforcement_service = EnforcementService(mastodon_client=admin_client)
+
+        # Fetch full account details if needed (webhook payload might be partial)
+        # For now, assume webhook payload has enough info for initial scan
+        # In a real scenario, you might call admin_client.get_account(account_data['id'])
+
+        # Fetch statuses related to the report
+        statuses = []
+        for s_id in status_ids:
+            try:
+                # This is a simplified approach. In a real scenario, you might fetch
+                # individual statuses or rely on the webhook to provide full status objects.
+                # For now, we'll just get account statuses and filter.
+                account_statuses = admin_client.get_account_statuses(
+                    account_id=account_data['id'],
+                    limit=settings.MAX_STATUSES_TO_FETCH
+                )
+                statuses = [s for s in account_statuses if s.get('id') in status_ids]
+                break # Assuming we only need to fetch once
+            except Exception as e:
+                logging.warning(f"Could not fetch statuses for report {report_data.get('id')}: {e}")
+                
+        # Evaluate account and statuses against rules
+        violations = rule_service.evaluate_account(account_data, statuses)
+
+        if violations:
+            logging.info(f"Report {report_data.get('id')} triggered {len(violations)} violations.")
+            # Here you would decide on the action based on the violations
+            # For example, if a rule with action_type='report' and score > threshold is found
+            # you might call enforcement_service.perform_account_action
+            # This part needs to be fleshed out based on the desired action logic
+            # For now, we'll just log the violations.
+            for violation in violations:
+                logging.info(f"  Violation: {violation.rule_name}, Score: {violation.score}")
+                # Example: if a rule suggests reporting, and it hasn't been reported yet
+                # if violation.action_type == 'report' and not report_data.get('mastodon_report_id'):
+                #     enforcement_service.perform_account_action(
+                #         account_id=account_data['id'],
+                #         action_type='report',
+                #         report_id=report_data.get('id'),
+                #         comment=f"Automated report: {violation.rule_name} (Score: {violation.score})"
+                #     )
+        else:
+            logging.info(f"Report {report_data.get('id')} did not trigger any violations.")
+
+    except Exception as e:
+        logging.exception(f"Error processing new report: {e}")
+        raise
 
 
 @shared_task(
@@ -516,6 +573,38 @@ def process_new_report(report_payload: dict):
 def process_new_status(status_payload: dict):
     """Processes a new status webhook payload for high-speed analysis."""
     logging.info(f"Processing new status: {status_payload.get('id')}")
-    # Placeholder for status processing logic
-    # This task will eventually call rule_service.evaluate_account
-    pass
+    try:
+        if _should_pause():
+            logging.warning("PANIC_STOP enabled; skipping new status processing")
+            return
+
+        status_data = status_payload.get("status", {})
+        account_data = status_data.get("account", {})
+
+        if not account_data.get("id"):
+            logging.warning("Status payload missing account ID, skipping processing.")
+            return
+
+        # Evaluate the account and the new status against rules
+        violations = rule_service.evaluate_account(account_data, [status_data])
+
+        if violations:
+            logging.info(f"Status {status_data.get('id')} triggered {len(violations)} violations.")
+            # Similar to reports, decide on actions based on violations
+            for violation in violations:
+                logging.info(f"  Violation: {violation.rule_name}, Score: {violation.score}")
+                # Example: if a rule suggests silencing or suspending
+                # admin_client = _get_admin_client()
+                # enforcement_service = EnforcementService(mastodon_client=admin_client)
+                # if violation.action_type == 'silence':
+                #     enforcement_service.perform_account_action(
+                #         account_id=account_data['id'],
+                #         action_type='silence',
+                #         comment=f"Automated silence: {violation.rule_name} (Score: {violation.score})"
+                #     )
+        else:
+            logging.info(f"Status {status_data.get('id')} did not trigger any violations.")
+
+    except Exception as e:
+        logging.exception(f"Error processing new status: {e}")
+        raise

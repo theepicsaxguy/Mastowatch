@@ -119,6 +119,59 @@ class MastoClient:
         response.raise_for_status()
         return response
 
+    def get_admin_accounts(
+        self,
+        origin: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 50,
+        max_id: Optional[str] = None,
+    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        """Get admin accounts using the generated client, with pagination."""
+        throttle_if_needed(self._bucket_key)
+        params = {
+            "limit": limit,
+        }
+        if origin:
+            params["origin"] = origin
+        if status:
+            params["status"] = status
+        if max_id:
+            params["max_id"] = max_id
+
+        path = "/api/v1/admin/accounts"
+        with api_call_seconds.labels(endpoint=path).time():
+            response = self._api_client.get_httpx_client().get(path, params=params)
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+        response.raise_for_status()
+
+        next_max_id = None
+        if "Link" in response.headers:
+            link_header = response.headers["Link"]
+            # Example: <https://mastodon.social/api/v1/admin/accounts?max_id=123&limit=50>; rel="next"
+            # We need to parse the max_id from the 'next' link
+            for link in link_header.split(","):
+                if 'rel="next"' in link:
+                    import re
+                    match = re.search(r'max_id=(\d+)', link)
+                    if match:
+                        next_max_id = match.group(1)
+                    break
+        return response.json(), next_max_id
+
+    def get_instance_rules(self) -> List[Dict[str, Any]]:
+        """Get instance rules using the generated client."""
+        throttle_if_needed(self._bucket_key)
+        path = "/api/v1/instance/rules"
+        with api_call_seconds.labels(endpoint=path).time():
+            response = self._api_client.get_httpx_client().get(path)
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+        response.raise_for_status()
+        return response.json()
+
     
 
     
