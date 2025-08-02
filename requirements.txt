@@ -15,7 +15,7 @@ python-dotenv==1.1.1
 openapi-python-client==0.25.3
 authlib==1.6.1
 itsdangerous==2.2.0
-PyJWT==2.8.0
+PyJWT==2.10.1
 
 # Development dependencies (also needed for CI)
 flake8==7.3.0
