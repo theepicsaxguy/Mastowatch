@@ -7,7 +7,7 @@ export function parseProm(text: string): Record<string, Sample[]> {
   for (const ln of lines) {
     if (!ln || ln.startsWith("#")) continue;
     // e.g. metric{label="a",b="c"} 12 1719868089
-    const m = ln.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{[^}]*\})?\s+([0-9eE+\-\.])+(?:\s+([0-9]+))?$/);
+    const m = ln.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{[^}]*\})?\s+([0-9eE+\-\.]+)(?:\s+([0-9]+))?$/);
     if (!m) continue;
     const [, metric, labelBlock, valStr, tsStr] = m;
     const labels: Record<string, string> = {};
