@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip wheel --wheel-dir=/wheels -r requirements.txt
 
 ### --- Frontend build stage ---
-FROM node:20-alpine AS fe
+FROM node:22-alpine AS fe
 WORKDIR /fe
 COPY frontend/ /fe/
 RUN npm ci && npm run build
