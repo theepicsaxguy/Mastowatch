@@ -19,7 +19,7 @@ from typing import List, Dict, Any
 setup_logging()
 app = FastAPI(title="MastoWatch", version="1.0.0")
 settings = get_settings()
-rules = Rules()
+rules = Rules.from_yaml("rules.yml")
 
 if settings.CORS_ORIGINS:
     app.add_middleware(
@@ -103,7 +103,8 @@ def set_panic_stop(body: PanicToggle, _: bool = Depends(require_api_key)):
 
 @app.post("/config/rules/reload", tags=["ops"])
 def reload_rules(_: bool = Depends(require_api_key)):
-    rules.reload()
+    global rules
+    rules = Rules.from_yaml("rules.yml")
     return {"reloaded": True, "ruleset_sha256": rules.ruleset_sha256}
 
 @app.post("/dryrun/evaluate", tags=["ops"])
