@@ -1,9 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Detect if running in Docker (when API service is available at 'api:8080')
-const isDocker = process.env.DOCKER_ENV === 'true';
-const apiUrl = isDocker ? 'http://api:8080' : 'http://localhost:8080';
+// The API URL for browser requests - always localhost:8080 since we use Docker port mapping
+const apiUrl = 'http://localhost:8080';
 
 export default defineConfig({
   plugins: [react()],

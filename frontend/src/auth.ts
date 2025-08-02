@@ -16,15 +16,33 @@ export interface AuthResponse {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  try {
-    const response = await apiFetch<User>('/api/v1/me');
-    return response;
-  } catch (error: any) {
-    if (error.status === 401) {
-      return null; // Not authenticated
+  let retryCount = 0;
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+
+  while (retryCount < maxRetries) {
+    try {
+      const response = await apiFetch<User>('/api/v1/me');
+      return response;
+    } catch (error: any) {
+      if (error.status === 401) {
+        return null; // Not authenticated
+      }
+      
+      // If it's a connection error and we have retries left, wait and retry
+      if (error.message?.includes('fetch') && retryCount < maxRetries - 1) {
+        retryCount++;
+        const delay = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+        console.warn(`Failed to connect to API, retrying in ${delay}ms... (${retryCount}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      throw error;
     }
-    throw error;
   }
+  
+  return null; // This should never be reached, but TypeScript requires it
 }
 
 export async function logout(): Promise<void> {
@@ -90,8 +108,8 @@ export function loginWithPopup(): Promise<AuthResponse> {
 
     // Listen for messages from the popup
     const handleMessage = (event: MessageEvent) => {
-      // Verify origin for security
-      if (event.origin !== apiBase) {
+      // Verify origin for security - accept messages from our API server
+      if (event.origin !== apiBase && event.origin !== window.location.origin) {
         return;
       }
 

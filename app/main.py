@@ -575,11 +575,11 @@ async def admin_login(request: Request, response: Response, popup: bool = False)
             samesite="lax"  # More permissive for OAuth redirects
         )
     
-    redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
-    
-    # For popup login, use a special callback endpoint
+    # Use configured redirect URIs or fall back to dynamic generation
     if popup:
-        redirect_uri = f"{request.base_url}admin/popup-callback"
+        redirect_uri = settings.OAUTH_POPUP_REDIRECT_URI or settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/popup-callback"
+    else:
+        redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
     
     # Build authorization URL
     params = {
@@ -738,7 +738,7 @@ async def admin_callback(
 @app.get("/admin/popup-callback", response_class=HTMLResponse, tags=["auth"])
 async def admin_popup_callback(request: Request, code: str = None, error: str = None, state: str = None):
     """Handle OAuth callback for popup windows - returns HTML that communicates with parent"""
-    oauth_callback_html = """
+    oauth_callback_html = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -746,30 +746,30 @@ async def admin_popup_callback(request: Request, code: str = None, error: str = 
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>OAuth Callback</title>
         <style>
-            body {
+            body {{
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 padding: 20px;
                 text-align: center;
                 background: #f5f5f5;
-            }
-            .container {
+            }}
+            .container {{
                 max-width: 400px;
                 margin: 50px auto;
                 background: white;
                 padding: 30px;
                 border-radius: 8px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .loading {
+            }}
+            .loading {{
                 color: #666;
-            }
-            .success {
+            }}
+            .success {{
                 color: #28a745;
-            }
-            .error {
+            }}
+            .error {{
                 color: #dc3545;
-            }
-            .spinner {
+            }}
+            .spinner {{
                 border: 2px solid #f3f3f3;
                 border-top: 2px solid #3498db;
                 border-radius: 50%;
@@ -777,11 +777,11 @@ async def admin_popup_callback(request: Request, code: str = None, error: str = 
                 height: 20px;
                 animation: spin 1s linear infinite;
                 margin: 10px auto;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
+            }}
+            @keyframes spin {{
+                0% {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(360deg); }}
+            }}
         </style>
     </head>
     <body>
@@ -793,28 +793,28 @@ async def admin_popup_callback(request: Request, code: str = None, error: str = 
         </div>
 
         <script>
-            (async function() {
+            (async function() {{
                 const urlParams = new URLSearchParams(window.location.search);
                 const code = urlParams.get('code');
                 const error = urlParams.get('error');
                 const state = urlParams.get('state');
 
-                try {
-                    if (error) {
+                try {{
+                    if (error) {{
                         throw new Error(error);
-                    }
+                    }}
 
-                    if (!code) {
+                    if (!code) {{
                         throw new Error('No authorization code received');
-                    }
+                    }}
 
                     // Exchange code for token
-                    const response = await fetch(`/admin/callback?format=token&code=${code}&state=${state}`);
+                    const response = await fetch(`/admin/callback?format=token&code=${{code}}&state=${{state}}`);
                     
-                    if (!response.ok) {
+                    if (!response.ok) {{
                         const text = await response.text();
-                        throw new Error(`${response.status}: ${text}`);
-                    }
+                        throw new Error(`${{response.status}}: ${{text}}`);
+                    }}
 
                     const authData = await response.json();
 
@@ -822,50 +822,50 @@ async def admin_popup_callback(request: Request, code: str = None, error: str = 
                     document.getElementById('status').innerHTML = `
                         <div class="success">
                             <p>✅ Authentication successful!</p>
-                            <p>Welcome, ${authData.user.display_name}!</p>
+                            <p>Welcome, ${{authData.user.display_name}}!</p>
                             <p>This window will close automatically...</p>
                         </div>
                     `;
 
                     // Send auth data to parent window
-                    if (window.opener) {
-                        window.opener.postMessage({
+                    if (window.opener) {{
+                        window.opener.postMessage({{
                             type: 'oauth-success',
                             auth: authData
-                        }, 'http://localhost:5173'); // Send to frontend
-                    }
+                        }}, '{settings.UI_ORIGIN}');
+                    }}
 
                     // Close window after a short delay
-                    setTimeout(() => {
+                    setTimeout(() => {{
                         window.close();
-                    }, 2000);
+                    }}, 2000);
 
-                } catch (error) {
+                }} catch (error) {{
                     console.error('OAuth callback error:', error);
                     
                     // Show error
                     document.getElementById('status').innerHTML = `
                         <div class="error">
                             <p>❌ Authentication failed</p>
-                            <p>${error.message}</p>
+                            <p>${{error.message}}</p>
                             <p>This window will close automatically...</p>
                         </div>
                     `;
 
                     // Send error to parent window
-                    if (window.opener) {
-                        window.opener.postMessage({
+                    if (window.opener) {{
+                        window.opener.postMessage({{
                             type: 'oauth-error',
                             error: error.message
-                        }, 'http://localhost:5173'); // Send to frontend
-                    }
+                        }}, '{settings.UI_ORIGIN}');
+                    }}
 
                     // Close window after a short delay
-                    setTimeout(() => {
+                    setTimeout(() => {{
                         window.close();
-                    }, 3000);
-                }
-            })();
+                    }}, 3000);
+                }}
+            }})();
         </script>
     </body>
     </html>

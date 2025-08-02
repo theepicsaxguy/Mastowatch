@@ -19,8 +19,8 @@ export async function apiFetch<T = unknown>(path: string, opts: FetchOpts = {}):
   const apiKey = opts.apiKey ?? getStoredApiKey() ?? undefined;
   const authToken = getStoredAuthToken();
   
-  // Use absolute URL if path doesn't start with /
-  const url = path.startsWith('/') ? path : `${apiBase}${path.startsWith('/') ? '' : '/'}${path}`;
+  // Use absolute URL if path starts with http, otherwise prefix with apiBase
+  const url = path.startsWith('http') ? path : apiBase + path;
   
   const headers: HeadersInit = {
     'Accept': 'application/json',
