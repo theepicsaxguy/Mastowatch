@@ -17,6 +17,7 @@ from app.metrics import (accounts_scanned, analyses_flagged, analysis_latency,
                          reports_submitted)
 from app.models import Account, Analysis, Config, Cursor, Report
 from app.rules import Rules
+from app.enhanced_scanning import EnhancedScanningSystem
 from app.util import make_dedupe_key
 
 settings = get_settings()
@@ -92,39 +93,84 @@ def _persist_account(a: dict):
     retry_jitter=True,
 )
 def poll_admin_accounts():
+    """Enhanced polling of remote admin accounts with efficient scanning"""
     if _should_pause():
         logging.warning("PANIC_STOP enabled; skipping remote account poll")
         return
-    # read cursor
-    with SessionLocal() as db:
-        pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": CURSOR_NAME}).scalar()
-    pages = 0
-    next_max = pos
-    while pages < settings.MAX_PAGES_PER_POLL:
-        params = {"origin": "remote", "status": "active", "limit": settings.BATCH_SIZE}
-        if next_max:
-            params["max_id"] = next_max
-        admin = _get_admin_client()
-        r = admin.get("/api/v1/admin/accounts", params=params)
-        accounts = r.json()
-        link = r.headers.get("link", "")
-        for a in accounts:
-            _persist_account(a)
-            analyze_and_maybe_report.delay({"account": a.get("account"), "admin_obj": a})
-        # after enqueueing the whole page, advance cursor
-        new_next = _parse_next_max_id(link)
+    
+    enhanced_scanner = EnhancedScanningSystem()
+    session_id = enhanced_scanner.start_scan_session("remote")
+    
+    try:
+        # Read cursor
         with SessionLocal() as db:
-            if new_next:
-                stmt = pg_insert(Cursor).values(name=CURSOR_NAME, position=new_next)
-                stmt = stmt.on_conflict_do_update(index_elements=["name"], set_=dict(position=new_next, updated_at=func.now()))
-                db.execute(stmt)
-                db.commit()
-        # simple approximation of lag = 1 page per available 'next'
-        cursor_lag_pages.labels(cursor=CURSOR_NAME).set(1.0 if new_next else 0.0)
-        if not new_next:
-            break
-        next_max = new_next
-        pages += 1
+            pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": CURSOR_NAME}).scalar()
+        
+        pages = 0
+        next_max = pos
+        accounts_processed = 0
+        
+        while pages < settings.MAX_PAGES_PER_POLL:
+            # Get next batch of accounts
+            accounts, new_next = enhanced_scanner.get_next_accounts_to_scan(
+                "remote", 
+                limit=settings.BATCH_SIZE, 
+                cursor=next_max
+            )
+            
+            if not accounts:
+                break
+            
+            for account_data in accounts:
+                try:
+                    # Persist account information
+                    _persist_account(account_data)
+                    
+                    # Use enhanced scanning with deduplication
+                    scan_result = enhanced_scanner.scan_account_efficiently(
+                        account_data.get("account", {}), 
+                        session_id
+                    )
+                    
+                    if scan_result:
+                        accounts_processed += 1
+                        # Enqueue for analysis if needed
+                        if scan_result.get("score", 0) > 0:
+                            analyze_and_maybe_report.delay({
+                                "account": account_data.get("account"), 
+                                "admin_obj": account_data,
+                                "scan_result": scan_result
+                            })
+                
+                except Exception as e:
+                    logging.error(f"Error processing account: {e}")
+            
+            # Update cursor after processing the page
+            with SessionLocal() as db:
+                if new_next:
+                    stmt = pg_insert(Cursor).values(name=CURSOR_NAME, position=new_next)
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=["name"], 
+                        set_=dict(position=new_next, updated_at=func.now())
+                    )
+                    db.execute(stmt)
+                    db.commit()
+            
+            # Update cursor lag metric
+            cursor_lag_pages.labels(cursor=CURSOR_NAME).set(1.0 if new_next else 0.0)
+            
+            if not new_next:
+                break
+            
+            next_max = new_next
+            pages += 1
+        
+        enhanced_scanner.complete_scan_session(session_id)
+        logging.info(f"Remote account poll completed: {accounts_processed} accounts processed, {pages} pages")
+        
+    except Exception as e:
+        logging.error(f"Error in remote account poll: {e}")
+        enhanced_scanner.complete_scan_session(session_id, 'failed')
 
 
 @shared_task(
@@ -135,36 +181,84 @@ def poll_admin_accounts():
     retry_jitter=True,
 )
 def poll_admin_accounts_local():
+    """Enhanced polling of local admin accounts with efficient scanning"""
     if _should_pause():
         logging.warning("PANIC_STOP enabled; skipping local account poll")
         return
-    with SessionLocal() as db:
-        pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": CURSOR_NAME_LOCAL}).scalar()
-    pages = 0
-    next_max = pos
-    while pages < settings.MAX_PAGES_PER_POLL:
-        params = {"origin": "local", "status": "active", "limit": settings.BATCH_SIZE}
-        if next_max:
-            params["max_id"] = next_max
-        admin = _get_admin_client()
-        r = admin.get("/api/v1/admin/accounts", params=params)
-        accounts = r.json()
-        link = r.headers.get("link", "")
-        for a in accounts:
-            _persist_account(a)
-            analyze_and_maybe_report.delay({"account": a.get("account"), "admin_obj": a})
-        new_next = _parse_next_max_id(link)
+    
+    enhanced_scanner = EnhancedScanningSystem()
+    session_id = enhanced_scanner.start_scan_session("local")
+    
+    try:
+        # Read cursor
         with SessionLocal() as db:
-            if new_next:
-                stmt = pg_insert(Cursor).values(name=CURSOR_NAME_LOCAL, position=new_next)
-                stmt = stmt.on_conflict_do_update(index_elements=["name"], set_=dict(position=new_next, updated_at=func.now()))
-                db.execute(stmt)
-                db.commit()
-        cursor_lag_pages.labels(cursor=CURSOR_NAME_LOCAL).set(1.0 if new_next else 0.0)
-        if not new_next:
-            break
-        next_max = new_next
-        pages += 1
+            pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": CURSOR_NAME_LOCAL}).scalar()
+        
+        pages = 0
+        next_max = pos
+        accounts_processed = 0
+        
+        while pages < settings.MAX_PAGES_PER_POLL:
+            # Get next batch of accounts
+            accounts, new_next = enhanced_scanner.get_next_accounts_to_scan(
+                "local", 
+                limit=settings.BATCH_SIZE, 
+                cursor=next_max
+            )
+            
+            if not accounts:
+                break
+            
+            for account_data in accounts:
+                try:
+                    # Persist account information
+                    _persist_account(account_data)
+                    
+                    # Use enhanced scanning with deduplication
+                    scan_result = enhanced_scanner.scan_account_efficiently(
+                        account_data.get("account", {}), 
+                        session_id
+                    )
+                    
+                    if scan_result:
+                        accounts_processed += 1
+                        # Enqueue for analysis if needed
+                        if scan_result.get("score", 0) > 0:
+                            analyze_and_maybe_report.delay({
+                                "account": account_data.get("account"), 
+                                "admin_obj": account_data,
+                                "scan_result": scan_result
+                            })
+                
+                except Exception as e:
+                    logging.error(f"Error processing account: {e}")
+            
+            # Update cursor after processing the page
+            with SessionLocal() as db:
+                if new_next:
+                    stmt = pg_insert(Cursor).values(name=CURSOR_NAME_LOCAL, position=new_next)
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=["name"], 
+                        set_=dict(position=new_next, updated_at=func.now())
+                    )
+                    db.execute(stmt)
+                    db.commit()
+            
+            # Update cursor lag metric
+            cursor_lag_pages.labels(cursor=CURSOR_NAME_LOCAL).set(1.0 if new_next else 0.0)
+            
+            if not new_next:
+                break
+            
+            next_max = new_next
+            pages += 1
+        
+        enhanced_scanner.complete_scan_session(session_id)
+        logging.info(f"Local account poll completed: {accounts_processed} accounts processed, {pages} pages")
+        
+    except Exception as e:
+        logging.error(f"Error in local account poll: {e}")
+        enhanced_scanner.complete_scan_session(session_id, 'failed')
 
 
 def _get_instance_rules():
@@ -190,6 +284,61 @@ def record_queue_stats():
 
 
 @shared_task(
+    name="app.tasks.jobs.scan_federated_content",
+    autoretry_for=(Exception,),
+    retry_backoff=5,
+    retry_backoff_max=300,
+    retry_jitter=True,
+)
+def scan_federated_content(target_domains=None):
+    """Scan content across federated domains for violations"""
+    if _should_pause():
+        logging.warning("PANIC_STOP enabled; skipping federated content scan")
+        return
+    
+    enhanced_scanner = EnhancedScanningSystem()
+    
+    try:
+        results = enhanced_scanner.scan_federated_content(target_domains)
+        logging.info(f"Federated scan completed: {results}")
+        return results
+    except Exception as e:
+        logging.error(f"Error in federated content scan: {e}")
+        raise
+
+
+@shared_task(
+    name="app.tasks.jobs.check_domain_violations",
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    retry_backoff_max=60,
+    retry_jitter=True,
+)
+def check_domain_violations():
+    """Check and update domain violation tracking"""
+    if _should_pause():
+        logging.warning("PANIC_STOP enabled; skipping domain violation check")
+        return
+    
+    enhanced_scanner = EnhancedScanningSystem()
+    
+    try:
+        domain_alerts = enhanced_scanner.get_domain_alerts(100)
+        defederated_count = sum(1 for alert in domain_alerts if alert["is_defederated"])
+        
+        logging.info(f"Domain violation check completed: {len(domain_alerts)} domains tracked, {defederated_count} defederated")
+        return {
+            "domains_tracked": len(domain_alerts),
+            "defederated_domains": defederated_count,
+            "high_risk_domains": sum(1 for alert in domain_alerts 
+                                   if alert["violation_count"] >= alert["defederation_threshold"] * 0.8)
+        }
+    except Exception as e:
+        logging.error(f"Error checking domain violations: {e}")
+        raise
+
+
+@shared_task(
     name="app.tasks.jobs.analyze_and_maybe_report",
     autoretry_for=(Exception,),
     retry_backoff=2,
@@ -202,40 +351,63 @@ def analyze_and_maybe_report(payload: dict):
             logging.warning("PANIC_STOP enabled; skipping analyze/report")
             return
         started = time.time()
+        
         # Allow both raw admin object or normalized dict
         acct = payload.get("account") or payload.get("admin_obj", {}).get("account") or {}
         acct_id = acct.get("id")
         if not acct_id:
             return
-        admin = _get_admin_client()
-        sr = admin.get(f"/api/v1/accounts/{acct_id}/statuses", params={"limit": settings.MAX_STATUSES_TO_FETCH})
-        statuses = sr.json()
+        
+        # Check if we already have a cached scan result
+        cached_result = payload.get("scan_result")
+        if cached_result:
+            # Use cached scan result
+            score = cached_result.get("score", 0)
+            hits = [(hit["rule"], hit["weight"], hit["evidence"]) for hit in cached_result.get("rule_hits", [])]
+        else:
+            # Perform fresh analysis
+            admin = _get_admin_client()
+            sr = admin.get(f"/api/v1/accounts/{acct_id}/statuses", params={"limit": settings.MAX_STATUSES_TO_FETCH})
+            statuses = sr.json()
+            score, hits = rules.eval_account(acct, statuses)
+        
         accounts_scanned.inc()
-        score, hits = rules.eval_account(acct, statuses)
         analysis_latency.observe(max(0.0, time.time() - started))
+        
         if not hits:
             return
 
+        # Store analysis results
         with SessionLocal() as db:
             for rk, w, ev in hits:
                 db.execute(
                     insert(Analysis).values(
-                        mastodon_account_id=acct_id, status_id=ev.get("status_id"), rule_key=rk, score=w, evidence=ev
+                        mastodon_account_id=acct_id, 
+                        status_id=ev.get("status_id"), 
+                        rule_key=rk, 
+                        score=w, 
+                        evidence=ev
                     )
                 )
                 analyses_flagged.labels(rule=rk).inc()
             db.commit()
 
+        # Check if score meets reporting threshold
         if float(score) < float(rules.cfg.get("report_threshold", 1.0)):
             return
 
+        # Track domain violation
+        domain = acct.get("acct", "").split("@")[-1] if "@" in acct.get("acct", "") else "local"
+        if domain != "local":
+            enhanced_scanner = EnhancedScanningSystem()
+            enhanced_scanner._track_domain_violation(domain)
+
+        # Prepare report
         status_ids = [h[2].get("status_id") for h in hits if h[2].get("status_id")]
         comment = f"[AUTO] score={score:.2f}; hits=" + ", ".join(h[0] for h in hits)
         dedupe = make_dedupe_key(acct_id, status_ids, settings.POLICY_VERSION, rules.ruleset_sha256, {"hit_count": len(hits)})
 
-        # Try UPSERT via RETURNING: if row already exists, result is None
-        # UPSERT report row to enforce idempotency before hitting the API
-
+        # UPSERT report row to enforce idempotency
         stmt = (
             pg_insert(Report)
             .values(
@@ -248,6 +420,7 @@ def analyze_and_maybe_report(payload: dict):
             .on_conflict_do_nothing(index_elements=["dedupe_key"])
             .returning(Report.id)
         )
+        
         with SessionLocal() as db:
             inserted_id = db.execute(stmt).scalar_one_or_none()
             db.commit()
@@ -258,36 +431,39 @@ def analyze_and_maybe_report(payload: dict):
             logging.info("DRY-RUN report acct=%s score=%.2f hits=%d", acct.get("acct"), score, len(hits))
             return
 
-        payload = {"account_id": acct_id, "comment": comment}
+        # Submit report to Mastodon
+        payload_data = {"account_id": acct_id, "comment": comment}
         for sid in status_ids or []:
-            payload.setdefault("status_ids[]", []).append(sid)
+            payload_data.setdefault("status_ids[]", []).append(sid)
+        
         # Reporting category/forward per Mastodon API
-        payload["category"] = settings.REPORT_CATEGORY_DEFAULT
-        acct_acct = acct.get("acct", "")
-        is_remote = "@" in acct_acct
+        payload_data["category"] = settings.REPORT_CATEGORY_DEFAULT
+        is_remote = "@" in acct.get("acct", "")
         if is_remote:
-            payload["forward"] = settings.FORWARD_REMOTE_REPORTS
+            payload_data["forward"] = settings.FORWARD_REMOTE_REPORTS
+        
         # Optional: map rule names -> instance rule IDs if configured server rules are available
         rule_entities = _get_instance_rules()
-        if rule_entities and payload["category"] == "violation":
-            # naive example: include all rule ids when category is violation
-            payload["rule_ids[]"] = [r.get("id") for r in rule_entities if r.get("id")]
+        if rule_entities and payload_data["category"] == "violation":
+            # Include all rule ids when category is violation
+            payload_data["rule_ids[]"] = [r.get("id") for r in rule_entities if r.get("id")]
 
         bot = _get_bot_client()
-        rr = bot.post("/api/v1/reports", data=payload)
+        rr = bot.post("/api/v1/reports", data=payload_data)
         rep_id = rr.json().get("id", "")
 
+        # Update report with Mastodon report ID
         with SessionLocal() as db:
             from sqlalchemy import text
-
             db.execute(
-                text("UPDATE reports SET mastodon_report_id = :rid WHERE dedupe_key = :dk"), {"rid": rep_id, "dk": dedupe}
+                text("UPDATE reports SET mastodon_report_id = :rid WHERE dedupe_key = :dk"), 
+                {"rid": rep_id, "dk": dedupe}
             )
             db.commit()
 
-        domain = acct.get("acct", "").split("@")[-1] if "@" in acct.get("acct", "") else "local"
         reports_submitted.labels(domain=domain).inc()
         report_latency.observe(max(0.0, time.time() - started))
+        
     except Exception as e:
         logging.exception("analyze_and_maybe_report error: %s", e)
         raise

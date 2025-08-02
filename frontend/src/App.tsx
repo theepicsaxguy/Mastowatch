@@ -5,7 +5,7 @@ import {
   Tabs, Select, Progress, Code, ScrollArea, TextInput, Title, Menu,
   NumberInput
 } from '@mantine/core';
-import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler, IconInfoCircle, IconLogout, IconLogin, IconUser, IconPlus, IconTrash, IconEdit, IconToggleLeft, IconToggleRight } from '@tabler/icons-react';
+import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler, IconInfoCircle, IconLogout, IconLogin, IconUser, IconPlus, IconTrash, IconEdit, IconToggleLeft, IconToggleRight, IconRadar, IconShield, IconTrendingUp } from '@tabler/icons-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area
@@ -16,7 +16,10 @@ import {
   fetchOverview, fetchTimeline, fetchAccounts, fetchReports, 
   fetchAccountAnalyses, fetchCurrentRules, fetchRulesList, 
   createRule, updateRule, deleteRule, toggleRule, OverviewMetrics, 
-  TimelineData, AccountData, ReportData, AnalysisData, RulesData, Rule, RulesList 
+  TimelineData, AccountData, ReportData, AnalysisData, RulesData, Rule, RulesList,
+  fetchScanningAnalytics, fetchDomainAnalytics, fetchRuleStatistics, fetchRuleDetails,
+  triggerFederatedScan, triggerDomainCheck, invalidateScanCache, bulkToggleRules,
+  ScanningAnalytics, DomainAnalytics, RuleStatistics, RuleDetails
 } from './analytics';
 
 type Health = {
@@ -50,6 +53,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
+  // Enhanced analytics states
+  const [scanningAnalytics, setScanningAnalytics] = useState<ScanningAnalytics | null>(null);
+  const [domainAnalytics, setDomainAnalytics] = useState<DomainAnalytics | null>(null);
+  const [ruleStatistics, setRuleStatistics] = useState<RuleStatistics | null>(null);
+  const [selectedRuleDetails, setSelectedRuleDetails] = useState<RuleDetails | null>(null);
 
   const statusBadge = useMemo(() => {
     if (!health) return null;
@@ -152,6 +160,72 @@ export default function App() {
     }
   }
 
+  async function loadScanningAnalytics() {
+    try {
+      const data = await fetchScanningAnalytics();
+      setScanningAnalytics(data);
+    } catch (error) {
+      console.error('Failed to load scanning analytics:', error);
+    }
+  }
+
+  async function loadDomainAnalytics() {
+    try {
+      const data = await fetchDomainAnalytics();
+      setDomainAnalytics(data);
+    } catch (error) {
+      console.error('Failed to load domain analytics:', error);
+    }
+  }
+
+  async function loadRuleStatistics() {
+    try {
+      const data = await fetchRuleStatistics();
+      setRuleStatistics(data);
+    } catch (error) {
+      console.error('Failed to load rule statistics:', error);
+    }
+  }
+
+  async function handleTriggerFederatedScan(domains?: string[]) {
+    setLoading(true);
+    try {
+      await triggerFederatedScan(domains);
+      // Refresh analytics after triggering scan
+      await loadScanningAnalytics();
+    } catch (error) {
+      console.error('Failed to trigger federated scan:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleTriggerDomainCheck() {
+    setLoading(true);
+    try {
+      await triggerDomainCheck();
+      // Refresh analytics after check
+      await loadDomainAnalytics();
+    } catch (error) {
+      console.error('Failed to trigger domain check:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleInvalidateCache(rule_changes = false) {
+    setLoading(true);
+    try {
+      await invalidateScanCache(rule_changes);
+      // Refresh analytics after cache invalidation
+      await loadScanningAnalytics();
+    } catch (error) {
+      console.error('Failed to invalidate cache:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function loadAccountAnalyses(accountId: string) {
     try {
       const data = await fetchAccountAnalyses(accountId);
@@ -170,7 +244,10 @@ export default function App() {
         loadTimeline(),
         loadAccounts(),
         loadReports(),
-        loadRules()
+        loadRules(),
+        loadScanningAnalytics(),
+        loadDomainAnalytics(),
+        loadRuleStatistics()
       ]);
     } finally {
       setRefreshing(false);
@@ -337,6 +414,12 @@ export default function App() {
               <Tabs.Tab value="rules" leftSection={<IconRuler size={16} />}>
                 Rules
               </Tabs.Tab>
+              <Tabs.Tab value="scanning" leftSection={<IconRadar size={16} />}>
+                Scanning
+              </Tabs.Tab>
+              <Tabs.Tab value="domains" leftSection={<IconShield size={16} />}>
+                Domains
+              </Tabs.Tab>
               <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
                 Settings
               </Tabs.Tab>
@@ -362,6 +445,25 @@ export default function App() {
 
             <Tabs.Panel value="rules" pt="md">
               <RulesTab rules={rules} onReload={reloadRules} saving={saving} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="scanning" pt="md">
+              <ScanningTab 
+                scanningAnalytics={scanningAnalytics} 
+                ruleStatistics={ruleStatistics}
+                onTriggerFederatedScan={handleTriggerFederatedScan}
+                onTriggerDomainCheck={handleTriggerDomainCheck}
+                onInvalidateCache={handleInvalidateCache}
+                loading={loading}
+              />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="domains" pt="md">
+              <DomainsTab 
+                domainAnalytics={domainAnalytics}
+                onRefresh={loadDomainAnalytics}
+                loading={loading}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="settings" pt="md">
@@ -815,7 +917,7 @@ function RulesTab({ rules, onReload, saving }: {
                               {rule.enabled ? 'On' : 'Off'}
                             </Badge>
                           </Group>
-                          <Code size="xs" c={rule.enabled ? undefined : 'dimmed'}>{rule.pattern}</Code>
+                          <Code c={rule.enabled ? undefined : 'dimmed'}>{rule.pattern}</Code>
                           <Text size="xs" c="dimmed">Weight: {rule.weight}</Text>
                         </Stack>
                         <Group gap={4}>
@@ -899,7 +1001,6 @@ function RulesTab({ rules, onReload, saving }: {
             min={0}
             max={2}
             step={0.1}
-            precision={1}
           />
           <Group justify="flex-end">
             <Button variant="subtle" onClick={() => setShowCreateModal(false)}>
@@ -943,7 +1044,6 @@ function RulesTab({ rules, onReload, saving }: {
               min={0}
               max={2}
               step={0.1}
-              precision={1}
             />
             <Group justify="flex-end">
               <Button variant="subtle" onClick={() => setEditingRule(null)}>
@@ -1294,6 +1394,342 @@ function Stat({ label, ok, onColor, value }: { label: string; ok?: boolean; onCo
     <Stack gap={2}>
       <Text size="sm" c="dimmed">{label}</Text>
       <Badge color={color} variant="light">{text}</Badge>
+    </Stack>
+  );
+}
+
+function ScanningTab({ 
+  scanningAnalytics, 
+  ruleStatistics, 
+  onTriggerFederatedScan, 
+  onTriggerDomainCheck, 
+  onInvalidateCache, 
+  loading 
+}: { 
+  scanningAnalytics: ScanningAnalytics | null;
+  ruleStatistics: RuleStatistics | null;
+  onTriggerFederatedScan: (domains?: string[]) => void;
+  onTriggerDomainCheck: () => void;
+  onInvalidateCache: (rule_changes?: boolean) => void;
+  loading: boolean;
+}) {
+  if (!scanningAnalytics) {
+    return <Skeleton height={400} />;
+  }
+
+  return (
+    <Stack gap="md">
+      {/* Active Scanning Sessions */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Active Scanning Sessions</Title>
+        {scanningAnalytics.active_sessions.length === 0 ? (
+          <Text c="dimmed">No active scanning sessions</Text>
+        ) : (
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Type</Table.Th>
+                <Table.Th>Progress</Table.Th>
+                <Table.Th>Started</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {scanningAnalytics.active_sessions.map((session) => (
+                <Table.Tr key={session.id}>
+                  <Table.Td>
+                    <Badge variant="light">{session.session_type}</Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Stack gap="xs">
+                      <Text size="sm">{session.accounts_processed} accounts processed</Text>
+                      {session.total_accounts && (
+                        <Progress 
+                          value={(session.accounts_processed / session.total_accounts) * 100} 
+                          size="sm" 
+                        />
+                      )}
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{new Date(session.started_at).toLocaleString()}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge color="green">Active</Badge>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
+      </Card>
+
+      {/* Scanning Controls */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Scanning Controls</Title>
+        <Group>
+          <Button 
+            leftSection={<IconRadar size={16} />}
+            onClick={() => onTriggerFederatedScan()}
+            loading={loading}
+            variant="light"
+          >
+            Trigger Federated Scan
+          </Button>
+          <Button 
+            leftSection={<IconShield size={16} />}
+            onClick={onTriggerDomainCheck}
+            loading={loading}
+            variant="light"
+          >
+            Check Domain Violations
+          </Button>
+          <Button 
+            leftSection={<IconRefresh size={16} />}
+            onClick={() => onInvalidateCache(false)}
+            loading={loading}
+            variant="light"
+          >
+            Invalidate Cache
+          </Button>
+          <Button 
+            leftSection={<IconTrendingUp size={16} />}
+            onClick={() => onInvalidateCache(true)}
+            loading={loading}
+            variant="light"
+            color="orange"
+          >
+            Force Re-scan (Rules Changed)
+          </Button>
+        </Group>
+      </Card>
+
+      {/* Recent Sessions */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Recent Scan Sessions</Title>
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Type</Table.Th>
+              <Table.Th>Accounts</Table.Th>
+              <Table.Th>Duration</Table.Th>
+              <Table.Th>Status</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {scanningAnalytics.recent_sessions.map((session) => (
+              <Table.Tr key={session.id}>
+                <Table.Td>
+                  <Badge variant="light">{session.session_type}</Badge>
+                </Table.Td>
+                <Table.Td>{session.accounts_processed}</Table.Td>
+                <Table.Td>
+                  {session.completed_at && (
+                    <Text size="sm">
+                      {Math.round((new Date(session.completed_at).getTime() - new Date(session.started_at).getTime()) / 1000 / 60)} min
+                    </Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  <Badge color={session.status === 'completed' ? 'green' : session.status === 'failed' ? 'red' : 'blue'}>
+                    {session.status}
+                  </Badge>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Card>
+
+      {/* Content Scan Statistics */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Content Scan Statistics</Title>
+        <Grid>
+          <Grid.Col span={4}>
+            <Stat label="Total Scans" value={scanningAnalytics.content_scan_stats.total_scans.toLocaleString()} />
+          </Grid.Col>
+          <Grid.Col span={4}>
+            <Stat label="Needs Re-scan" value={scanningAnalytics.content_scan_stats.needs_rescan.toLocaleString()} />
+          </Grid.Col>
+          <Grid.Col span={4}>
+            <Stat 
+              label="Last Scan" 
+              value={scanningAnalytics.content_scan_stats.last_scan 
+                ? new Date(scanningAnalytics.content_scan_stats.last_scan).toLocaleDateString()
+                : 'Never'
+              } 
+            />
+          </Grid.Col>
+        </Grid>
+      </Card>
+
+      {/* Rule Statistics */}
+      {ruleStatistics && (
+        <Card withBorder padding="md">
+          <Title order={4} mb="md">Rule Performance</Title>
+          <Grid>
+            <Grid.Col span={6}>
+              <Title order={5} mb="sm">Most Triggered Rules</Title>
+              <Stack gap="xs">
+                {ruleStatistics.top_triggered_rules.slice(0, 5).map((rule) => (
+                  <Card key={rule.name} withBorder padding="xs">
+                    <Group justify="space-between">
+                      <div>
+                        <Text size="sm" fw={500}>{rule.name}</Text>
+                        <Text size="xs" c="dimmed">{rule.rule_type}</Text>
+                      </div>
+                      <Badge>{rule.trigger_count} triggers</Badge>
+                    </Group>
+                  </Card>
+                ))}
+              </Stack>
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <Title order={5} mb="sm">Rule Summary</Title>
+              <Grid>
+                <Grid.Col span={6}>
+                  <Stat label="Total Rules" value={ruleStatistics.total_rules.toString()} />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Stat label="Enabled Rules" value={ruleStatistics.enabled_rules.toString()} />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Stat label="Custom Rules" value={ruleStatistics.custom_rules.toString()} />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Stat label="File Rules" value={ruleStatistics.file_rules.toString()} />
+                </Grid.Col>
+              </Grid>
+            </Grid.Col>
+          </Grid>
+        </Card>
+      )}
+    </Stack>
+  );
+}
+
+function DomainsTab({ 
+  domainAnalytics, 
+  onRefresh, 
+  loading 
+}: { 
+  domainAnalytics: DomainAnalytics | null;
+  onRefresh: () => void;
+  loading: boolean;
+}) {
+  if (!domainAnalytics) {
+    return <Skeleton height={400} />;
+  }
+
+  return (
+    <Stack gap="md">
+      {/* Domain Summary */}
+      <Card withBorder padding="md">
+        <Group justify="space-between" align="flex-start">
+          <Title order={4}>Domain Monitoring Overview</Title>
+          <Button 
+            leftSection={<IconRefresh size={16} />}
+            onClick={onRefresh}
+            loading={loading}
+            variant="light"
+          >
+            Refresh
+          </Button>
+        </Group>
+        
+        <Grid mt="md">
+          <Grid.Col span={3}>
+            <Card withBorder padding="sm" bg="blue.0">
+              <Text size="sm" c="dimmed">Total Domains</Text>
+              <Text size="xl" fw={700}>{domainAnalytics.summary.total_domains}</Text>
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={3}>
+            <Card withBorder padding="sm" bg="green.0">
+              <Text size="sm" c="dimmed">Monitored</Text>
+              <Text size="xl" fw={700}>{domainAnalytics.summary.monitored_domains}</Text>
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={3}>
+            <Card withBorder padding="sm" bg="orange.0">
+              <Text size="sm" c="dimmed">High Risk</Text>
+              <Text size="xl" fw={700}>{domainAnalytics.summary.high_risk_domains}</Text>
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={3}>
+            <Card withBorder padding="sm" bg="red.0">
+              <Text size="sm" c="dimmed">Defederated</Text>
+              <Text size="xl" fw={700}>{domainAnalytics.summary.defederated_domains}</Text>
+            </Card>
+          </Grid.Col>
+        </Grid>
+      </Card>
+
+      {/* Domain Alerts */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Domain Alerts</Title>
+        <ScrollArea>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Domain</Table.Th>
+                <Table.Th>Violations</Table.Th>
+                <Table.Th>Threshold</Table.Th>
+                <Table.Th>Last Violation</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {domainAnalytics.domain_alerts.map((alert) => (
+                <Table.Tr key={alert.domain}>
+                  <Table.Td>
+                    <Text fw={500}>{alert.domain}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge 
+                      color={alert.violation_count >= alert.defederation_threshold ? 'red' : 
+                             alert.violation_count >= alert.defederation_threshold * 0.8 ? 'orange' : 'blue'}
+                      variant="light"
+                    >
+                      {alert.violation_count}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{alert.defederation_threshold}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {alert.last_violation_at 
+                        ? new Date(alert.last_violation_at).toLocaleDateString()
+                        : 'Never'
+                      }
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    {alert.is_defederated ? (
+                      <Badge color="red">Defederated</Badge>
+                    ) : alert.violation_count >= alert.defederation_threshold * 0.8 ? (
+                      <Badge color="orange">High Risk</Badge>
+                    ) : (
+                      <Badge color="green">Monitored</Badge>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      </Card>
+
+      {/* Help Information */}
+      <Card withBorder padding="md">
+        <Title order={5} mb="sm">About Domain Monitoring</Title>
+        <Text size="sm" c="dimmed">
+          Domain monitoring tracks violations across federated instances. When a domain accumulates 
+          violations above the threshold, it can be automatically marked for defederation. High-risk 
+          domains (80% of threshold) are highlighted for manual review.
+        </Text>
+      </Card>
     </Stack>
   );
 }

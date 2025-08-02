@@ -21,7 +21,7 @@ from app.auth import require_api_key
 from app.config import get_settings
 from app.db import SessionLocal
 from app.logging_conf import setup_logging
-from app.models import Account, Analysis, Config, Report, Rule
+from app.models import Account, Analysis, Config, Report, Rule, ScanSession, ContentScan, DomainAlert
 from app.oauth import (
     get_oauth_config, 
     get_current_user, 
@@ -37,8 +37,9 @@ from app.jwt_auth import (
     require_authenticated_hybrid
 )
 from app.rules import Rules
+from app.enhanced_scanning import EnhancedScanningSystem
 from app.startup_validation import run_all_startup_validations
-from app.tasks.jobs import analyze_and_maybe_report  # reuse pipeline
+from app.tasks.jobs import analyze_and_maybe_report, scan_federated_content, check_domain_violations  # reuse pipeline
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -1338,6 +1339,10 @@ def toggle_rule(
         global rules
         rules = Rules.from_yaml("rules.yml")
         
+        # Invalidate content scans due to rule changes
+        enhanced_scanner = EnhancedScanningSystem()
+        enhanced_scanner.invalidate_content_scans(rule_changes=True)
+        
         return {
             "id": rule.id,
             "name": rule.name,
@@ -1351,3 +1356,248 @@ def toggle_rule(
         session.rollback()
         logger.error("Failed to toggle rule", extra={"error": str(e), "rule_id": rule_id})
         raise HTTPException(status_code=500, detail="Failed to toggle rule")
+
+
+# Enhanced Analytics and Scanning Endpoints
+@app.get("/analytics/scanning", tags=["analytics"])
+def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
+    """Get enhanced scanning analytics and progress"""
+    try:
+        enhanced_scanner = EnhancedScanningSystem()
+        
+        with SessionLocal() as db:
+            # Get active scan sessions
+            active_sessions = db.query(ScanSession).filter(ScanSession.status == 'active').all()
+            
+            # Get recent completed sessions
+            recent_sessions = (
+                db.query(ScanSession)
+                .filter(ScanSession.completed_at.isnot(None))
+                .order_by(desc(ScanSession.completed_at))
+                .limit(10)
+                .all()
+            )
+            
+            # Get content scan statistics
+            content_scan_stats = db.query(
+                func.count(ContentScan.id).label('total_scans'),
+                func.count(ContentScan.id).filter(ContentScan.needs_rescan == True).label('needs_rescan'),
+                func.max(ContentScan.last_scanned_at).label('last_scan')
+            ).first()
+            
+            return {
+                "active_sessions": [
+                    {
+                        "id": session.id,
+                        "session_type": session.session_type,
+                        "accounts_processed": session.accounts_processed,
+                        "total_accounts": session.total_accounts,
+                        "started_at": session.started_at.isoformat(),
+                        "current_cursor": session.current_cursor
+                    }
+                    for session in active_sessions
+                ],
+                "recent_sessions": [
+                    {
+                        "id": session.id,
+                        "session_type": session.session_type,
+                        "accounts_processed": session.accounts_processed,
+                        "started_at": session.started_at.isoformat(),
+                        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+                        "status": session.status
+                    }
+                    for session in recent_sessions
+                ],
+                "content_scan_stats": {
+                    "total_scans": content_scan_stats.total_scans or 0,
+                    "needs_rescan": content_scan_stats.needs_rescan or 0,
+                    "last_scan": content_scan_stats.last_scan.isoformat() if content_scan_stats.last_scan else None
+                }
+            }
+    except Exception as e:
+        logger.error("Failed to fetch scanning analytics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch scanning analytics")
+
+
+@app.get("/analytics/domains", tags=["analytics"])
+def get_domain_analytics(_: User = Depends(require_admin_hybrid)):
+    """Get domain-level analytics and defederation status"""
+    try:
+        enhanced_scanner = EnhancedScanningSystem()
+        domain_alerts = enhanced_scanner.get_domain_alerts(100)
+        
+        # Calculate summary statistics
+        total_domains = len(domain_alerts)
+        defederated_count = sum(1 for alert in domain_alerts if alert["is_defederated"])
+        high_risk_count = sum(1 for alert in domain_alerts 
+                            if alert["violation_count"] >= alert["defederation_threshold"] * 0.8)
+        
+        return {
+            "summary": {
+                "total_domains": total_domains,
+                "defederated_domains": defederated_count,
+                "high_risk_domains": high_risk_count,
+                "monitored_domains": total_domains - defederated_count
+            },
+            "domain_alerts": domain_alerts[:20]  # Return top 20 for UI
+        }
+    except Exception as e:
+        logger.error("Failed to fetch domain analytics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch domain analytics")
+
+
+@app.get("/analytics/rules/statistics", tags=["analytics"])
+def get_rule_statistics(_: User = Depends(require_admin_hybrid)):
+    """Get comprehensive rule statistics and performance metrics"""
+    try:
+        rule_stats = rules.get_rule_statistics()
+        return rule_stats
+    except Exception as e:
+        logger.error("Failed to fetch rule statistics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch rule statistics")
+
+
+@app.post("/scanning/federated", tags=["scanning"])
+def trigger_federated_scan(
+    domains: List[str] = None, 
+    _: User = Depends(require_admin_hybrid)
+):
+    """Trigger a federated content scan"""
+    try:
+        task = scan_federated_content.delay(domains)
+        return {
+            "task_id": task.id,
+            "message": "Federated scan started",
+            "target_domains": domains or "all_active"
+        }
+    except Exception as e:
+        logger.error("Failed to trigger federated scan", extra={"error": str(e), "domains": domains})
+        raise HTTPException(status_code=500, detail="Failed to trigger federated scan")
+
+
+@app.post("/scanning/domain-check", tags=["scanning"])
+def trigger_domain_check(_: User = Depends(require_admin_hybrid)):
+    """Trigger domain violation check"""
+    try:
+        task = check_domain_violations.delay()
+        return {
+            "task_id": task.id,
+            "message": "Domain violation check started"
+        }
+    except Exception as e:
+        logger.error("Failed to trigger domain check", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to trigger domain check")
+
+
+@app.post("/scanning/invalidate-cache", tags=["scanning"])
+def invalidate_scan_cache(
+    rule_changes: bool = False,
+    _: User = Depends(require_admin_hybrid)
+):
+    """Invalidate content scan cache to force re-scanning"""
+    try:
+        enhanced_scanner = EnhancedScanningSystem()
+        enhanced_scanner.invalidate_content_scans(rule_changes=rule_changes)
+        
+        return {
+            "message": "Scan cache invalidated",
+            "rule_changes": rule_changes
+        }
+    except Exception as e:
+        logger.error("Failed to invalidate scan cache", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to invalidate scan cache")
+
+
+# Enhanced Rules Management
+@app.post("/rules/bulk-toggle", tags=["rules"])
+def bulk_toggle_rules(
+    rule_ids: List[int],
+    enabled: bool,
+    _: User = Depends(require_admin_hybrid),
+    session: Session = Depends(get_db_session)
+):
+    """Toggle multiple rules at once"""
+    try:
+        updated_rules = []
+        for rule_id in rule_ids:
+            rule = session.query(Rule).filter(Rule.id == rule_id).first()
+            if rule and not rule.is_default:
+                rule.enabled = enabled
+                updated_rules.append(rule.name)
+        
+        session.commit()
+        
+        # Reload rules
+        global rules
+        rules = Rules.from_yaml("rules.yml")
+        
+        # Invalidate content scans due to rule changes
+        enhanced_scanner = EnhancedScanningSystem()
+        enhanced_scanner.invalidate_content_scans(rule_changes=True)
+        
+        return {
+            "updated_rules": updated_rules,
+            "enabled": enabled,
+            "message": f"{len(updated_rules)} rules {'enabled' if enabled else 'disabled'}"
+        }
+        
+    except Exception as e:
+        session.rollback()
+        logger.error("Failed to bulk toggle rules", extra={"error": str(e), "rule_ids": rule_ids})
+        raise HTTPException(status_code=500, detail="Failed to bulk toggle rules")
+
+
+@app.get("/rules/{rule_id}/details", tags=["rules"])
+def get_rule_details(
+    rule_id: int,
+    _: User = Depends(require_admin_hybrid),
+    session: Session = Depends(get_db_session)
+):
+    """Get detailed information about a specific rule"""
+    try:
+        rule = session.query(Rule).filter(Rule.id == rule_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        
+        # Get recent analyses using this rule
+        recent_analyses = (
+            session.query(Analysis)
+            .filter(Analysis.rule_key.like(f"%{rule.name}%"))
+            .order_by(desc(Analysis.created_at))
+            .limit(10)
+            .all()
+        )
+        
+        return {
+            "id": rule.id,
+            "name": rule.name,
+            "rule_type": rule.rule_type,
+            "pattern": rule.pattern,
+            "weight": float(rule.weight),
+            "enabled": rule.enabled,
+            "is_default": rule.is_default,
+            "trigger_count": rule.trigger_count or 0,
+            "last_triggered_at": rule.last_triggered_at.isoformat() if rule.last_triggered_at else None,
+            "last_triggered_content": rule.last_triggered_content,
+            "created_by": rule.created_by,
+            "updated_by": rule.updated_by,
+            "description": rule.description,
+            "created_at": rule.created_at.isoformat() if rule.created_at else None,
+            "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+            "recent_analyses": [
+                {
+                    "id": analysis.id,
+                    "mastodon_account_id": analysis.mastodon_account_id,
+                    "score": float(analysis.score),
+                    "created_at": analysis.created_at.isoformat(),
+                    "evidence": analysis.evidence
+                }
+                for analysis in recent_analyses
+            ]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get rule details", extra={"error": str(e), "rule_id": rule_id})
+        raise HTTPException(status_code=500, detail="Failed to get rule details")
