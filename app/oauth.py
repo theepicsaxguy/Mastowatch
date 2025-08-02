@@ -3,7 +3,6 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-import httpx
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Cookie, Depends, HTTPException, Request, Response, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -69,38 +68,52 @@ class OAuthConfig:
             )
 
     async def fetch_user_info(self, access_token: str) -> Optional[User]:
-        """Fetch user information from Mastodon API"""
+        """Fetch user information from Mastodon API using generated client"""
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.settings.INSTANCE_BASE}/api/v1/accounts/verify_credentials",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    timeout=10.0
-                )
+            from app.clients.mastodon.client import AuthenticatedClient
+            
+            # Use generated client for verify_credentials
+            api_client = AuthenticatedClient(
+                base_url=str(self.settings.INSTANCE_BASE),
+                token=access_token,
+                prefix="Bearer",
+                timeout=10.0
+            )
+            
+            # Use the generated client's HTTP session for consistency
+            async with api_client.get_async_httpx_client() as http_client:
+                response = await http_client.get("/api/v1/accounts/verify_credentials")
+            
+            if response.status_code != 200:
+                logger.warning(f"Failed to fetch user credentials: {response.status_code}")
+                return None
+            
+            data = response.json()
+            
+            # Check if user has admin role
+            is_admin = False
+            role_data = data.get("role")
+            if role_data:
+                # Check permissions bitmask - admin permission is bit 0 (value 1)
+                try:
+                    permissions = int(role_data.get("permissions", 0))
+                    is_admin = bool(permissions & 1)
+                except (ValueError, TypeError):
+                    pass
                 
-                if response.status_code != 200:
-                    logger.warning(f"Failed to fetch user credentials: {response.status_code}")
-                    return None
-                
-                data = response.json()
-                
-                # Check if user has admin role
-                is_admin = bool(data.get("role", {}).get("permissions", 0) & 1)  # Admin permission bit
-                
-                # Fallback: check if user has elevated permissions
+                # Fallback: check if user has elevated permissions by role name
                 if not is_admin:
-                    # Some instances might use different role structures
-                    role_name = data.get("role", {}).get("name", "").lower()
+                    role_name = (role_data.get("name") or "").lower()
                     is_admin = role_name in ["admin", "moderator", "owner"]
-                
-                return User(
-                    id=data["id"],
-                    username=data["username"],
-                    acct=data["acct"],
-                    display_name=data.get("display_name", data["username"]),
-                    is_admin=is_admin,
-                    avatar=data.get("avatar")
-                )
+            
+            return User(
+                id=data["id"],
+                username=data["username"],
+                acct=data["acct"],
+                display_name=data.get("display_name") or data["username"],
+                is_admin=is_admin,
+                avatar=data.get("avatar")
+            )
                 
         except Exception as e:
             logger.error(f"Error fetching user info: {e}")

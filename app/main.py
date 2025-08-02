@@ -14,7 +14,6 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy import desc, func, text
-import httpx
 
 from app.auth import require_api_key
 from app.config import get_settings
@@ -577,31 +576,36 @@ async def admin_callback(request: Request, response: Response, code: str = None,
         raise HTTPException(status_code=400, detail="Missing authorization code")
     
     try:
-        # Exchange code for access token
+        # Exchange code for access token using generated client
+        from app.clients.mastodon.client import Client
+        
         redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
         
-        async with httpx.AsyncClient() as client:
-            token_response = await client.post(
-                f"{settings.INSTANCE_BASE}/oauth/token",
-                data={
-                    "client_id": settings.OAUTH_CLIENT_ID,
-                    "client_secret": settings.OAUTH_CLIENT_SECRET,
-                    "code": code,
-                    "grant_type": "authorization_code",
-                    "redirect_uri": redirect_uri,
-                },
-                timeout=10.0
-            )
-            
-            if token_response.status_code != 200:
-                logger.error(f"Token exchange failed: {token_response.status_code} {token_response.text}")
-                raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
-            
-            token_data = token_response.json()
-            access_token = token_data.get("access_token")
-            
-            if not access_token:
-                raise HTTPException(status_code=400, detail="No access token received")
+        # Use generated client for OAuth token exchange
+        oauth_client = Client(base_url=str(settings.INSTANCE_BASE))
+        
+        # Prepare token exchange data
+        token_data = {
+            "client_id": settings.OAUTH_CLIENT_ID,
+            "client_secret": settings.OAUTH_CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }
+        
+        # Use the generated client's HTTP session for consistency
+        async with oauth_client.get_async_httpx_client() as http_client:
+            token_response = await http_client.post("/oauth/token", data=token_data)
+        
+        if token_response.status_code != 200:
+            logger.error(f"Token exchange failed: {token_response.status_code}")
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+        
+        token_json = token_response.json()
+        access_token = token_json.get("access_token")
+        
+        if not access_token:
+            raise HTTPException(status_code=400, detail="No access token received")
         
         # Fetch user information
         user = await oauth_config.fetch_user_info(access_token)

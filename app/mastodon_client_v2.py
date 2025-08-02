@@ -9,13 +9,6 @@ from typing import Any, Dict, List, Optional, Union
 import httpx
 
 from app.clients.mastodon import AuthenticatedClient
-from app.clients.mastodon.api.accounts import get_account, get_account_statuses
-from app.clients.mastodon.api.reports import create_report
-from app.clients.mastodon.models import Account, Status
-from app.clients.mastodon.models.create_report_body import CreateReportBody
-from app.clients.mastodon.models.create_report_body_category import \
-    CreateReportBodyCategory
-from app.clients.mastodon.models.report import Report
 from app.config import get_settings
 from app.metrics import api_call_seconds, http_errors
 from app.rate_limit import throttle_if_needed, update_from_headers
@@ -56,11 +49,12 @@ class MastoClientV2:
     ) -> httpx.Response:
         """
         Make a raw HTTP request for endpoints not available in the generated client.
-        Maintains rate limiting and metrics tracking.
+        Uses the centralized session from the generated client to maintain consistency.
         """
         throttle_if_needed(self._bucket_key)
 
-        with httpx.Client(timeout=30.0, headers={"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}) as client:
+        # Use the generated client's httpx session instead of creating our own
+        with self._api_client.get_httpx_client() as client:
             with api_call_seconds.labels(endpoint=path).time():
                 if method.upper() == "GET":
                     response = client.get(f"{self._base_url}{path}", params=params)
@@ -77,23 +71,11 @@ class MastoClientV2:
 
     # Type-safe methods using generated client
 
-    def get_account(self, account_id: str) -> Account:
-        """Get account information with full type safety."""
-        throttle_if_needed(self._bucket_key)
-
+    def get_account(self, account_id: str) -> Dict[str, Any]:
+        """Get account information using direct HTTP call."""
         path = f"/api/v1/accounts/{account_id}"
-        with api_call_seconds.labels(endpoint=path).time():
-            response = get_account.sync_detailed(id=account_id, client=self._api_client)
-
-        update_from_headers(self._bucket_key, response.headers)
-        if response.status_code >= 400:
-            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
-            response.raise_for_status()
-
-        if not isinstance(response.parsed, Account):
-            raise ValueError(f"Unexpected response type: {type(response.parsed)}")
-
-        return response.parsed
+        response = self._make_raw_request("GET", path)
+        return response.json()
 
     def get_account_statuses(
         self,
@@ -104,32 +86,21 @@ class MastoClientV2:
         exclude_replies: bool = False,
         only_media: bool = False,
         pinned: bool = False,
-    ) -> List[Status]:
-        """Get account statuses with full type safety."""
-        throttle_if_needed(self._bucket_key)
-
+    ) -> List[Dict[str, Any]]:
+        """Get account statuses using direct HTTP call."""
+        params = {
+            "limit": limit,
+            "exclude_reblogs": exclude_reblogs,
+            "exclude_replies": exclude_replies,
+            "only_media": only_media,
+            "pinned": pinned,
+        }
+        if max_id:
+            params["max_id"] = max_id
+            
         path = f"/api/v1/accounts/{account_id}/statuses"
-        with api_call_seconds.labels(endpoint=path).time():
-            response = get_account_statuses.sync_detailed(
-                id=account_id,
-                client=self._api_client,
-                limit=limit,
-                max_id=max_id,
-                exclude_reblogs=exclude_reblogs,
-                exclude_replies=exclude_replies,
-                only_media=only_media,
-                pinned=pinned,
-            )
-
-        update_from_headers(self._bucket_key, response.headers)
-        if response.status_code >= 400:
-            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
-            response.raise_for_status()
-
-        if not isinstance(response.parsed, list):
-            raise ValueError(f"Unexpected response type: {type(response.parsed)}")
-
-        return response.parsed
+        response = self._make_raw_request("GET", path, params=params)
+        return response.json()
 
     def create_report(
         self,
@@ -139,44 +110,24 @@ class MastoClientV2:
         category: str = "other",
         forward: bool = False,
         rule_ids: Optional[List[str]] = None,
-    ) -> Report:
-        """Create a report with full type safety."""
-        throttle_if_needed(self._bucket_key)
+    ) -> httpx.Response:
+        """
+        Create a report - falls back to raw HTTP since not in community OpenAPI spec.
+        Returns raw response to maintain backward compatibility.
+        """
+        data = {
+            "account_id": account_id,
+            "comment": comment,
+            "category": category,
+            "forward": forward,
+        }
+        
+        if status_ids:
+            data["status_ids[]"] = status_ids
+        if rule_ids:
+            data["rule_ids[]"] = rule_ids
 
-        # Map string category to enum
-        category_enum = CreateReportBodyCategory.OTHER
-        if category == "spam":
-            category_enum = CreateReportBodyCategory.SPAM
-        elif category == "violation":
-            category_enum = CreateReportBodyCategory.VIOLATION
-        elif category == "legal":
-            category_enum = CreateReportBodyCategory.LEGAL
-
-        report_body = CreateReportBody(
-            account_id=account_id,
-            comment=comment,
-            status_ids=status_ids or [],
-            category=category_enum,
-            forward=forward,
-            rule_ids=rule_ids or [],
-        )
-
-        path = "/api/v1/reports"
-        with api_call_seconds.labels(endpoint=path).time():
-            response = create_report.sync_detailed(
-                client=self._api_client,
-                body=report_body,
-            )
-
-        update_from_headers(self._bucket_key, response.headers)
-        if response.status_code >= 400:
-            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
-            response.raise_for_status()
-
-        if not isinstance(response.parsed, Report):
-            raise ValueError(f"Unexpected response type: {type(response.parsed)}")
-
-        return response.parsed
+        return self._make_raw_request("POST", "/api/v1/reports", data=data)
 
     # Fallback methods for admin endpoints (not in community spec)
 

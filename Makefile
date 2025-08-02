@@ -67,7 +67,11 @@ typecheck:
 	mypy app
 
 # Combined quality checks
-check: lint format-check typecheck test
+check: lint format-check typecheck test check-httpx-usage
+
+# Check for direct httpx usage outside /app/clients
+check-httpx-usage:
+	./scripts/check-httpx-usage.sh
 
 # OpenAPI client management (using Git submodule)
 update-api-spec:
@@ -130,6 +134,7 @@ help:
 	@echo "  format-check     - Check code formatting"
 	@echo "  typecheck        - Run type checking"
 	@echo "  check            - Run all quality checks"
+	@echo "  check-httpx-usage - Check for direct httpx usage outside /app/clients"
 	@echo "  migration        - Run database migrations"
 	@echo "  new-migration    - Generate new migration (use: make new-migration name='description')"
 	@echo "  stop             - Stop all services"

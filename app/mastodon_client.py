@@ -1,4 +1,15 @@
+"""
+DEPRECATED: Legacy Mastodon client.
+
+This module is deprecated and should not be used for new code.
+Use app.mastodon_client_v2.MastoClientV2 instead, which uses the generated
+OpenAPI client for better type safety and consistency.
+
+TODO: Migrate all existing usage to MastoClientV2 and remove this file.
+"""
+
 import hashlib
+import warnings
 
 import httpx
 
@@ -10,7 +21,19 @@ settings = get_settings()
 
 
 class MastoClient:
+    """
+    DEPRECATED: Use MastoClientV2 instead.
+    
+    This legacy client creates its own httpx.Client instances instead of
+    using the centralized client from the generated OpenAPI client.
+    """
+    
     def __init__(self, token: str):
+        warnings.warn(
+            "MastoClient is deprecated. Use MastoClientV2 instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self._token = token
         self._base = str(settings.INSTANCE_BASE).rstrip("/")
         self._ua = settings.USER_AGENT
