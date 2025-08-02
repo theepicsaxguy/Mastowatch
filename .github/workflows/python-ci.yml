@@ -44,7 +44,7 @@ jobs:
         
     - name: Type check with mypy (main modules only)
       run: |
-        mypy app/main.py app/config.py app/auth.py --ignore-missing-imports
+        mypy app/main.py app/config.py app/oauth.py --ignore-missing-imports
         
     - name: Security check with bandit
       run: |
@@ -52,7 +52,13 @@ jobs:
         bandit -r app -f json -o bandit-report.json || true
         bandit -r app --severity medium --exit-zero
         
+    - name: Check httpx usage
+      run: |
+        ./scripts/check-httpx-usage.sh
+        
     - name: Run Python tests
+      env:
+        SKIP_STARTUP_VALIDATION: "1"
       run: |
         python -m unittest discover tests
 

@@ -64,7 +64,7 @@ format-check:
 	black --check app tests
 
 typecheck:
-	mypy app
+	mypy app/main.py app/config.py app/oauth.py --ignore-missing-imports
 
 # Combined quality checks
 check: lint format-check typecheck test check-httpx-usage

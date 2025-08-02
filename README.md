@@ -38,6 +38,12 @@ Set these in `.env` (copied from `.env.example`):
 * `API_KEY`: random string for API authentication
 * `WEBHOOK_SECRET`: random string for webhook signature validation
 
+### OAuth Admin Login (Required for Web UI)
+* `OAUTH_CLIENT_ID`: OAuth application client ID
+* `OAUTH_CLIENT_SECRET`: OAuth application client secret
+* `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `https://your.instance/admin/callback`)
+* `SESSION_SECRET_KEY`: Random secret for session cookies
+
 ### Optional Settings
 * `DRY_RUN`: `true` to log without sending reports (default: `false`)
 * `PANIC_STOP`: `true` to halt all processing (default: `false`)
@@ -66,6 +72,16 @@ This application uses **direct access tokens** rather than OAuth2 client credent
 4. Copy the **"Your access token"** → use as `BOT_TOKEN` in `.env`
 
 **Note**: You only need the access tokens, not the client key/secret shown in the application details.
+
+#### 3. OAuth Application (for admin web interface)
+1. Create a third application for OAuth login
+2. Configure:
+   - **Application name**: `MastoWatch OAuth`
+   - **Scopes**: Select `read:accounts` (for user verification)
+   - **Redirect URI**: Your callback URL (e.g., `https://your.domain/admin/callback`)
+3. Click **"Submit"**
+4. Copy the **"Client key"** → use as `OAUTH_CLIENT_ID` in `.env`
+5. Copy the **"Client secret"** → use as `OAUTH_CLIENT_SECRET` in `.env`
 
 ## API Client
 
@@ -102,14 +118,20 @@ Endpoints:
 * `GET /healthz` - Health check with service status (returns 503 if services unavailable)
 * `GET /metrics` - Prometheus metrics for monitoring
 
-#### Configuration Management (requires API key)
+#### Configuration Management (requires admin login)
 * `POST /config/dry_run` - Toggle dry run mode (body: `{"dry_run": true|false, "updated_by": "optional-string"}`)
 * `POST /config/panic_stop` - Emergency stop all processing (body: `{"panic_stop": true|false, "updated_by": "optional-string"}`)
 * `POST /config/rules/reload` - Reload rules.yml configuration
 
-#### Analytics & Data
+#### Analytics & Data (requires admin login)
 * `GET /analytics/overview` - System analytics overview with account/report metrics
 * `GET /analytics/timeline?days=N` - Timeline analytics for the past N days (1-365)
+
+#### Authentication
+* `GET /admin/login` - Initiate OAuth login flow for admin access
+* `GET /admin/callback` - OAuth callback handler
+* `POST /admin/logout` - Clear admin session
+* `GET /api/v1/me` - Get current user information
 
 #### Testing & Validation  
 * `POST /dryrun/evaluate` - Test rule evaluation (body: `{"account": {...}, "statuses": [...]})`)

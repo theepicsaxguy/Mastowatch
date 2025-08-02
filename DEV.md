@@ -60,6 +60,12 @@ make help          # See all available commands
    - `API_KEY`: Random string for API authentication (production security)
    - `WEBHOOK_SECRET`: Random string for webhook validation (production security)
 
+### OAuth Admin Login (for Web UI)
+   - `OAUTH_CLIENT_ID`: OAuth application client ID
+   - `OAUTH_CLIENT_SECRET`: OAuth application client secret
+   - `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `http://localhost:8000/admin/callback` for dev)
+   - `SESSION_SECRET_KEY`: Random secret for session cookies (generate with `openssl rand -base64 32`)
+
 ### Development Settings
    - `DRY_RUN`: Set to `true` for development to avoid sending actual reports
    - `PANIC_STOP`: Emergency stop flag (default: `false`)

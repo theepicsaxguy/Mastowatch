@@ -3,7 +3,16 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-from authlib.integrations.starlette_client import OAuth
+try:
+    from authlib.integrations.starlette_client import OAuth
+    AUTHLIB_AVAILABLE = True
+except ImportError:
+    AUTHLIB_AVAILABLE = False
+    # Create a dummy OAuth class for testing environments
+    class OAuth:
+        def register(self, **kwargs):
+            pass
+
 from fastapi import Cookie, Depends, HTTPException, Request, Response, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel
@@ -25,6 +34,12 @@ class User(BaseModel):
 class OAuthConfig:
     def __init__(self, settings):
         self.settings = settings
+        
+        if not AUTHLIB_AVAILABLE:
+            logger.warning("authlib not available - OAuth admin features will be unavailable")
+            self.configured = False
+            return
+            
         self.oauth = OAuth()
         
         if not all([settings.OAUTH_CLIENT_ID, settings.OAUTH_CLIENT_SECRET, settings.SESSION_SECRET_KEY]):

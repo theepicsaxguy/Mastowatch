@@ -343,6 +343,40 @@ class TestEdgeCasesAndErrorHandling(unittest.TestCase):
         self.assertEqual(data["status_count"], 100)
         self.assertIn("processing_time_ms", data)
 
+    def test_oauth_csrf_state_mismatch(self):
+        """Test OAuth callback with mismatched state parameter"""
+        # Test callback without state cookie
+        response = self.client.get("/admin/callback?code=test_code&state=test_state")
+        self.assertEqual(response.status_code, 400)
+        
+        # Test callback with wrong state
+        self.client.cookies["oauth_state"] = "different_state"
+        response = self.client.get("/admin/callback?code=test_code&state=test_state")
+        self.assertEqual(response.status_code, 400)
+
+    def test_oauth_missing_code(self):
+        """Test OAuth callback without authorization code"""
+        response = self.client.get("/admin/callback")
+        self.assertEqual(response.status_code, 400)
+
+    def test_oauth_error_response(self):
+        """Test OAuth callback with error parameter"""
+        response = self.client.get("/admin/callback?error=access_denied")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("app.oauth.get_oauth_config")
+    def test_oauth_not_configured(self, mock_oauth_config):
+        """Test OAuth endpoints when OAuth is not configured"""
+        mock_config = MagicMock()
+        mock_config.configured = False
+        mock_oauth_config.return_value = mock_config
+        
+        response = self.client.get("/admin/login")
+        self.assertEqual(response.status_code, 503)
+        
+        response = self.client.get("/admin/callback")
+        self.assertEqual(response.status_code, 503)
+
 
 if __name__ == "__main__":
     unittest.main()

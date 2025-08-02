@@ -41,7 +41,18 @@ run_all_startup_validations()
 
 app = FastAPI(title="MastoWatch", version="1.0.0")
 settings = get_settings()
-rules = Rules.from_yaml("rules.yml")
+
+# Load rules with graceful fallback
+try:
+    rules = Rules.from_yaml("rules.yml")
+    logger.info("Rules loaded successfully")
+except FileNotFoundError:
+    logger.warning("Rules file not found, using minimal default rules")
+    # Create minimal default rules to prevent hard failure
+    rules = Rules({"rules": [], "report_threshold": 1.0})
+except Exception as e:
+    logger.error(f"Failed to parse rules.yml: {e}, using minimal default rules")
+    rules = Rules({"rules": [], "report_threshold": 1.0})
 
 if settings.CORS_ORIGINS:
     app.add_middleware(
@@ -529,7 +540,7 @@ async def webhook_status(request: Request):
 
 # OAuth Authentication Routes
 @app.get("/admin/login", tags=["auth"])
-async def admin_login(request: Request):
+async def admin_login(request: Request, response: Response):
     """Initiate OAuth login flow"""
     oauth_config = get_oauth_config()
     
@@ -542,7 +553,16 @@ async def admin_login(request: Request):
     # Generate state parameter for CSRF protection
     state = secrets.token_urlsafe(32)
     
-    # Store state in session (you might want to use Redis for this in production)
+    # Store state in secure cookie for verification
+    response.set_cookie(
+        key="oauth_state",
+        value=state,
+        max_age=600,  # 10 minutes
+        httponly=True,
+        secure=str(settings.INSTANCE_BASE).startswith("https://"),
+        samesite="lax"
+    )
+    
     redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
     
     # Build authorization URL
@@ -561,7 +581,7 @@ async def admin_login(request: Request):
 
 
 @app.get("/admin/callback", tags=["auth"])
-async def admin_callback(request: Request, response: Response, code: str = None, error: str = None):
+async def admin_callback(request: Request, response: Response, code: str = None, error: str = None, state: str = None):
     """Handle OAuth callback"""
     oauth_config = get_oauth_config()
     
@@ -574,6 +594,22 @@ async def admin_callback(request: Request, response: Response, code: str = None,
     
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
+    
+    # Verify CSRF state parameter
+    stored_state = request.cookies.get("oauth_state")
+    if not stored_state or not state or stored_state != state:
+        logger.warning("OAuth CSRF state mismatch")
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
+    
+    # Clear the state cookie
+    response.set_cookie(
+        key="oauth_state",
+        value="",
+        max_age=0,
+        httponly=True,
+        secure=str(settings.INSTANCE_BASE).startswith("https://"),
+        samesite="lax"
+    )
     
     try:
         # Exchange code for access token using generated client
