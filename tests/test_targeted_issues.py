@@ -11,9 +11,8 @@ Targeted tests for specific issues mentioned by the user:
 import os
 import sys
 import unittest
-import json
 import tempfile
-from unittest.mock import MagicMock, Mock, patch, call, AsyncMock
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 # Set test environment before any imports

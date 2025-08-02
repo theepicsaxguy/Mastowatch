@@ -4,8 +4,6 @@ No authentication required, uses in-memory SQLite database
 Tests all core functionality without external dependencies
 """
 
-import pytest
-import json
 from unittest.mock import patch, MagicMock
 
 

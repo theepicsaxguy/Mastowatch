@@ -4,7 +4,7 @@ This provides the best of both worlds: type safety where available, flexibility 
 """
 
 import hashlib
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import httpx
 

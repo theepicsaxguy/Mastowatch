@@ -3,7 +3,7 @@ Tests for the new type-safe Mastodon client.
 """
 
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from app.clients.mastodon.models import Account, Status
 from app.clients.mastodon.models.create_report_body_category import \

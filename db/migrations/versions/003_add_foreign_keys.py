@@ -1,5 +1,4 @@
 from alembic import op
-import sqlalchemy as sa
 
 revision = '003_add_foreign_keys'
 down_revision = '002_drop_rate_limits'

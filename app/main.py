@@ -396,20 +396,22 @@ async def dryrun_evaluate(payload: dict):
     return {"score": score, "hits": hits}
 
 
-@app.post("/webhooks/status", tags=["webhooks"])
-async def webhook_status(request: Request):
-    """Handle incoming status webhooks with signature validation and deduplication"""
+@app.post("/webhooks/mastodon_events", tags=["webhooks"])
+async def webhook_mastodon_events(request: Request):
+    """Handle incoming Mastodon event webhooks with signature validation and event routing"""
     start_time = time.time()
     request_id = f"webhook_{int(start_time * 1000)}"
 
     try:
         body = await request.body()
         content_length = len(body)
+        event_type = request.headers.get("X-Mastodon-Event", "unknown")
 
         logger.info(
-            "Processing webhook request",
+            "Processing Mastodon webhook event",
             extra={
                 "request_id": request_id,
+                "event_type": event_type,
                 "content_length": content_length,
                 "source_ip": request.client.host if request.client else "unknown",
                 "user_agent": request.headers.get("user-agent", "unknown"),
@@ -487,98 +489,31 @@ async def webhook_status(request: Request):
                 detail={"error": "invalid_json_payload", "message": "Failed to parse JSON payload", "request_id": request_id},
             )
 
-        # Extract account and statuses
-        acct = payload.get("account") or {}
-        statuses = payload.get("statuses") or ([payload["status"]] if "status" in payload else [])
-
-        if not acct:
-            logger.warning(
-                "Webhook payload missing account information",
-                extra={"request_id": request_id, "payload_keys": list(payload.keys())},
-            )
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "missing_account_data",
-                    "message": "Missing account information in payload",
-                    "request_id": request_id,
-                },
-            )
-
-        account_id = acct.get("id", "unknown")
-        account_acct = acct.get("acct", "unknown")
-
-        # Simple deduplication using Redis (if available)
-        dedupe_key = None
-        try:
-            import redis
-
-            # Create deduplication key from account + statuses
-            dedupe_data = f"{account_id}-{len(statuses)}-{hash(str(sorted(s.get('id', '') for s in statuses)))}"
-            dedupe_key = hashlib.sha256(dedupe_data.encode()).hexdigest()[:16]
-
-            r = redis.from_url(settings.REDIS_URL)
-            if r.get(f"webhook_dedupe:{dedupe_key}"):
-                logger.info(
-                    "Webhook deduplicated",
-                    extra={
-                        "request_id": request_id,
-                        "dedupe_key": dedupe_key,
-                        "account_id": account_id,
-                        "account_acct": account_acct,
-                    },
-                )
-                return {
-                    "ok": True,
-                    "enqueued": False,
-                    "reason": "duplicate",
-                    "request_id": request_id,
-                    "dedupe_key": dedupe_key,
-                }
-
-            # Set dedupe key with 5 minute expiry
-            r.setex(f"webhook_dedupe:{dedupe_key}", 300, "1")
-
-        except Exception as e:
-            logger.warning(
-                "Webhook deduplication failed (continuing anyway)",
-                extra={"request_id": request_id, "error": str(e), "account_id": account_id},
-            )
-
-        # Enqueue for analysis
-        try:
-            task = analyze_and_maybe_report.delay({"account": acct, "statuses": statuses})
-        except Exception as e:
-            logger.error(
-                "Failed to enqueue webhook for analysis",
-                extra={
-                    "request_id": request_id,
-                    "error": str(e),
-                    "account_id": account_id,
-                    "account_acct": account_acct,
-                    "status_count": len(statuses),
-                },
-            )
-            raise HTTPException(
-                status_code=500,
-                detail={
-                    "error": "task_enqueue_failed",
-                    "message": "Failed to enqueue analysis task",
-                    "request_id": request_id,
-                },
-            )
+        # Route events to appropriate Celery tasks
+        task_id = None
+        if event_type == "report.created":
+            report_id = payload.get("report", {}).get("id")
+            logger.info(f"Enqueuing report.created event for report ID: {report_id}", extra={"request_id": request_id})
+            task = analyze_and_maybe_report.delay(payload) # Re-using analyze_and_maybe_report for now
+            task_id = task.id
+        elif event_type == "status.created":
+            status_id = payload.get("status", {}).get("id")
+            logger.info(f"Enqueuing status.created event for status ID: {status_id}", extra={"request_id": request_id})
+            # Enqueue for high-speed analysis of public posts
+            task = analyze_and_maybe_report.delay(payload) # Re-using analyze_and_maybe_report for now
+            task_id = task.id
+        else:
+            logger.info(f"Received unhandled Mastodon event type: {event_type}", extra={"request_id": request_id})
+            return {"ok": True, "message": f"Unhandled event type: {event_type}", "request_id": request_id}
 
         processing_time = time.time() - start_time
         logger.info(
             "Webhook processed successfully",
             extra={
                 "request_id": request_id,
+                "event_type": event_type,
                 "content_length": content_length,
-                "status_count": len(statuses),
-                "account_id": account_id,
-                "account_acct": account_acct,
-                "task_id": task.id,
-                "dedupe_key": dedupe_key,
+                "task_id": task_id,
                 "processing_time_ms": round(processing_time * 1000, 1),
             },
         )
@@ -586,9 +521,8 @@ async def webhook_status(request: Request):
         return {
             "ok": True,
             "enqueued": True,
-            "task_id": task.id,
-            "account_id": account_id,
-            "status_count": len(statuses),
+            "task_id": task_id,
+            "event_type": event_type,
             "processing_time_ms": round(processing_time * 1000, 1),
             "request_id": request_id,
         }
@@ -1712,10 +1646,10 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
             )
 
             # Get last federated scan and domain check times
-            last_federated_scan = db.query(ScanSession.completed_at)
+            last_federated_scan_record = db.query(ScanSession.completed_at)
                                     .filter(ScanSession.session_type == 'federated', ScanSession.status == 'completed')
                                     .order_by(desc(ScanSession.completed_at)).first()
-            last_domain_check = db.query(ScanSession.completed_at)
+            last_domain_check_record = db.query(ScanSession.completed_at)
                                   .filter(ScanSession.session_type == 'domain_check', ScanSession.status == 'completed')
                                   .order_by(desc(ScanSession.completed_at)).first()
             
@@ -1742,8 +1676,8 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
                     for session in active_sessions + recent_sessions
                 ],
                 "system_status": {
-                    "last_federated_scan": last_federated_scan[0].isoformat() if last_federated_scan else None,
-                    "last_domain_check": last_domain_check[0].isoformat() if last_domain_check else None,
+                    "last_federated_scan": last_federated_scan_record[0].isoformat() if last_federated_scan_record else None,
+                    "last_domain_check": last_domain_check_record[0].isoformat() if last_domain_check_record else None,
                     "queue_length": queue_length,
                     "system_load": "normal" # Placeholder, can be enhanced with system metrics
                 },
@@ -1763,6 +1697,54 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
     except Exception as e:
         logger.error("Failed to get scanning analytics", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail="Failed to get scanning analytics")
+
+
+@app.get("/analytics/domains", tags=["analytics"])
+def get_domain_analytics(_: User = Depends(require_admin_hybrid)):
+    """Get domain-level analytics with real-time metrics (15-second refresh capability)"""
+    try:
+        enhanced_scanner = EnhancedScanningSystem()
+        domain_alerts = enhanced_scanner.get_domain_alerts(100)
+        
+        # Calculate comprehensive summary statistics
+        total_domains = len(domain_alerts)
+        defederated_count = sum(1 for alert in domain_alerts if alert.get("is_defederated", False))
+        high_risk_count = sum(1 for alert in domain_alerts 
+                            if alert.get("violation_count", 0) >= alert.get("defederation_threshold", 10) * 0.8
+                            and not alert.get("is_defederated", False))
+        monitored_count = total_domains - defederated_count
+        
+        # Get active scanning status
+        current_time = datetime.utcnow()
+        
+        return {
+            "summary": {
+                "total_domains": total_domains,
+                "monitored_domains": monitored_count,
+                "high_risk_domains": high_risk_count, 
+                "defederated_domains": defederated_count,
+                "scan_in_progress": False  # TODO: Get from Redis/Celery
+            },
+            "domain_alerts": domain_alerts[:20],  # Top 20 for UI
+            "metadata": {
+                "last_updated": current_time.isoformat(),
+                "refresh_interval_seconds": 15,
+                "cache_status": "fresh",
+                "supports_real_time": True
+            }
+        }
+    except Exception as e:
+        logger.error("Failed to fetch domain analytics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch domain analytics")
+
+
+@app.get("/analytics/rules/statistics", tags=["analytics"])
+def get_rule_statistics(_: User = Depends(require_admin_hybrid)):
+    """Get comprehensive rule statistics and performance metrics"""
+    try:
+        rule_stats = rule_service.get_rule_statistics()
+        return rule_stats
+    except Exception as e:
 
 
 

@@ -1,16 +1,14 @@
 import hashlib
 import logging
-import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
-from sqlalchemy import func, and_, or_, desc
-from sqlalchemy.orm import Session
+from sqlalchemy import func, and_, desc
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db import SessionLocal
-from app.models import Account, ScanSession, ContentScan, DomainAlert, Analysis, Rule
+from app.models import Account, ScanSession, ContentScan, DomainAlert
 from app.mastodon_client import MastoClient
 from app.config import get_settings
 from app.services.rule_service import rule_service

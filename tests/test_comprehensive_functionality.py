@@ -9,15 +9,12 @@ Comprehensive test suite for Mastowatch covering all major functionality:
 - API endpoints and error handling
 """
 
-import hashlib
-import hmac
-import json
 import os
 import sys
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, patch
 
 # Set test environment before any imports
 os.environ.update({
@@ -711,7 +708,6 @@ class TestComprehensiveFunctionality(unittest.TestCase):
     def test_concurrent_request_handling(self):
         """Test handling of concurrent requests"""
         import threading
-        import time
         
         results = []
         

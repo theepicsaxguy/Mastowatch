@@ -13,8 +13,7 @@ import sys
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, call, AsyncMock
-import json
+from unittest.mock import MagicMock, patch
 
 # Set test environment before any imports
 os.environ.update({

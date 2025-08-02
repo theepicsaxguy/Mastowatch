@@ -9,9 +9,11 @@ from typing import List
 from pydantic import ValidationError
 
 from app.config import get_settings
+from app.clients.mastodon.client import Client
 
 logger = logging.getLogger(__name__)
 
+MIN_MASTODON_VERSION = "4.0.0"
 
 def validate_startup_configuration() -> None:
     """
@@ -134,12 +136,44 @@ def validate_redis_connection() -> None:
         sys.exit(1)
 
 
+async def validate_mastodon_version() -> None:
+    """
+    Fetches Mastodon instance version and validates it against MIN_MASTODON_VERSION.
+    """
+    settings = get_settings()
+    try:
+        # Use a temporary client without auth for instance info
+        client = Client(base_url=str(settings.INSTANCE_BASE))
+        instance_info = await client.get_instance_info()
+        
+        current_version = instance_info.version
+        logger.info(f"Mastodon instance version: {current_version}")
+
+        # Simple version comparison (major.minor.patch)
+        current_parts = [int(x) for x in current_version.split('.')[:3]]
+        min_parts = [int(x) for x in MIN_MASTODON_VERSION.split('.')[:3]]
+
+        if current_parts < min_parts:
+            logger.error(
+                f"UNSUPPORTED MASTODON VERSION: MastoWatch requires at least version {MIN_MASTODON_VERSION}, "
+                f"but found {current_version}. Please upgrade your Mastodon instance."
+            )
+            sys.exit(1)
+        else:
+            logger.info(f"✓ Mastodon instance version {current_version} is supported (min: {MIN_MASTODON_VERSION})")
+
+    except Exception as e:
+        logger.error(f"Failed to validate Mastodon instance version: {e}")
+        sys.exit(1)
+
+
 def run_all_startup_validations() -> None:
     """
     Run all startup validations. Call this early in application startup.
     Can be disabled by setting SKIP_STARTUP_VALIDATION environment variable.
     """
     import os
+    import asyncio
 
     if os.getenv("SKIP_STARTUP_VALIDATION"):
         logger.info("Startup validations skipped (SKIP_STARTUP_VALIDATION set)")
@@ -149,4 +183,12 @@ def run_all_startup_validations() -> None:
     validate_startup_configuration()
     validate_database_connection()
     validate_redis_connection()
+    
+    # Run async validation in a new event loop
+    try:
+        asyncio.run(validate_mastodon_version())
+    except Exception as e:
+        logger.error(f"Async startup validation failed: {e}")
+        sys.exit(1)
+
     logger.info("✓ All startup validations passed")

@@ -10,9 +10,7 @@ Integration tests to reproduce and fix specific user-reported issues:
 These tests run against the actual running Docker services.
 """
 
-import time
 import requests
-import json
 import unittest
 
 class TestActualIssues(unittest.TestCase):

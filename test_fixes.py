@@ -9,8 +9,6 @@ Test the fixes for all user-reported issues:
 """
 
 import requests
-import json
-import time
 
 class FixValidation:
     def __init__(self):
@@ -125,7 +123,7 @@ if __name__ == "__main__":
     print("  4. 🔄 Use cache invalidation with frontend coordination")
     print("  5. 📊 Track scanning jobs with 15-second refresh analytics")
     
-    print(f"\n🌐 Access the application:")
-    print(f"  • Frontend: http://localhost:5173")
-    print(f"  • API: http://localhost:8080")
-    print(f"  • API Docs: http://localhost:8080/docs")
+    print("\n🌐 Access the application:")
+    print("  • Frontend: http://localhost:5173")
+    print("  • API: http://localhost:8080")
+    print("  • API Docs: http://localhost:8080/docs")

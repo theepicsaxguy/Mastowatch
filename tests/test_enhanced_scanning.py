@@ -10,10 +10,9 @@ Dedicated test suite for Enhanced Scanning System functionality covering:
 import os
 import sys
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, call
-from dataclasses import dataclass
+from unittest.mock import MagicMock, patch
 
 # Set test environment before any imports
 os.environ.update({

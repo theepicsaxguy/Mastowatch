@@ -9,8 +9,7 @@ Simple functionality tests to identify specific issues:
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, Mock, patch
-import json
+from unittest.mock import patch
 
 # Set test environment before any imports
 os.environ.update({

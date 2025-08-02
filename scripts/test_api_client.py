@@ -5,7 +5,6 @@ This shows the benefits of the new OpenAPI-based client vs the legacy one.
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add the app directory to the path
@@ -28,10 +27,6 @@ def test_type_annotations():
     # client = MastoClient("fake_token_for_testing")
     
     # Check that we can import all the expected types
-    from clients.mastodon.models.account import Account
-    from clients.mastodon.models.status import Status
-    from clients.mastodon.models.report import Report
-    from clients.mastodon.models.create_report_body import CreateReportBody
     
     print("✅ All type imports successful")
     

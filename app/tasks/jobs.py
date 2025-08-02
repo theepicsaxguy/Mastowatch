@@ -1,11 +1,9 @@
 import logging
-import re
 import time
-import urllib.parse
 
 import redis
 from celery import shared_task
-from sqlalchemy import insert, select, text
+from sqlalchemy import insert, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.sql import func
 
@@ -15,11 +13,11 @@ from app.clients.mastodon.client import Client
 from app.metrics import (accounts_scanned, analyses_flagged, analysis_latency,
                          cursor_lag_pages, queue_backlog, report_latency,
                          reports_submitted)
-from app.models import Account, Analysis, Config, Cursor, Report
+from app.models import Account, Analysis, Cursor, Report, ScheduledAction
 from app.services.rule_service import rule_service
 from app.enhanced_scanning import EnhancedScanningSystem
 from app.util import make_dedupe_key
-import os
+from app.services.enforcement_service import EnforcementService
 
 settings = get_settings()
 
@@ -456,3 +454,68 @@ def analyze_and_maybe_report(payload: dict):
     except Exception as e:
         logging.exception("analyze_and_maybe_report error: %s", e)
         raise
+
+
+@shared_task(
+    name="app.tasks.jobs.process_expired_actions",
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    retry_backback_max=60,
+    retry_jitter=True,
+)
+def process_expired_actions():
+    """Processes scheduled actions that have expired and reverses them."""
+    logging.info("Running process_expired_actions task...")
+    
+    admin_client = _get_admin_client()
+    enforcement_service = EnforcementService(mastodon_client=admin_client)
+
+    with SessionLocal() as session:
+        now = func.now()
+        expired_actions = session.query(ScheduledAction).filter(ScheduledAction.expires_at <= now).all()
+
+        for action in expired_actions:
+            try:
+                logging.info(f"Reversing action {action.action_to_reverse} for account {action.mastodon_account_id}")
+                if action.action_to_reverse == "silence":
+                    enforcement_service.unsilence_account(action.mastodon_account_id)
+                elif action.action_to_reverse == "suspend":
+                    enforcement_service.unsuspend_account(action.mastodon_account_id)
+                # Add other reversal actions as needed
+                
+                session.delete(action)
+                session.commit()
+                logging.info(f"Successfully reversed and deleted scheduled action for account {action.mastodon_account_id}")
+            except Exception as e:
+                logging.error(f"Error reversing action for account {action.mastodon_account_id}: {e}")
+                session.rollback() # Rollback in case of error to keep the action in the queue
+
+
+@shared_task(
+    name="app.tasks.jobs.process_new_report",
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    retry_backoff_max=60,
+    retry_jitter=True,
+)
+def process_new_report(report_payload: dict):
+    """Processes a new report webhook payload."""
+    logging.info(f"Processing new report: {report_payload.get('id')}")
+    # Placeholder for report processing logic
+    # This task will eventually call rule_service.evaluate_account and enforcement_service.perform_account_action
+    pass
+
+
+@shared_task(
+    name="app.tasks.jobs.process_new_status",
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    retry_backoff_max=60,
+    retry_jitter=True,
+)
+def process_new_status(status_payload: dict):
+    """Processes a new status webhook payload for high-speed analysis."""
+    logging.info(f"Processing new status: {status_payload.get('id')}")
+    # Placeholder for status processing logic
+    # This task will eventually call rule_service.evaluate_account
+    pass

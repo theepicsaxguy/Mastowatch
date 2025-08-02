@@ -1,22 +1,17 @@
-"""
-Centralized RuleService for database-driven rule management.
-
-This service encapsulates all database interactions for rules and provides
-caching to avoid hitting the database on every scan operation.
-"""
-
 import hashlib
 import logging
-import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 
-from app.db import SessionLocal, engine
+from app.db import SessionLocal
 from app.models import Rule
+from app.schemas import Violation
+from app.services.detectors.regex_detector import RegexDetector
+from app.services.detectors.keyword_detector import KeywordDetector
+from app.services.detectors.behavioral_detector import BehavioralDetector
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +45,11 @@ class RuleService:
     def __init__(self, cache_ttl_seconds: int = 60):
         self._cache: Optional[RuleCache] = None
         self._cache_ttl = cache_ttl_seconds
+        self.detectors = {
+            "regex": RegexDetector(),
+            "keyword": KeywordDetector(),
+            "behavioral": BehavioralDetector(),
+        }
     
     def get_active_rules(self, force_refresh: bool = False) -> Tuple[List[Rule], Dict[str, Any], str]:
         """
@@ -75,7 +75,7 @@ class RuleService:
             # Create a hash from all the rule data for versioning
             rule_data = []
             for rule in db_rules:
-                rule_data.append(f"{rule.id}:{rule.pattern}:{rule.weight}:{rule.enabled}")
+                rule_data.append(f"{rule.id}:{rule.pattern}:{rule.weight}:{rule.enabled}:{rule.detector_type}:{rule.action_type}:{rule.trigger_threshold}")
             
             ruleset_content = "|".join(sorted(rule_data))
             ruleset_sha256 = hashlib.sha256(ruleset_content.encode()).hexdigest()
@@ -107,9 +107,14 @@ class RuleService:
     
     def create_rule(self, 
                    name: str,
-                   rule_type: str,
+                   detector_type: str,
                    pattern: str,
                    weight: float,
+                   action_type: str,
+                   trigger_threshold: float,
+                   action_duration_seconds: Optional[int] = None,
+                   action_warning_text: Optional[str] = None,
+                   warning_preset_id: Optional[str] = None,
                    enabled: bool = True,
                    description: Optional[str] = None,
                    created_by: str = "system") -> Rule:
@@ -118,9 +123,14 @@ class RuleService:
         
         Args:
             name: Human-readable name for the rule
-            rule_type: Type of rule (username_regex, content_regex, etc.)
-            pattern: Regex pattern for the rule
+            detector_type: Type of detector (regex, keyword, behavioral)
+            pattern: Pattern for the rule
             weight: Weight/score assigned when rule matches
+            action_type: Type of action to take (report, silence, suspend, etc.)
+            trigger_threshold: Score threshold to trigger the rule
+            action_duration_seconds: Duration for timed actions
+            action_warning_text: Warning text for the action
+            warning_preset_id: Preset ID for warnings
             enabled: Whether the rule is active
             description: Optional description of the rule
             created_by: User/system that created the rule
@@ -131,9 +141,14 @@ class RuleService:
         with SessionLocal() as session:
             rule = Rule(
                 name=name,
-                rule_type=rule_type,
+                detector_type=detector_type,
                 pattern=pattern,
                 weight=weight,
+                action_type=action_type,
+                trigger_threshold=trigger_threshold,
+                action_duration_seconds=action_duration_seconds,
+                action_warning_text=action_warning_text,
+                warning_preset_id=warning_preset_id,
                 enabled=enabled,
                 description=description,
                 created_by=created_by,
@@ -147,7 +162,7 @@ class RuleService:
             # Invalidate cache since rules changed
             self._invalidate_cache()
             
-            logger.info(f"Created new rule: {name} (type: {rule_type}, weight: {weight})")
+            logger.info(f"Created new rule: {name} (type: {detector_type}, weight: {weight})")
             return rule
     
     def update_rule(self, rule_id: int, **updates) -> Optional[Rule]:
@@ -246,83 +261,61 @@ class RuleService:
             logger.info(f"Bulk toggled {len(updated_rules)} rules to enabled={enabled}")
             return updated_rules
     
-    def get_rule_statistics(self) -> Dict[str, Any]:
+    def evaluate_account(self, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
         """
-        Get comprehensive rule statistics.
-        
-        Returns:
-            Dictionary containing rule performance metrics
-        """
-        with SessionLocal() as session:
-            rules = session.query(Rule).all()
-            
-            total_rules = len(rules)
-            enabled_rules = len([r for r in rules if r.enabled])
-            disabled_rules = total_rules - enabled_rules
-            
-            # Calculate trigger statistics
-            triggered_rules = [r for r in rules if r.trigger_count and r.trigger_count > 0]
-            total_triggers = sum(r.trigger_count or 0 for r in rules)
-            
-            # Get rules by type
-            rules_by_type = {}
-            for rule in rules:
-                rule_type = rule.rule_type
-                if rule_type not in rules_by_type:
-                    rules_by_type[rule_type] = {"total": 0, "enabled": 0}
-                rules_by_type[rule_type]["total"] += 1
-                if rule.enabled:
-                    rules_by_type[rule_type]["enabled"] += 1
-            
-            # Get most triggered rules
-            most_triggered = sorted(
-                [r for r in rules if r.trigger_count],
-                key=lambda x: x.trigger_count,
-                reverse=True
-            )[:10]
-            
-            return {
-                "total_rules": total_rules,
-                "enabled_rules": enabled_rules,
-                "disabled_rules": disabled_rules,
-                "triggered_rules_count": len(triggered_rules),
-                "total_triggers": total_triggers,
-                "rules_by_type": rules_by_type,
-                "most_triggered": [
-                    {
-                        "id": r.id,
-                        "name": r.name,
-                        "rule_type": r.rule_type,
-                        "trigger_count": r.trigger_count,
-                        "last_triggered_at": r.last_triggered_at.isoformat() if r.last_triggered_at else None
-                    }
-                    for r in most_triggered
-                ],
-                "cache_status": {
-                    "cached": self._cache is not None,
-                    "expired": self._cache.is_expired() if self._cache else True,
-                    "cached_at": self._cache.cached_at.isoformat() if self._cache else None,
-                    "ttl_seconds": self._cache_ttl
-                }
-            }
-    
-    def update_rule_trigger_stats(self, rule_id: int, triggered_content: Optional[Dict] = None):
-        """
-        Update rule trigger statistics when a rule matches content.
+        Evaluates an account and its statuses against all active rules.
         
         Args:
-            rule_id: ID of the rule that was triggered
-            triggered_content: Optional content that triggered the rule
+            account_data: Dictionary containing account information.
+            statuses: List of dictionaries, each representing a status from the account.
+            
+        Returns:
+            A list of Violation objects for rules that were triggered.
         """
-        with SessionLocal() as session:
-            rule = session.query(Rule).filter(Rule.id == rule_id).first()
-            if rule:
-                rule.trigger_count = (rule.trigger_count or 0) + 1
-                rule.last_triggered_at = datetime.utcnow()
-                if triggered_content:
-                    rule.last_triggered_content = triggered_content
-                session.commit()
-    
+        all_violations: List[Violation] = []
+        active_rules, _, _ = self.get_active_rules() # Get active rules from cache/DB
+
+        for rule in active_rules:
+            detector_type = rule.detector_type
+            detector = self.detectors.get(detector_type)
+
+            if not detector:
+                logger.warning(f"No detector found for type: {detector_type}")
+                continue
+            
+            # Temporarily pass the rule to the detector for evaluation
+            # This will be refined as detectors are made more generic
+            # For now, detectors will need to filter by rule.pattern and rule.trigger_threshold
+            # This is a simplification for the current task.
+            # A more robust solution would involve passing the rule object directly
+            # and having the detector evaluate against that specific rule.
+            
+            # For now, we'll pass the rule as part of account_data or statuses if needed by the detector
+            # This is a temporary workaround until the detector architecture is fully fleshed out
+            # to handle individual rule evaluation.
+            
+            # The detectors currently evaluate against hardcoded rules or general patterns.
+            # The next step would be to pass the specific rule to the detector.
+            
+            # For now, we'll just call evaluate and let the detector decide based on its internal logic
+            # and the provided account_data/statuses.
+            
+            # This is a placeholder for the actual integration of rule.pattern and rule.trigger_threshold
+            # into the detector's evaluation logic.
+            
+            # The current detectors are designed to return all potential violations.
+            # The filtering by trigger_threshold will happen here.
+            
+            violations_from_detector = detector.evaluate(account_data, statuses)
+            
+            for violation in violations_from_detector:
+                # Filter violations based on the rule's trigger_threshold
+                # This assumes the detector returns a score for each violation
+                if violation.score >= rule.trigger_threshold:
+                    all_violations.append(violation)
+
+        return all_violations
+
     def invalidate_cache(self):
         """Force cache invalidation to refresh rules on next access"""
         self._invalidate_cache()
