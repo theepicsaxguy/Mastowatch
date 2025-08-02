@@ -1,14 +1,14 @@
-fastapi==0.111.0
+fastapi==0.116.1
 uvicorn[standard]==0.35.0
-httpx==0.27.0
+httpx==0.28.1
 pydantic==2.7.4
-pydantic-settings==2.2.1 # Added for BaseSettings
+pydantic-settings==2.10.1 # Added for BaseSettings
 SQLAlchemy==2.0.42
-psycopg[binary]==3.1.19
-redis==5.3.1
-celery==5.4.0
+psycopg[binary]==3.2.9
+redis==6.2.0
+celery==5.5.3
 alembic==1.16.4
-prometheus-client==0.20.0
+prometheus-client==0.22.1
 pyyaml==6.0.2
-python-json-logger==2.0.7
+python-json-logger==3.3.0
 python-dotenv==1.1.1
