@@ -58,6 +58,8 @@ export default function App() {
   const [domainAnalytics, setDomainAnalytics] = useState<DomainAnalytics | null>(null);
   const [ruleStatistics, setRuleStatistics] = useState<RuleStatistics | null>(null);
   const [selectedRuleDetails, setSelectedRuleDetails] = useState<RuleDetails | null>(null);
+  const [showRuleInfoModal, setShowRuleInfoModal] = useState(false);
+  const [selectedRuleForInfo, setSelectedRuleForInfo] = useState<Rule | null>(null);
 
   const statusBadge = useMemo(() => {
     if (!health) return null;
@@ -760,6 +762,8 @@ function RulesTab({ rules, onReload, saving }: {
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
+  const [showRuleInfoModal, setShowRuleInfoModal] = useState(false);
+  const [selectedRuleForInfo, setSelectedRuleForInfo] = useState<Rule | null>(null);
   const [newRule, setNewRule] = useState({
     name: '',
     rule_type: 'username_regex' as Rule['rule_type'],
@@ -916,6 +920,18 @@ function RulesTab({ rules, onReload, saving }: {
                             <Badge size="xs" variant="light" color={rule.enabled ? 'green' : 'gray'}>
                               {rule.enabled ? 'On' : 'Off'}
                             </Badge>
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              color="blue"
+                              onClick={() => {
+                                setSelectedRuleForInfo(rule);
+                                setShowRuleInfoModal(true);
+                              }}
+                              title="View rule information and examples"
+                            >
+                              <IconInfoCircle size={12} />
+                            </ActionIcon>
                           </Group>
                           <Code c={rule.enabled ? undefined : 'dimmed'}>{rule.pattern}</Code>
                           <Text size="xs" c="dimmed">Weight: {rule.weight}</Text>
@@ -1057,6 +1073,121 @@ function RulesTab({ rules, onReload, saving }: {
                 Update Rule
               </Button>
             </Group>
+          </Stack>
+        )}
+      </Modal>
+
+      {/* Rule Info Modal */}
+      <Modal
+        opened={showRuleInfoModal}
+        onClose={() => setShowRuleInfoModal(false)}
+        title="Rule Information"
+        size="lg"
+      >
+        {selectedRuleForInfo && (
+          <Stack gap="md">
+            <Group justify="space-between">
+              <div>
+                <Text fw={500} size="lg">{selectedRuleForInfo.name}</Text>
+                <Badge color={selectedRuleForInfo.enabled ? 'green' : 'gray'}>
+                  {selectedRuleForInfo.enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </div>
+              <Group>
+                <Badge variant="light">{selectedRuleForInfo.rule_type}</Badge>
+                {selectedRuleForInfo.is_default && (
+                  <Badge color="blue">Default Rule</Badge>
+                )}
+              </Group>
+            </Group>
+            
+            {selectedRuleForInfo.description && (
+              <Alert>
+                <Text size="sm">{selectedRuleForInfo.description}</Text>
+              </Alert>
+            )}
+            
+            <Divider />
+            
+            <div>
+              <Text fw={500} mb="xs">Pattern</Text>
+              <Code block>{selectedRuleForInfo.pattern}</Code>
+            </div>
+            
+            <div>
+              <Text fw={500} mb="xs">Weight</Text>
+              <Text size="sm">
+                {selectedRuleForInfo.weight} 
+                <Text span c="dimmed" size="xs" ml="xs">
+                  (Higher values increase likelihood of reporting)
+                </Text>
+              </Text>
+            </div>
+            
+            {selectedRuleForInfo.rule_type === 'username_regex' && (
+              <div>
+                <Text fw={500} mb="xs">Username Pattern Examples</Text>
+                <Stack gap="xs">
+                  <Text size="sm" c="dimmed">This pattern matches usernames. Examples:</Text>
+                  <div><Code>^spam.*</Code> <Text size="xs" c="dimmed" ml="sm">- Matches usernames starting with "spam"</Text></div>
+                  <div><Code>.*bot$</Code> <Text size="xs" c="dimmed" ml="sm">- Matches usernames ending with "bot"</Text></div>
+                  <div><Code>{'\\\\d{8,}'}</Code> <Text size="xs" c="dimmed" ml="sm">- Matches usernames with 8+ consecutive digits</Text></div>
+                </Stack>
+              </div>
+            )}
+            
+            {selectedRuleForInfo.rule_type === 'display_name_regex' && (
+              <div>
+                <Text fw={500} mb="xs">Display Name Pattern Examples</Text>
+                <Stack gap="xs">
+                  <Text size="sm" c="dimmed">This pattern matches display names. Examples:</Text>
+                  <div><Code>.*[🔥💰🚀].*</Code> <Text size="xs" c="dimmed" ml="sm">- Matches names with specific emojis</Text></div>
+                  <div><Code>{'[A-Z]{3,}'}</Code> <Text size="xs" c="dimmed" ml="sm">- Matches all-caps names (3+ chars)</Text></div>
+                  <div><Code>.*(crypto|nft|trading).*</Code> <Text size="xs" c="dimmed" ml="sm">- Matches names containing specific terms</Text></div>
+                </Stack>
+              </div>
+            )}
+            
+            {selectedRuleForInfo.rule_type === 'content_regex' && (
+              <div>
+                <Text fw={500} mb="xs">Content Pattern Examples</Text>
+                <Stack gap="xs">
+                  <Text size="sm" c="dimmed">This pattern matches post content. Examples:</Text>
+                  <div><Code>.*buy.*crypto.*</Code> <Text size="xs" c="dimmed" ml="sm">- Matches posts about buying crypto</Text></div>
+                  <div><Code>{'https?://[^\\\\s]*\\\\.tk'}</Code> <Text size="xs" c="dimmed" ml="sm">- Matches posts with .tk domain links</Text></div>
+                  <div><Code>.*(earn|money|profit).*home.*</Code> <Text size="xs" c="dimmed" ml="sm">- Matches work-from-home scams</Text></div>
+                </Stack>
+              </div>
+            )}
+            
+            {selectedRuleForInfo.trigger_count !== undefined && (
+              <div>
+                <Text fw={500} mb="xs">Statistics</Text>
+                <Grid>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Times Triggered</Text>
+                    <Text fw={500}>{selectedRuleForInfo.trigger_count}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Last Triggered</Text>
+                    <Text fw={500}>
+                      {selectedRuleForInfo.last_triggered_at 
+                        ? new Date(selectedRuleForInfo.last_triggered_at).toLocaleDateString()
+                        : 'Never'
+                      }
+                    </Text>
+                  </Grid.Col>
+                </Grid>
+              </div>
+            )}
+            
+            <Button 
+              variant="subtle" 
+              onClick={() => setShowRuleInfoModal(false)}
+              fullWidth
+            >
+              Close
+            </Button>
           </Stack>
         )}
       </Modal>
@@ -1342,17 +1473,31 @@ function AccountDetailModal({ accountId, analyses }: {
         <Table striped>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>Rule</Table.Th>
+              <Table.Th>Type</Table.Th>
+              <Table.Th>Rule/Scan</Table.Th>
               <Table.Th>Score</Table.Th>
-              <Table.Th>Evidence</Table.Th>
+              <Table.Th>Evidence/Result</Table.Th>
               <Table.Th>Date</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {analyses.analyses.map((analysis) => (
-              <Table.Tr key={analysis.id}>
+              <Table.Tr key={`${analysis.id}-${analysis.scan_type || 'traditional'}`}>
+                <Table.Td>
+                  <Badge 
+                    color={analysis.scan_type === 'enhanced_scan' ? 'blue' : 'gray'}
+                    variant="light"
+                  >
+                    {analysis.scan_type === 'enhanced_scan' ? 'Enhanced' : 'Traditional'}
+                  </Badge>
+                </Table.Td>
                 <Table.Td>
                   <Badge variant="light">{analysis.rule_key}</Badge>
+                  {analysis.content_hash && (
+                    <Text size="xs" c="dimmed" mt="xs">
+                      Hash: {analysis.content_hash.slice(0, 8)}...
+                    </Text>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Badge 
@@ -1363,11 +1508,27 @@ function AccountDetailModal({ accountId, analyses }: {
                   </Badge>
                 </Table.Td>
                 <Table.Td>
-                  <Code>{JSON.stringify(analysis.evidence)}</Code>
+                  {analysis.scan_type === 'enhanced_scan' ? (
+                    <div>
+                      {analysis.scan_result && (
+                        <Stack gap="xs">
+                          <Text size="xs" c="dimmed">
+                            Rules triggered: {Object.keys(analysis.scan_result.rule_results || {}).length}
+                          </Text>
+                          {analysis.needs_rescan && (
+                            <Badge size="xs" color="orange">Needs Rescan</Badge>
+                          )}
+                          <Code>{JSON.stringify(analysis.scan_result, null, 2).slice(0, 100)}...</Code>
+                        </Stack>
+                      )}
+                    </div>
+                  ) : (
+                    <Code>{JSON.stringify(analysis.evidence, null, 2).slice(0, 100)}...</Code>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm" c="dimmed">
-                    {new Date(analysis.created_at).toLocaleString()}
+                    {analysis.created_at ? new Date(analysis.created_at).toLocaleString() : 'Unknown'}
                   </Text>
                 </Table.Td>
               </Table.Tr>

@@ -65,6 +65,12 @@ export type AnalysisData = {
     score: number;
     evidence: any;
     created_at: string;
+    scan_type?: string;
+    content_hash?: string;
+    scan_result?: any;
+    rules_version?: string;
+    last_scanned_at?: string;
+    needs_rescan?: boolean;
   }>;
 };
 
