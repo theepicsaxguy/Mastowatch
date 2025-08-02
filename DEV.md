@@ -6,11 +6,25 @@
 docker compose -f docker-compose.yml -f docker-compose.override.yml up
 ```
 
+**Or use the convenient Makefile shortcuts:**
+
+```bash
+make dev           # Start development environment
+make dev-build     # Start with fresh build
+make backend-only  # Start only backend services
+make frontend-only # Start only frontend service
+make logs          # View logs
+make clean         # Stop and clean up
+make help          # See all available commands
+```
+
+**Note:** The `migrate` service will automatically run `alembic upgrade head` before the API starts—no manual migration step needed. The first startup may take a moment while migrations complete.
+
 ## Prerequisites
 
 - **Docker**: Required for PostgreSQL and Redis
-- **Python 3.11+**: For backend development
-- **Node.js 20+**: For frontend development
+- **Python 3.13+**: For backend development
+- **Node.js 22+**: For frontend development
 
 ## Environment Setup
 

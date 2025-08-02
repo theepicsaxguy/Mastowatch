@@ -22,7 +22,7 @@ Set these in `.env` (copied from `.env.example`):
 * `BOT_TOKEN`: token with `write:reports` scope
 * `ADMIN_TOKEN`: token with admin read scopes
 * `DRY_RUN`: `true` to log without sending reports
-* `BATCH_SIZE`: admin polling batch size (default 80)
+* `MAX_PAGES_PER_POLL`: admin polling pages per batch (default 3)
 
 ### Getting Mastodon Access Tokens
 

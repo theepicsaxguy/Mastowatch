@@ -3,9 +3,18 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 import os
 
+# Add the app directory to the path so we can import models
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+# Import your models and Base
+from app.db import Base
+from app.models import Account, Analysis, Report, Config  # Import all models
+
 config = context.config
 fileConfig(config.config_file_name)
-target_metadata = None
+target_metadata = Base.metadata
 
 def get_url():
     return os.environ.get("DATABASE_URL")
