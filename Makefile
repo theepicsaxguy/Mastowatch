@@ -69,19 +69,18 @@ typecheck:
 # Combined quality checks
 check: lint format-check typecheck test
 
-# OpenAPI client management
+# OpenAPI client management (using Git submodule)
 update-api-spec:
-	curl -L "https://abraham.github.io/2d1b5745-0dd7-41ce-b651-97082ae9b878" -o specs/openapi.json
+	./scripts/update_mastodon_client.sh update-schema
 
 regenerate-client:
-	rm -rf app/clients/mastodon
-	openapi-python-client generate --path specs/openapi.json --meta none
-	mkdir -p app/clients
-	mv mastodon_api_client app/clients/mastodon
+	./scripts/update_mastodon_client.sh regenerate
 
-update-mastodon-client: update-api-spec regenerate-client
-	@echo "Mastodon API client updated successfully!"
-	@echo "Remember to restart your application to use the new client."
+update-mastodon-client:
+	./scripts/update_mastodon_client.sh update
+
+api-client-status:
+	./scripts/update_mastodon_client.sh status
 
 # Stop all services
 stop:
@@ -136,7 +135,8 @@ help:
 	@echo "  stop             - Stop all services"
 	@echo "  status           - Show service status"
 	@echo "  shell-<service>  - Enter running container shell"
-	@echo "  update-api-spec      - Download latest Mastodon OpenAPI specification"
-	@echo "  regenerate-client    - Regenerate typed client from OpenAPI spec"
-	@echo "  update-mastodon-client - Update API spec and regenerate client"
+	@echo "  update-api-spec      - Update OpenAPI spec from submodule"
+	@echo "  regenerate-client    - Regenerate typed client from current spec"
+	@echo "  update-mastodon-client - Full update: submodule + spec + client"
+	@echo "  api-client-status    - Show current API client status"
 	@echo "  help             - Show this help message"

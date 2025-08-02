@@ -1,224 +1,268 @@
 #!/bin/bash
-set -e
 
-# Mastodon API Client Update Script
-# This script automates the process of updating the Mastodon OpenAPI specification
-# and regenerating the typed Python client.
+# Enhanced Mastodon API Client Management Script
+# Uses Git submodule for better version control and reproducibility
+
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-SPECS_DIR="$PROJECT_DIR/specs"
-CLIENT_DIR="$PROJECT_DIR/app/clients/mastodon"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+SUBMODULE_PATH="$PROJECT_ROOT/specs/mastodon-openapi"
+SCHEMA_SOURCE="$SUBMODULE_PATH/dist/schema.json"
+SCHEMA_DEST="$PROJECT_ROOT/specs/openapi.json"
+CLIENT_DIR="$PROJECT_ROOT/app/clients/mastodon"
 
-echo "=== Mastodon API Client Update Script ==="
-echo "Project directory: $PROJECT_DIR"
-echo ""
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Create specs directory if it doesn't exist
-mkdir -p "$SPECS_DIR"
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
 
-# Function to download the latest OpenAPI spec
-download_spec() {
-    echo "📥 Downloading latest Mastodon OpenAPI specification..."
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+show_help() {
+    cat << EOF
+Mastodon API Client Management Script
+
+USAGE:
+    $0 <command>
+
+COMMANDS:
+    update          Update submodule, copy schema, and regenerate client
+    update-schema   Update Git submodule and copy latest schema
+    regenerate      Regenerate Python client from current schema
+    status          Show current submodule and schema status
+    help            Show this help message
+
+SUBMODULE MANAGEMENT:
+    The script uses a Git submodule (specs/mastodon-openapi) that tracks
+    the abraham/mastodon-openapi repository, which is automatically updated
+    weekly with the latest Mastodon API changes.
+
+EXAMPLES:
+    $0 update           # Full update: submodule + schema + client
+    $0 update-schema    # Just update the schema from submodule
+    $0 status           # Check current versions and status
+EOF
+}
+
+check_dependencies() {
+    local missing_deps=()
     
-    # Primary source (the blob URL you provided)
-    SPEC_URL="https://abraham.github.io/2d1b5745-0dd7-41ce-b651-97082ae9b878"
+    if ! command -v git &> /dev/null; then
+        missing_deps+=("git")
+    fi
     
-    # Backup source
-    BACKUP_URL="https://abraham.github.io/mastodon-openapi/openapi.json"
+    if ! command -v openapi-python-client &> /dev/null; then
+        missing_deps+=("openapi-python-client")
+    fi
     
-    if curl -f -L "$SPEC_URL" -o "$SPECS_DIR/openapi.json.tmp"; then
-        echo "✅ Successfully downloaded from primary source"
-        mv "$SPECS_DIR/openapi.json.tmp" "$SPECS_DIR/openapi.json"
-    elif curl -f -L "$BACKUP_URL" -o "$SPECS_DIR/openapi.json.tmp"; then
-        echo "⚠️  Primary source failed, using backup source"
-        mv "$SPECS_DIR/openapi.json.tmp" "$SPECS_DIR/openapi.json"
-    else
-        echo "❌ Failed to download OpenAPI specification from both sources"
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        log_error "Missing required dependencies: ${missing_deps[*]}"
+        log_info "Install with: pip install openapi-python-client"
         exit 1
     fi
 }
 
-# Function to validate the downloaded spec
-validate_spec() {
-    echo ""
-    echo "🔍 Validating OpenAPI specification..."
+init_submodule() {
+    log_info "Initializing Git submodule..."
     
-    # Check if file exists and is not empty
-    if [[ ! -f "$SPECS_DIR/openapi.json" || ! -s "$SPECS_DIR/openapi.json" ]]; then
-        echo "❌ OpenAPI specification file is missing or empty"
-        exit 1
+    cd "$PROJECT_ROOT"
+    
+    if [ ! -f "$SUBMODULE_PATH/.git" ]; then
+        log_warning "Submodule not initialized. Adding mastodon-openapi submodule..."
+        git submodule add https://github.com/abraham/mastodon-openapi.git specs/mastodon-openapi
     fi
     
-    # Check if it's valid JSON
-    if ! python3 -c "import json; json.load(open('$SPECS_DIR/openapi.json'))" 2>/dev/null; then
-        echo "❌ OpenAPI specification is not valid JSON"
-        exit 1
-    fi
-    
-    # Check if it has required OpenAPI fields
-    if ! python3 -c "
-import json
-spec = json.load(open('$SPECS_DIR/openapi.json'))
-assert 'openapi' in spec, 'Missing openapi field'
-assert 'info' in spec, 'Missing info field'
-assert 'paths' in spec, 'Missing paths field'
-print(f\"OpenAPI version: {spec['openapi']}\")
-print(f\"API title: {spec['info']['title']}\")
-print(f\"API version: {spec['info']['version']}\")
-print(f\"Number of paths: {len(spec['paths'])}\")
-"; then
-        echo "❌ OpenAPI specification is missing required fields"
-        exit 1
-    fi
-    
-    echo "✅ OpenAPI specification is valid"
+    # Initialize and update submodule
+    git submodule update --init --recursive
+    log_success "Submodule initialized"
 }
 
-# Function to backup existing client
-backup_client() {
-    if [[ -d "$CLIENT_DIR" ]]; then
-        echo ""
-        echo "📦 Backing up existing client..."
-        BACKUP_DIR="$CLIENT_DIR.backup.$(date +%Y%m%d_%H%M%S)"
-        cp -r "$CLIENT_DIR" "$BACKUP_DIR"
-        echo "✅ Backup created at: $BACKUP_DIR"
-    fi
+update_submodule() {
+    log_info "Updating mastodon-openapi submodule..."
+    
+    cd "$PROJECT_ROOT"
+    
+    # Update submodule to latest commit
+    git submodule update --remote specs/mastodon-openapi
+    
+    # Get current commit info
+    cd "$SUBMODULE_PATH"
+    local commit_hash=$(git rev-parse HEAD)
+    local commit_date=$(git show -s --format=%ci HEAD)
+    local commit_message=$(git show -s --format=%s HEAD)
+    
+    log_success "Submodule updated to: $commit_hash"
+    log_info "Date: $commit_date"
+    log_info "Message: $commit_message"
 }
 
-# Function to generate the new client
-generate_client() {
-    echo ""
-    echo "🔧 Generating new typed Python client..."
+copy_schema() {
+    log_info "Copying schema from submodule..."
+    
+    if [ ! -f "$SCHEMA_SOURCE" ]; then
+        log_error "Schema not found at: $SCHEMA_SOURCE"
+        log_info "Try building the submodule first: cd $SUBMODULE_PATH && npm install && npm run generate"
+        exit 1
+    fi
+    
+    # Create backup of existing schema
+    if [ -f "$SCHEMA_DEST" ]; then
+        cp "$SCHEMA_DEST" "${SCHEMA_DEST}.backup"
+        log_info "Backed up existing schema to: ${SCHEMA_DEST}.backup"
+    fi
+    
+    # Copy new schema
+    cp "$SCHEMA_SOURCE" "$SCHEMA_DEST"
+    
+    # Show schema info
+    local schema_size=$(du -h "$SCHEMA_DEST" | cut -f1)
+    local schema_version=$(grep -o '"version": *"[^"]*"' "$SCHEMA_DEST" | head -1 | cut -d'"' -f4)
+    
+    log_success "Schema copied: $schema_size"
+    log_info "API Version: $schema_version"
+}
+
+regenerate_client() {
+    log_info "Regenerating Python client..."
+    
+    if [ ! -f "$SCHEMA_DEST" ]; then
+        log_error "Schema not found at: $SCHEMA_DEST"
+        log_info "Run '$0 update-schema' first"
+        exit 1
+    fi
     
     # Remove existing client
-    if [[ -d "$CLIENT_DIR" ]]; then
+    if [ -d "$CLIENT_DIR" ]; then
+        log_info "Removing existing client directory..."
         rm -rf "$CLIENT_DIR"
     fi
     
-    # Change to project directory for client generation
-    cd "$PROJECT_DIR"
+    # Generate new client
+    cd "$PROJECT_ROOT"
     
-    # Generate the client
-    if openapi-python-client generate --path "$SPECS_DIR/openapi.json" --meta none; then
-        echo "✅ Client generation completed"
-        
+    log_info "Generating new client (this may take a moment)..."
+    if openapi-python-client generate --path "$SCHEMA_DEST" --meta none 2>&1 | tee /tmp/openapi-generate.log; then
         # Move generated client to correct location
-        if [[ -d "mastodon_api_client" ]]; then
+        if [ -d "mastodon_api_client" ]; then
             mkdir -p "$(dirname "$CLIENT_DIR")"
             mv "mastodon_api_client" "$CLIENT_DIR"
-            echo "✅ Client moved to app/clients/mastodon"
+            log_success "Client generated successfully at: $CLIENT_DIR"
         else
-            echo "❌ Generated client directory not found"
+            log_error "Generated client directory not found"
             exit 1
         fi
     else
-        echo "❌ Client generation failed"
+        log_error "Failed to generate client. Check /tmp/openapi-generate.log for details"
         exit 1
     fi
+    
+    # Show generation warnings/info
+    if grep -q "WARNING" /tmp/openapi-generate.log; then
+        log_warning "Some warnings occurred during generation:"
+        grep "WARNING" /tmp/openapi-generate.log || true
+    fi
 }
 
-# Function to run basic validation on generated client
-validate_client() {
-    echo ""
-    echo "🧪 Validating generated client..."
+show_status() {
+    log_info "=== Mastodon API Client Status ==="
     
-    # Check if key files exist
-    required_files=(
-        "$CLIENT_DIR/__init__.py"
-        "$CLIENT_DIR/client.py"
-        "$CLIENT_DIR/models"
-        "$CLIENT_DIR/api"
-    )
-    
-    for file in "${required_files[@]}"; do
-        if [[ ! -e "$file" ]]; then
-            echo "❌ Missing required file/directory: $file"
-            exit 1
+    # Submodule status
+    if [ -d "$SUBMODULE_PATH" ]; then
+        cd "$SUBMODULE_PATH"
+        local commit_hash=$(git rev-parse HEAD)
+        local commit_date=$(git show -s --format=%ci HEAD)
+        echo "Submodule commit: $commit_hash"
+        echo "Commit date: $commit_date"
+        
+        # Check if submodule is up to date
+        git fetch origin main --quiet
+        local remote_hash=$(git rev-parse origin/main)
+        if [ "$commit_hash" = "$remote_hash" ]; then
+            log_success "Submodule is up to date"
+        else
+            log_warning "Submodule is behind remote (run '$0 update-schema' to update)"
         fi
-    done
-    
-    # Check if we can import the client (basic syntax check)
-    cd "$PROJECT_DIR"
-    if python3 -c "from app.clients.mastodon import Client, AuthenticatedClient; print('✅ Client imports successfully')" 2>/dev/null; then
-        echo "✅ Generated client passes import test"
     else
-        echo "⚠️  Generated client has import issues (this may be normal if dependencies aren't installed)"
-    fi
-}
-
-# Function to show update summary
-show_summary() {
-    echo ""
-    echo "📊 Update Summary"
-    echo "=================="
-    
-    if [[ -f "$SPECS_DIR/openapi.json" ]]; then
-        python3 -c "
-import json
-import os
-spec = json.load(open('$SPECS_DIR/openapi.json'))
-print(f'OpenAPI Version: {spec[\"openapi\"]}')
-print(f'API Version: {spec[\"info\"][\"version\"]}')
-print(f'API Title: {spec[\"info\"][\"title\"]}')
-print(f'Total Endpoints: {len(spec[\"paths\"])}')
-print(f'Spec File Size: {os.path.getsize(\"$SPECS_DIR/openapi.json\")} bytes')
-"
-    fi
-    
-    if [[ -d "$CLIENT_DIR" ]]; then
-        api_modules=$(find "$CLIENT_DIR/api" -name "*.py" | wc -l)
-        model_modules=$(find "$CLIENT_DIR/models" -name "*.py" | wc -l)
-        echo "Generated API modules: $api_modules"
-        echo "Generated model modules: $model_modules"
+        log_warning "Submodule not found"
     fi
     
     echo ""
-    echo "🎉 Update completed successfully!"
+    
+    # Schema status
+    if [ -f "$SCHEMA_DEST" ]; then
+        local schema_size=$(du -h "$SCHEMA_DEST" | cut -f1)
+        local schema_version=$(grep -o '"version": *"[^"]*"' "$SCHEMA_DEST" | head -1 | cut -d'"' -f4 || echo "unknown")
+        local schema_date=$(stat -c %y "$SCHEMA_DEST" | cut -d' ' -f1)
+        echo "Schema size: $schema_size"
+        echo "Schema version: $schema_version" 
+        echo "Schema date: $schema_date"
+        log_success "Schema file exists"
+    else
+        log_warning "Schema file not found at: $SCHEMA_DEST"
+    fi
+    
     echo ""
-    echo "Next steps:"
-    echo "1. Review the generated client for any breaking changes"
-    echo "2. Run your tests to ensure compatibility"
-    echo "3. Update your code to use new type-safe methods where available"
-    echo "4. Consider updating your requirements.txt if needed"
+    
+    # Client status
+    if [ -d "$CLIENT_DIR" ]; then
+        local client_files=$(find "$CLIENT_DIR" -name "*.py" | wc -l)
+        local client_date=$(stat -c %y "$CLIENT_DIR" | cut -d' ' -f1)
+        echo "Client files: $client_files Python files"
+        echo "Client generated: $client_date"
+        log_success "Generated client exists"
+    else
+        log_warning "Generated client not found at: $CLIENT_DIR"
+    fi
 }
 
-# Main execution
-main() {
-    case "${1:-all}" in
-        "download")
-            download_spec
-            validate_spec
-            ;;
-        "generate")
-            generate_client
-            validate_client
-            ;;
-        "all")
-            download_spec
-            validate_spec
-            backup_client
-            generate_client
-            validate_client
-            show_summary
-            ;;
-        "help")
-            echo "Usage: $0 [download|generate|all|help]"
-            echo ""
-            echo "Commands:"
-            echo "  download  - Download and validate the OpenAPI specification"
-            echo "  generate  - Generate the Python client from existing spec"
-            echo "  all       - Download spec and generate client (default)"
-            echo "  help      - Show this help message"
-            exit 0
-            ;;
-        *)
-            echo "Unknown command: $1"
-            echo "Use '$0 help' for usage information"
-            exit 1
-            ;;
-    esac
-}
-
-# Run main function
-main "$@"
+# Main command handling
+case "${1:-help}" in
+    "update")
+        check_dependencies
+        init_submodule
+        update_submodule
+        copy_schema
+        regenerate_client
+        log_success "Full update completed!"
+        ;;
+    "update-schema")
+        check_dependencies
+        init_submodule
+        update_submodule
+        copy_schema
+        log_success "Schema update completed!"
+        ;;
+    "regenerate")
+        check_dependencies
+        regenerate_client
+        log_success "Client regeneration completed!"
+        ;;
+    "status")
+        show_status
+        ;;
+    "help"|"-h"|"--help")
+        show_help
+        ;;
+    *)
+        log_error "Unknown command: $1"
+        show_help
+        exit 1
+        ;;
+esac
