@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AppShell, Group, Text, Container, Card, Stack, Badge, Button, Switch,
   ActionIcon, Tooltip, Divider, Skeleton, Grid, Table, Modal, Alert, 
-  Tabs, Select, Progress, Code, ScrollArea, TextInput, Title, Menu
+  Tabs, Select, Progress, Code, ScrollArea, TextInput, Title, Menu,
+  NumberInput
 } from '@mantine/core';
-import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler, IconInfoCircle, IconLogout, IconLogin, IconUser } from '@tabler/icons-react';
+import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler, IconInfoCircle, IconLogout, IconLogin, IconUser, IconPlus, IconTrash, IconEdit, IconToggleLeft, IconToggleRight } from '@tabler/icons-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area
@@ -13,8 +14,9 @@ import { apiFetch } from './api';
 import { getCurrentUser, logout, login, User } from './auth';
 import { 
   fetchOverview, fetchTimeline, fetchAccounts, fetchReports, 
-  fetchAccountAnalyses, fetchCurrentRules, OverviewMetrics, 
-  TimelineData, AccountData, ReportData, AnalysisData, RulesData 
+  fetchAccountAnalyses, fetchCurrentRules, fetchRulesList, 
+  createRule, updateRule, deleteRule, toggleRule, OverviewMetrics, 
+  TimelineData, AccountData, ReportData, AnalysisData, RulesData, Rule, RulesList 
 } from './analytics';
 
 type Health = {
@@ -38,6 +40,7 @@ export default function App() {
   const [accounts, setAccounts] = useState<AccountData | null>(null);
   const [reports, setReports] = useState<ReportData | null>(null);
   const [rules, setRules] = useState<RulesData | null>(null);
+  const [rulesList, setRulesList] = useState<RulesList | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [accountAnalyses, setAccountAnalyses] = useState<AnalysisData | null>(null);
   const [timeRange, setTimeRange] = useState('7');
@@ -138,8 +141,12 @@ export default function App() {
 
   async function loadRules() {
     try {
-      const data = await fetchCurrentRules();
-      setRules(data);
+      const [rulesData, rulesList] = await Promise.all([
+        fetchCurrentRules(),
+        fetchRulesList()
+      ]);
+      setRules(rulesData);
+      setRulesList(rulesList);
     } catch (error) {
       console.error('Failed to load rules:', error);
     }
@@ -647,79 +654,312 @@ function RulesTab({ rules, onReload, saving }: {
   onReload: () => void,
   saving: boolean 
 }) {
+  const [rulesList, setRulesList] = useState<Rule[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingRule, setEditingRule] = useState<Rule | null>(null);
+  const [newRule, setNewRule] = useState({
+    name: '',
+    rule_type: 'username_regex' as Rule['rule_type'],
+    pattern: '',
+    weight: 0.5
+  });
+
+  useEffect(() => {
+    loadRulesList();
+  }, []);
+
+  async function loadRulesList() {
+    try {
+      const data = await fetchRulesList();
+      setRulesList(data.rules);
+    } catch (error) {
+      console.error('Failed to load rules list:', error);
+    }
+  }
+
+  async function handleCreateRule() {
+    try {
+      setLoading(true);
+      await createRule({
+        name: newRule.name,
+        rule_type: newRule.rule_type,
+        pattern: newRule.pattern,
+        weight: newRule.weight,
+        enabled: true
+      });
+      setNewRule({ name: '', rule_type: 'username_regex', pattern: '', weight: 0.5 });
+      setShowCreateModal(false);
+      await loadRulesList();
+      onReload();
+    } catch (error) {
+      console.error('Failed to create rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleToggleRule(rule: Rule) {
+    if (rule.is_default || !rule.id) return;
+    
+    try {
+      setLoading(true);
+      await toggleRule(rule.id);
+      await loadRulesList();
+      onReload();
+    } catch (error) {
+      console.error('Failed to toggle rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteRule(rule: Rule) {
+    if (rule.is_default || !rule.id) return;
+    
+    try {
+      setLoading(true);
+      await deleteRule(rule.id);
+      await loadRulesList();
+      onReload();
+    } catch (error) {
+      console.error('Failed to delete rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateRule() {
+    if (!editingRule?.id) return;
+    
+    try {
+      setLoading(true);
+      await updateRule(editingRule.id, {
+        name: editingRule.name,
+        pattern: editingRule.pattern,
+        weight: editingRule.weight
+      });
+      setEditingRule(null);
+      await loadRulesList();
+      onReload();
+    } catch (error) {
+      console.error('Failed to update rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!rules) {
     return <Skeleton height={400} />;
   }
+
+  const groupedRules = rulesList.reduce((acc, rule) => {
+    if (!acc[rule.rule_type]) acc[rule.rule_type] = [];
+    acc[rule.rule_type].push(rule);
+    return acc;
+  }, {} as Record<string, Rule[]>);
 
   return (
     <Stack gap="md">
       <Card withBorder padding="md">
         <Group justify="space-between" align="flex-start">
           <Stack gap="xs">
-            <Title order={4}>Current Rules Configuration</Title>
+            <Title order={4}>Rules Management</Title>
             <Text c="dimmed" size="sm">
               Report threshold: {rules.report_threshold}
             </Text>
           </Stack>
-          <Button 
-            variant="light" 
-            leftSection={<IconRefresh size={16} />}
-            onClick={onReload}
-            loading={saving}
-          >
-            Reload Rules
-          </Button>
+          <Group>
+            <Button 
+              variant="light" 
+              leftSection={<IconPlus size={16} />}
+              onClick={() => setShowCreateModal(true)}
+            >
+              Add Rule
+            </Button>
+            <Button 
+              variant="light" 
+              leftSection={<IconRefresh size={16} />}
+              onClick={onReload}
+              loading={saving}
+            >
+              Reload Rules
+            </Button>
+          </Group>
         </Group>
         
         <Divider my="md" />
         
         <Grid>
-          <Grid.Col span={4}>
-            <Card withBorder padding="sm">
-              <Title order={5} mb="sm">Username Rules</Title>
-              {rules.rules.username_regex?.map((rule, idx) => (
-                <Group key={idx} justify="space-between" mb="xs">
-                  <div>
-                    <Text size="sm" fw={500}>{rule.name}</Text>
-                    <Code>{rule.pattern}</Code>
-                  </div>
-                  <Badge variant="light">Weight: {rule.weight}</Badge>
-                </Group>
-              )) || <Text c="dimmed" size="sm">No rules defined</Text>}
-            </Card>
-          </Grid.Col>
-          
-          <Grid.Col span={4}>
-            <Card withBorder padding="sm">
-              <Title order={5} mb="sm">Display Name Rules</Title>
-              {rules.rules.display_name_regex?.map((rule, idx) => (
-                <Group key={idx} justify="space-between" mb="xs">
-                  <div>
-                    <Text size="sm" fw={500}>{rule.name}</Text>
-                    <Code>{rule.pattern}</Code>
-                  </div>
-                  <Badge variant="light">Weight: {rule.weight}</Badge>
-                </Group>
-              )) || <Text c="dimmed" size="sm">No rules defined</Text>}
-            </Card>
-          </Grid.Col>
-          
-          <Grid.Col span={4}>
-            <Card withBorder padding="sm">
-              <Title order={5} mb="sm">Content Rules</Title>
-              {rules.rules.content_regex?.map((rule, idx) => (
-                <Group key={idx} justify="space-between" mb="xs">
-                  <div>
-                    <Text size="sm" fw={500}>{rule.name}</Text>
-                    <Code>{rule.pattern}</Code>
-                  </div>
-                  <Badge variant="light">Weight: {rule.weight}</Badge>
-                </Group>
-              )) || <Text c="dimmed" size="sm">No rules defined</Text>}
-            </Card>
-          </Grid.Col>
+          {['username_regex', 'display_name_regex', 'content_regex'].map((ruleType) => (
+            <Grid.Col span={4} key={ruleType}>
+              <Card withBorder padding="sm">
+                <Title order={5} mb="sm">
+                  {ruleType === 'username_regex' ? 'Username Rules' :
+                   ruleType === 'display_name_regex' ? 'Display Name Rules' :
+                   'Content Rules'}
+                </Title>
+                <Stack gap="xs">
+                  {(groupedRules[ruleType] || []).map((rule) => (
+                    <Card key={rule.id || rule.name} withBorder padding="xs" bg={rule.enabled ? undefined : 'gray.0'}>
+                      <Group justify="space-between" align="flex-start">
+                        <Stack gap={2} style={{ flex: 1 }}>
+                          <Group gap="xs" align="center">
+                            <Text size="sm" fw={500} c={rule.enabled ? undefined : 'dimmed'}>
+                              {rule.name}
+                            </Text>
+                            {rule.is_default && (
+                              <Badge size="xs" color="blue" variant="light">Default</Badge>
+                            )}
+                            <Badge size="xs" variant="light" color={rule.enabled ? 'green' : 'gray'}>
+                              {rule.enabled ? 'On' : 'Off'}
+                            </Badge>
+                          </Group>
+                          <Code size="xs" c={rule.enabled ? undefined : 'dimmed'}>{rule.pattern}</Code>
+                          <Text size="xs" c="dimmed">Weight: {rule.weight}</Text>
+                        </Stack>
+                        <Group gap={4}>
+                          {!rule.is_default && rule.id && (
+                            <>
+                              <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color={rule.enabled ? 'orange' : 'green'}
+                                onClick={() => handleToggleRule(rule)}
+                                loading={loading}
+                              >
+                                {rule.enabled ? <IconToggleRight size={14} /> : <IconToggleLeft size={14} />}
+                              </ActionIcon>
+                              <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="blue"
+                                onClick={() => setEditingRule(rule)}
+                              >
+                                <IconEdit size={14} />
+                              </ActionIcon>
+                              <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="red"
+                                onClick={() => handleDeleteRule(rule)}
+                                loading={loading}
+                              >
+                                <IconTrash size={14} />
+                              </ActionIcon>
+                            </>
+                          )}
+                        </Group>
+                      </Group>
+                    </Card>
+                  ))}
+                  {(!groupedRules[ruleType] || groupedRules[ruleType].length === 0) && (
+                    <Text c="dimmed" size="sm">No rules defined</Text>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+          ))}
         </Grid>
       </Card>
+
+      {/* Create Rule Modal */}
+      <Modal
+        opened={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create New Rule"
+      >
+        <Stack gap="md">
+          <TextInput
+            label="Rule Name"
+            value={newRule.name}
+            onChange={(e) => setNewRule({...newRule, name: e.target.value})}
+            placeholder="Enter rule name"
+          />
+          <Select
+            label="Rule Type"
+            value={newRule.rule_type}
+            onChange={(value) => setNewRule({...newRule, rule_type: value as Rule['rule_type']})}
+            data={[
+              { value: 'username_regex', label: 'Username Regex' },
+              { value: 'display_name_regex', label: 'Display Name Regex' },
+              { value: 'content_regex', label: 'Content Regex' }
+            ]}
+          />
+          <TextInput
+            label="Pattern (Regex)"
+            value={newRule.pattern}
+            onChange={(e) => setNewRule({...newRule, pattern: e.target.value})}
+            placeholder="Enter regex pattern"
+          />
+          <NumberInput
+            label="Weight"
+            value={newRule.weight}
+            onChange={(value) => setNewRule({...newRule, weight: Number(value) || 0})}
+            min={0}
+            max={2}
+            step={0.1}
+            precision={1}
+          />
+          <Group justify="flex-end">
+            <Button variant="subtle" onClick={() => setShowCreateModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateRule}
+              loading={loading}
+              disabled={!newRule.name || !newRule.pattern}
+            >
+              Create Rule
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Edit Rule Modal */}
+      <Modal
+        opened={!!editingRule}
+        onClose={() => setEditingRule(null)}
+        title="Edit Rule"
+      >
+        {editingRule && (
+          <Stack gap="md">
+            <TextInput
+              label="Rule Name"
+              value={editingRule.name}
+              onChange={(e) => setEditingRule({...editingRule, name: e.target.value})}
+              placeholder="Enter rule name"
+            />
+            <TextInput
+              label="Pattern (Regex)"
+              value={editingRule.pattern}
+              onChange={(e) => setEditingRule({...editingRule, pattern: e.target.value})}
+              placeholder="Enter regex pattern"
+            />
+            <NumberInput
+              label="Weight"
+              value={editingRule.weight}
+              onChange={(value) => setEditingRule({...editingRule, weight: Number(value) || 0})}
+              min={0}
+              max={2}
+              step={0.1}
+              precision={1}
+            />
+            <Group justify="flex-end">
+              <Button variant="subtle" onClick={() => setEditingRule(null)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateRule}
+                loading={loading}
+                disabled={!editingRule.name || !editingRule.pattern}
+              >
+                Update Rule
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </Stack>
   );
 }

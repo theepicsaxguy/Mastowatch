@@ -71,11 +71,25 @@ export type AnalysisData = {
 export type RulesData = {
   rules: {
     report_threshold: number;
-    username_regex?: Array<{name: string; pattern: string; weight: number}>;
-    display_name_regex?: Array<{name: string; pattern: string; weight: number}>;
-    content_regex?: Array<{name: string; pattern: string; weight: number}>;
+    username_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; is_default?: boolean; id?: number}>;
+    display_name_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; is_default?: boolean; id?: number}>;
+    content_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; is_default?: boolean; id?: number}>;
   };
   report_threshold: number;
+};
+
+export type Rule = {
+  id?: number;
+  name: string;
+  rule_type: 'username_regex' | 'display_name_regex' | 'content_regex';
+  pattern: string;
+  weight: number;
+  enabled: boolean;
+  is_default: boolean;
+};
+
+export type RulesList = {
+  rules: Rule[];
 };
 
 export async function fetchOverview(): Promise<OverviewMetrics> {
@@ -100,4 +114,34 @@ export async function fetchAccountAnalyses(accountId: string, limit: number = 50
 
 export async function fetchCurrentRules(): Promise<RulesData> {
   return apiFetch<RulesData>('/rules/current');
+}
+
+export async function fetchRulesList(): Promise<RulesList> {
+  return apiFetch<RulesList>('/rules');
+}
+
+export async function createRule(rule: Omit<Rule, 'id' | 'is_default'>): Promise<Rule> {
+  return apiFetch<Rule>('/rules', {
+    method: 'POST',
+    body: JSON.stringify(rule)
+  });
+}
+
+export async function updateRule(id: number, rule: Partial<Rule>): Promise<Rule> {
+  return apiFetch<Rule>(`/rules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(rule)
+  });
+}
+
+export async function deleteRule(id: number): Promise<{message: string}> {
+  return apiFetch<{message: string}>(`/rules/${id}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function toggleRule(id: number): Promise<{id: number; name: string; enabled: boolean; message: string}> {
+  return apiFetch<{id: number; name: string; enabled: boolean; message: string}>(`/rules/${id}/toggle`, {
+    method: 'POST'
+  });
 }

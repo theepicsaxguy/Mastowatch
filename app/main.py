@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import logging
+import re
 import time
 import secrets
 from datetime import datetime, timedelta
@@ -14,12 +15,13 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy import desc, func, text
+from sqlalchemy.orm import Session
 
 from app.auth import require_api_key
 from app.config import get_settings
 from app.db import SessionLocal
 from app.logging_conf import setup_logging
-from app.models import Account, Analysis, Config, Report
+from app.models import Account, Analysis, Config, Report, Rule
 from app.oauth import (
     get_oauth_config, 
     get_current_user, 
@@ -73,6 +75,48 @@ try:
     app.mount("/dashboard", StaticFiles(directory="static/dashboard", html=True), name="dashboard")
 except Exception:
     logging.info("Dashboard static assets not found; skipping mount.")
+
+
+# Database dependency
+def get_db_session():
+    """Dependency to get database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def sync_default_rules():
+    """Sync default rules from YAML to database if they don't exist"""
+    try:
+        with SessionLocal() as session:
+            # Clear existing default rules
+            session.query(Rule).filter(Rule.is_default == True).delete()
+            
+            # Add default rules from YAML
+            for rule_type in ['username_regex', 'display_name_regex', 'content_regex']:
+                if rule_type in rules.cfg:
+                    for rule_data in rules.cfg[rule_type]:
+                        default_rule = Rule(
+                            name=rule_data['name'],
+                            rule_type=rule_type,
+                            pattern=rule_data['pattern'],
+                            weight=rule_data['weight'],
+                            enabled=True,
+                            is_default=True
+                        )
+                        session.add(default_rule)
+            
+            session.commit()
+            logger.info("Default rules synced to database")
+            
+    except Exception as e:
+        logger.error(f"Failed to sync default rules: {e}")
+
+
+# Sync default rules on startup
+sync_default_rules()
 
 
 @app.get("/healthz", tags=["ops"])
@@ -1096,5 +1140,214 @@ def get_account_analyses(account_id: str, limit: int = 50, offset: int = 0, _: U
 
 @app.get("/rules/current", tags=["rules"])
 def get_current_rules(_: User = Depends(require_admin_hybrid)):
-    """Get current rule configuration"""
-    return {"rules": rules.cfg, "report_threshold": rules.cfg.get("report_threshold", 1.0)}
+    """Get current rule configuration including database rules"""
+    all_rules = rules.get_all_rules()
+    return {
+        "rules": {
+            **all_rules,
+            "report_threshold": rules.cfg.get("report_threshold", 1.0)
+        },
+        "report_threshold": rules.cfg.get("report_threshold", 1.0)
+    }
+
+
+@app.get("/rules", tags=["rules"])
+def list_rules(_: User = Depends(require_admin_hybrid)):
+    """List all rules (file-based and database rules)"""
+    all_rules = rules.get_all_rules()
+    response = []
+    
+    # Convert to flat list for easier frontend consumption
+    for rule_type, type_rules in all_rules.items():
+        for rule in type_rules:
+            response.append({
+                **rule,
+                "rule_type": rule_type
+            })
+    
+    return {"rules": response}
+
+
+@app.post("/rules", tags=["rules"])
+def create_rule(
+    rule_data: dict, 
+    _: User = Depends(require_admin_hybrid),
+    session: Session = Depends(get_db_session)
+):
+    """Create a new rule"""
+    try:
+        # Validate required fields
+        required_fields = ["name", "rule_type", "pattern", "weight"]
+        for field in required_fields:
+            if field not in rule_data:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Validate rule_type
+        valid_types = ["username_regex", "display_name_regex", "content_regex"]
+        if rule_data["rule_type"] not in valid_types:
+            raise HTTPException(status_code=400, detail=f"Invalid rule_type. Must be one of: {valid_types}")
+        
+        # Test regex pattern
+        try:
+            re.compile(rule_data["pattern"])
+        except re.error as e:
+            raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
+        
+        # Create rule
+        new_rule = Rule(
+            name=rule_data["name"],
+            rule_type=rule_data["rule_type"],
+            pattern=rule_data["pattern"],
+            weight=rule_data["weight"],
+            enabled=rule_data.get("enabled", True),
+            is_default=False
+        )
+        
+        session.add(new_rule)
+        session.commit()
+        session.refresh(new_rule)
+        
+        # Reload rules to include the new one
+        global rules
+        rules = Rules.from_yaml("rules.yml")
+        
+        return {
+            "id": new_rule.id,
+            "name": new_rule.name,
+            "rule_type": new_rule.rule_type,
+            "pattern": new_rule.pattern,
+            "weight": float(new_rule.weight),
+            "enabled": new_rule.enabled,
+            "is_default": new_rule.is_default
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        logger.error("Failed to create rule", extra={"error": str(e), "rule_data": rule_data})
+        raise HTTPException(status_code=500, detail="Failed to create rule")
+
+
+@app.put("/rules/{rule_id}", tags=["rules"])
+def update_rule(
+    rule_id: int,
+    rule_data: dict,
+    _: User = Depends(require_admin_hybrid),
+    session: Session = Depends(get_db_session)
+):
+    """Update an existing rule"""
+    try:
+        rule = session.query(Rule).filter(Rule.id == rule_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        
+        if rule.is_default:
+            raise HTTPException(status_code=400, detail="Cannot modify default rules from file")
+        
+        # Update allowed fields
+        if "name" in rule_data:
+            rule.name = rule_data["name"]
+        if "pattern" in rule_data:
+            # Test regex pattern
+            try:
+                re.compile(rule_data["pattern"])
+                rule.pattern = rule_data["pattern"]
+            except re.error as e:
+                raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
+        if "weight" in rule_data:
+            rule.weight = rule_data["weight"]
+        if "enabled" in rule_data:
+            rule.enabled = rule_data["enabled"]
+        
+        session.commit()
+        
+        # Reload rules
+        global rules
+        rules = Rules.from_yaml("rules.yml")
+        
+        return {
+            "id": rule.id,
+            "name": rule.name,
+            "rule_type": rule.rule_type,
+            "pattern": rule.pattern,
+            "weight": float(rule.weight),
+            "enabled": rule.enabled,
+            "is_default": rule.is_default
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        logger.error("Failed to update rule", extra={"error": str(e), "rule_id": rule_id, "rule_data": rule_data})
+        raise HTTPException(status_code=500, detail="Failed to update rule")
+
+
+@app.delete("/rules/{rule_id}", tags=["rules"])
+def delete_rule(
+    rule_id: int,
+    _: User = Depends(require_admin_hybrid),
+    session: Session = Depends(get_db_session)
+):
+    """Delete a rule"""
+    try:
+        rule = session.query(Rule).filter(Rule.id == rule_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        
+        if rule.is_default:
+            raise HTTPException(status_code=400, detail="Cannot delete default rules from file")
+        
+        session.delete(rule)
+        session.commit()
+        
+        # Reload rules
+        global rules
+        rules = Rules.from_yaml("rules.yml")
+        
+        return {"message": "Rule deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        logger.error("Failed to delete rule", extra={"error": str(e), "rule_id": rule_id})
+        raise HTTPException(status_code=500, detail="Failed to delete rule")
+
+
+@app.post("/rules/{rule_id}/toggle", tags=["rules"])
+def toggle_rule(
+    rule_id: int,
+    _: User = Depends(require_admin_hybrid),
+    session: Session = Depends(get_db_session)
+):
+    """Toggle rule enabled/disabled status"""
+    try:
+        rule = session.query(Rule).filter(Rule.id == rule_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        
+        if rule.is_default:
+            raise HTTPException(status_code=400, detail="Cannot toggle default rules from file")
+        
+        rule.enabled = not rule.enabled
+        session.commit()
+        
+        # Reload rules
+        global rules
+        rules = Rules.from_yaml("rules.yml")
+        
+        return {
+            "id": rule.id,
+            "name": rule.name,
+            "enabled": rule.enabled,
+            "message": f"Rule {'enabled' if rule.enabled else 'disabled'}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        logger.error("Failed to toggle rule", extra={"error": str(e), "rule_id": rule_id})
+        raise HTTPException(status_code=500, detail="Failed to toggle rule")
