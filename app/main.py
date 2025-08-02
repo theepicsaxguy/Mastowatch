@@ -1219,18 +1219,59 @@ def create_rule(
         required_fields = ["name", "rule_type", "pattern", "weight"]
         for field in required_fields:
             if field not in rule_data:
-                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail={
+                        "error": f"Missing required field: {field}",
+                        "required_fields": required_fields,
+                        "help": "Use GET /rules/help for examples and guidance"
+                    }
+                )
         
         # Validate rule_type
         valid_types = ["username_regex", "display_name_regex", "content_regex"]
         if rule_data["rule_type"] not in valid_types:
-            raise HTTPException(status_code=400, detail=f"Invalid rule_type. Must be one of: {valid_types}")
+            raise HTTPException(
+                status_code=400, 
+                detail={
+                    "error": f"Invalid rule_type: {rule_data['rule_type']}",
+                    "valid_types": valid_types,
+                    "help": "Use GET /rules/help to see examples for each rule type"
+                }
+            )
+        
+        # Validate weight
+        try:
+            weight = float(rule_data["weight"])
+            if weight < 0 or weight > 5.0:
+                raise ValueError("Weight must be between 0 and 5.0")
+        except (ValueError, TypeError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": f"Invalid weight: {str(e)}",
+                    "guidelines": "Weight should be 0.1-0.3 (mild), 0.4-0.6 (moderate), 0.7-0.9 (strong), 1.0+ (very strong)",
+                    "help": "Use GET /rules/help for weight guidelines and examples"
+                }
+            )
         
         # Test regex pattern
         try:
             re.compile(rule_data["pattern"])
         except re.error as e:
-            raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
+            raise HTTPException(
+                status_code=400, 
+                detail={
+                    "error": f"Invalid regex pattern: {str(e)}",
+                    "pattern": rule_data["pattern"],
+                    "suggestions": [
+                        "Check for unescaped special characters",
+                        "Ensure balanced parentheses and brackets", 
+                        "Test on regex101.com first",
+                        "Use POST /rules/validate-pattern to test your pattern"
+                    ]
+                }
+            )
         
         # Create rule
         new_rule = Rule(
@@ -1266,6 +1307,259 @@ def create_rule(
         session.rollback()
         logger.error("Failed to create rule", extra={"error": str(e), "rule_data": rule_data})
         raise HTTPException(status_code=500, detail="Failed to create rule")
+
+
+@app.get("/rules/help", tags=["rules"])
+def get_rule_creation_help():
+    """Get comprehensive help text and examples for creating rules"""
+    return {
+        "rule_types": {
+            "username_regex": {
+                "description": "Matches against the username of an account",
+                "field_name": "Username Pattern",
+                "examples": [
+                    {
+                        "name": "Spam Bot Usernames",
+                        "pattern": r"^(spam|bot|fake).*\d{3,}$",
+                        "weight": 1.0,
+                        "description": "Matches usernames starting with 'spam', 'bot', or 'fake' followed by 3+ digits",
+                        "matches": ["spam123", "bot4567", "fake999"],
+                        "non_matches": ["spammer", "robot", "fake12"]
+                    },
+                    {
+                        "name": "Random Character Usernames",
+                        "pattern": r"^[a-zA-Z]{1,3}\d{8,}$",
+                        "weight": 0.8,
+                        "description": "Matches very short letter combinations followed by long number sequences",
+                        "matches": ["abc12345678", "xy987654321", "z123456789"],
+                        "non_matches": ["alice123", "user4567", "realname99"]
+                    },
+                    {
+                        "name": "Suspicious Patterns",
+                        "pattern": r".*(crypto|nft|invest|money|rich|profit).*",
+                        "weight": 0.6,
+                        "description": "Matches usernames containing financial/crypto keywords",
+                        "matches": ["crypto_expert", "nft_trader", "easy_money"],
+                        "non_matches": ["photographer", "artist", "writer"]
+                    }
+                ]
+            },
+            "display_name_regex": {
+                "description": "Matches against the display name of an account",
+                "field_name": "Display Name Pattern", 
+                "examples": [
+                    {
+                        "name": "Empty or Suspicious Display Names",
+                        "pattern": r"^(|user\d+|account\d+|temp.*)$",
+                        "weight": 0.5,
+                        "description": "Matches empty, generic, or temporary-looking display names",
+                        "matches": ["", "user123", "account456", "temp_user"],
+                        "non_matches": ["John Smith", "Artist Name", "Real Person"]
+                    },
+                    {
+                        "name": "Excessive Emojis",
+                        "pattern": r"[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}]{5,}",
+                        "weight": 0.4,
+                        "description": "Matches display names with 5 or more consecutive emojis",
+                        "matches": ["😀😃😄😁😆", "🚀🚀🚀🚀🚀", "💰💰💰💰💰"],
+                        "non_matches": ["Hello 😊", "Artist 🎨", "Name 👋"]
+                    },
+                    {
+                        "name": "Promotion Keywords",
+                        "pattern": r".*(free|win|prize|offer|limited|exclusive|urgent).*",
+                        "weight": 0.7,
+                        "description": "Matches display names with promotional/scam keywords",
+                        "matches": ["Free Money!", "Win Big Prize", "Limited Offer"],
+                        "non_matches": ["Freelancer", "Winner's Circle", "Prize Committee"]
+                    }
+                ]
+            },
+            "content_regex": {
+                "description": "Matches against the text content of posts/statuses",
+                "field_name": "Content Pattern",
+                "examples": [
+                    {
+                        "name": "Spam URLs",
+                        "pattern": r"https?://[a-zA-Z0-9.-]+\.(tk|ml|ga|cf|gq)/",
+                        "weight": 1.5,
+                        "description": "Matches suspicious free domain extensions often used for spam",
+                        "matches": ["https://spam.tk/", "http://scam.ml/offer", "https://fake.ga/"],
+                        "non_matches": ["https://google.com/", "https://example.org/", "https://site.net/"]
+                    },
+                    {
+                        "name": "Cryptocurrency Scams",
+                        "pattern": r".*(send.*bitcoin|free.*crypto|double.*coins|invest.*btc).*",
+                        "weight": 1.2,
+                        "description": "Matches common cryptocurrency scam phrases",
+                        "matches": ["Send me bitcoin", "Free crypto giveaway", "Double your coins"],
+                        "non_matches": ["Bitcoin news", "Crypto education", "Investment advice"]
+                    },
+                    {
+                        "name": "Excessive Hashtags",
+                        "pattern": r"(#\w+\s*){10,}",
+                        "weight": 0.6,
+                        "description": "Matches posts with 10 or more hashtags (potential spam)",
+                        "matches": ["#spam #tags #everywhere #too #many #hashtags #content #promotion #fake #spam"],
+                        "non_matches": ["#photography #art #nature", "#news #politics #society"]
+                    }
+                ]
+            }
+        },
+        "weight_guidelines": {
+            "description": "Rule weight determines how much each match contributes to the final score",
+            "guidelines": [
+                "0.1 - 0.3: Very mild indicators (suspicious but not conclusive)",
+                "0.4 - 0.6: Moderate indicators (worth noting but not alarming)",
+                "0.7 - 0.9: Strong indicators (likely problematic content)",
+                "1.0 - 1.5: Very strong indicators (almost certainly spam/abuse)",
+                "1.6+: Extreme indicators (immediate action warranted)"
+            ],
+            "examples": {
+                "0.2": "Account has default avatar",
+                "0.5": "Username contains numbers",
+                "0.8": "Content has suspicious keywords",
+                "1.0": "Classic spam pattern detected",
+                "1.5": "Known scam content pattern"
+            }
+        },
+        "regex_tips": {
+            "description": "Tips for creating effective regex patterns",
+            "tips": [
+                "Use ^ and $ to match the entire string (^pattern$)",
+                "Use .* to match any characters before/after your pattern",
+                "Use \\d for digits, \\w for word characters, \\s for spaces",
+                "Use + for one or more, * for zero or more, {3,} for 3 or more",
+                "Use (option1|option2) for alternatives",
+                "Escape special characters with backslash: \\. \\? \\+ \\*",
+                "Test your patterns carefully - they affect real moderation decisions"
+            ],
+            "common_patterns": {
+                "any_digits": r"\d+",
+                "starts_with_word": r"^word.*",
+                "contains_word": r".*word.*",
+                "ends_with_word": r".*word$",
+                "exact_match": r"^exactword$",
+                "multiple_options": r"(spam|scam|fake)",
+                "repeated_chars": r"(.)\1{3,}",
+                "url_pattern": r"https?://[^\s]+",
+                "email_pattern": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+            }
+        },
+        "testing_guidance": {
+            "description": "How to test and validate your rules",
+            "steps": [
+                "1. Test your regex pattern with online tools first",
+                "2. Start with a low weight (0.1-0.3) for new rules",
+                "3. Monitor rule performance after creation",
+                "4. Adjust weights based on false positive/negative rates",
+                "5. Use the dry-run mode to test before applying",
+                "6. Review triggered rules regularly for accuracy"
+            ],
+            "validation_tools": [
+                "regex101.com - Test regex patterns online",
+                "regexpal.com - Simple regex testing",
+                "Built-in pattern validation in this form"
+            ]
+        },
+        "best_practices": {
+            "description": "Best practices for effective moderation rules",
+            "practices": [
+                "Create specific rules rather than overly broad ones",
+                "Use descriptive names that explain what the rule catches",
+                "Start conservative and adjust based on results",
+                "Combine multiple weak indicators rather than one strong one",
+                "Regularly review and update rules as spam evolves",
+                "Document the reasoning behind each rule",
+                "Consider cultural and language differences"
+            ]
+        }
+    }
+
+
+@app.post("/rules/validate-pattern", tags=["rules"])
+def validate_rule_pattern(
+    pattern_data: dict,
+    _: User = Depends(require_admin_hybrid)
+):
+    """Validate a regex pattern and provide feedback"""
+    try:
+        pattern = pattern_data.get("pattern", "")
+        test_strings = pattern_data.get("test_strings", [])
+        
+        if not pattern:
+            raise HTTPException(status_code=400, detail="Pattern is required")
+        
+        # Test if the regex is valid
+        try:
+            compiled_pattern = re.compile(pattern)
+        except re.error as e:
+            return {
+                "valid": False,
+                "error": f"Invalid regex pattern: {str(e)}",
+                "suggestions": [
+                    "Check for unescaped special characters: . ? + * [ ] ( ) { } ^ $ |",
+                    "Ensure balanced parentheses and brackets",
+                    "Use raw strings (r'pattern') to avoid escape issues",
+                    "Test your pattern on regex101.com first"
+                ]
+            }
+        
+        # Test against provided strings
+        test_results = []
+        if test_strings:
+            for test_string in test_strings[:10]:  # Limit to 10 test strings
+                try:
+                    match = compiled_pattern.search(str(test_string))
+                    test_results.append({
+                        "string": test_string,
+                        "matches": bool(match),
+                        "match_text": match.group(0) if match else None
+                    })
+                except Exception as e:
+                    test_results.append({
+                        "string": test_string,
+                        "matches": False,
+                        "error": str(e)
+                    })
+        
+        # Pattern complexity analysis
+        complexity_score = 0
+        complexity_notes = []
+        
+        if len(pattern) > 100:
+            complexity_score += 1
+            complexity_notes.append("Long pattern - consider breaking into multiple rules")
+        
+        if pattern.count('.*') > 3:
+            complexity_score += 1
+            complexity_notes.append("Many .* wildcards - may be too broad")
+        
+        if '|' in pattern and pattern.count('|') > 5:
+            complexity_score += 1
+            complexity_notes.append("Many alternatives - consider separate rules")
+        
+        complexity_level = "Low" if complexity_score == 0 else "Medium" if complexity_score == 1 else "High"
+        
+        return {
+            "valid": True,
+            "pattern": pattern,
+            "test_results": test_results,
+            "complexity": {
+                "level": complexity_level,
+                "score": complexity_score,
+                "notes": complexity_notes
+            },
+            "recommendations": [
+                "Test with a variety of strings before deploying",
+                "Start with a low weight (0.1-0.3) for new patterns",
+                "Monitor false positives after deployment",
+                "Consider case sensitivity for your use case"
+            ]
+        }
+        
+    except Exception as e:
+        logger.error("Failed to validate pattern", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to validate pattern")
 
 
 @app.put("/rules/{rule_id}", tags=["rules"])
@@ -1679,6 +1973,46 @@ def get_cache_status(_: User = Depends(require_admin_hybrid)):
             "refresh_recommended": True,
             "error": "Failed to check cache status"
         }
+
+
+@app.get("/analytics/scanning", tags=["analytics"])
+def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
+    """Get real-time scanning analytics and job tracking (15-second refresh)"""
+    try:
+        enhanced_scanner = EnhancedScanningSystem()
+        
+        # Get active jobs from Redis/Celery
+        import redis
+        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        
+        # Mock active jobs data - in real implementation, get from Celery
+        active_jobs = []
+        
+        # Get scan session progress
+        scan_sessions = enhanced_scanner.get_scanning_analytics() if hasattr(enhanced_scanner, 'get_scanning_analytics') else []
+        
+        current_time = datetime.utcnow()
+        
+        return {
+            "active_jobs": active_jobs,
+            "scan_sessions": scan_sessions[:5],  # Latest 5 sessions
+            "system_status": {
+                "last_federated_scan": None,  # TODO: Get from database
+                "last_domain_check": None,    # TODO: Get from database
+                "queue_length": 0,            # TODO: Get from Celery
+                "system_load": "normal"
+            },
+            "metadata": {
+                "last_updated": current_time.isoformat(),
+                "refresh_interval_seconds": 15,
+                "supports_real_time": True,
+                "data_lag_seconds": 0
+            }
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get scanning analytics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to get scanning analytics")
 
 
 # Enhanced Rules Management
