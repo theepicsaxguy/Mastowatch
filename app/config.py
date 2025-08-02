@@ -5,14 +5,15 @@ from functools import lru_cache
 class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     INSTANCE_BASE: AnyUrl
-    BOT_TOKEN: str
+    BOT_TOKEN: str = Field(..., min_length=1)
     ADMIN_TOKEN: str = Field(..., min_length=1)
-    DATABASE_URL: str
-    REDIS_URL: str
+    DATABASE_URL: str = Field(..., min_length=1)
+    REDIS_URL: str = Field(..., min_length=1)
     DRY_RUN: bool = True
     MAX_PAGES_PER_POLL: int = 3
     USER_AGENT: str = "MastoWatch/1.0 (+moderation-sidecar)"
     MAX_STATUSES_TO_FETCH: int = 5
+    BATCH_SIZE: int = 20
 
     # Reporting behavior
     REPORT_CATEGORY_DEFAULT: str = "spam"  # spam | violation | legal | other

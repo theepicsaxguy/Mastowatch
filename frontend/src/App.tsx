@@ -23,6 +23,8 @@ type Health = {
   dry_run: boolean;
   panic_stop: boolean;
   batch_size: number;
+  version?: string;
+  timestamp?: string;
 };
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
@@ -228,8 +230,8 @@ export default function App() {
               <Tabs.Tab value="rules" leftSection={<IconRuler size={16} />}>
                 Rules
               </Tabs.Tab>
-              <Tabs.Tab value="controls" leftSection={<IconSettings size={16} />}>
-                Controls
+              <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
+                Settings
               </Tabs.Tab>
             </Tabs.List>
 
@@ -255,8 +257,8 @@ export default function App() {
               <RulesTab rules={rules} onReload={reloadRules} saving={saving} />
             </Tabs.Panel>
 
-            <Tabs.Panel value="controls" pt="md">
-              <ControlsTab 
+            <Tabs.Panel value="settings" pt="md">
+              <SettingsTab 
                 health={health}
                 onUpdateDryRun={updateDryRun}
                 onUpdatePanic={updatePanic}
@@ -622,65 +624,220 @@ function RulesTab({ rules, onReload, saving }: {
   );
 }
 
-function ControlsTab({ health, onUpdateDryRun, onUpdatePanic, onReloadRules, saving }: {
+function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, onReloadRules, saving }: {
   health: Health | null,
   onUpdateDryRun: (next: boolean) => void,
   onUpdatePanic: (next: boolean) => void,
   onReloadRules: () => void,
   saving: boolean
 }) {
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [configSuccess, setConfigSuccess] = useState<string | null>(null);
+
+  const handleConfigUpdate = async (updateFn: () => Promise<void>, successMessage: string) => {
+    try {
+      setConfigError(null);
+      setConfigSuccess(null);
+      await updateFn();
+      setConfigSuccess(successMessage);
+      setTimeout(() => setConfigSuccess(null), 3000);
+    } catch (error: any) {
+      setConfigError(error.message || 'Configuration update failed');
+      setTimeout(() => setConfigError(null), 5000);
+    }
+  };
+
   return (
     <Stack gap="md">
+      {/* Error/Success alerts */}
+      {configError && (
+        <Alert color="red" withCloseButton onClose={() => setConfigError(null)}>
+          <Text size="sm">{configError}</Text>
+        </Alert>
+      )}
+      
+      {configSuccess && (
+        <Alert color="green" withCloseButton onClose={() => setConfigSuccess(null)}>
+          <Text size="sm">{configSuccess}</Text>
+        </Alert>
+      )}
+
+      {/* System Status Card */}
       <Card withBorder padding="md">
         <Title order={4} mb="md">System Status</Title>
         {!health ? (
           <Skeleton height={90} />
         ) : (
-          <Group gap="lg">
-            <Stat label="Database" ok={health.db_ok} />
-            <Stat label="Redis" ok={health.redis_ok} />
-            <Stat label="Dry run" ok={health.dry_run} onColor="blue" />
-            <Stat label="Panic stop" ok={health.panic_stop} onColor="red" />
-            <Stat label="Batch size" value={String(health.batch_size)} />
-          </Group>
+          <Grid>
+            <Grid.Col span={6}>
+              <Group gap="lg">
+                <Stat label="Database" ok={health.db_ok} />
+                <Stat label="Redis" ok={health.redis_ok} />
+                <Stat label="Overall Status" ok={health.ok} />
+              </Group>
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <Group gap="lg">
+                <Stat label="Version" value={health.version || 'Unknown'} />
+                <Stat label="Batch Size" value={String(health.batch_size)} />
+                <Text size="xs" c="dimmed">
+                  Last updated: {health.timestamp ? new Date(health.timestamp).toLocaleString() : 'Unknown'}
+                </Text>
+              </Group>
+            </Grid.Col>
+          </Grid>
         )}
       </Card>
 
+      {/* Runtime Controls Card */}
       <Card withBorder padding="md">
         <Title order={4} mb="md">Runtime Controls</Title>
         <Stack gap="md">
-          <Group justify="space-between">
+          <Group justify="space-between" align="flex-start">
             <div>
-              <Text fw={500}>Dry run mode</Text>
-              <Text size="sm" c="dimmed">No reports will be submitted to Mastodon</Text>
+              <Text fw={500}>Dry Run Mode</Text>
+              <Text size="sm" c="dimmed">
+                When enabled, analyses will run but no reports will be submitted to Mastodon.
+                Use this for testing rules and configurations safely.
+              </Text>
+              <Badge 
+                color={health?.dry_run ? "blue" : "gray"} 
+                variant="light" 
+                size="sm" 
+                mt="xs"
+              >
+                {health?.dry_run ? "ENABLED - Testing Mode" : "DISABLED - Live Mode"}
+              </Badge>
             </div>
             <Switch
+              size="lg"
               checked={!!health?.dry_run}
-              onChange={(e) => onUpdateDryRun(e.currentTarget.checked)}
+              onChange={(e) => handleConfigUpdate(
+                async () => onUpdateDryRun(e.currentTarget.checked),
+                `Dry run mode ${e.currentTarget.checked ? 'enabled' : 'disabled'}`
+              )}
               disabled={!health || saving}
+              color="blue"
             />
           </Group>
           
-          <Group justify="space-between">
+          <Divider />
+          
+          <Group justify="space-between" align="flex-start">
             <div>
-              <Text fw={500}>Panic stop</Text>
-              <Text size="sm" c="dimmed">Pause all polling and reporting</Text>
+              <Text fw={500}>Panic Stop</Text>
+              <Text size="sm" c="dimmed">
+                Emergency stop for all polling and reporting operations. 
+                Use this to immediately halt all automated moderation activities.
+              </Text>
+              <Badge 
+                color={health?.panic_stop ? "red" : "gray"} 
+                variant="light" 
+                size="sm" 
+                mt="xs"
+              >
+                {health?.panic_stop ? "ACTIVE - All Operations Stopped" : "INACTIVE - Normal Operations"}
+              </Badge>
             </div>
             <Switch
+              size="lg"
               checked={!!health?.panic_stop}
-              onChange={(e) => onUpdatePanic(e.currentTarget.checked)}
+              onChange={(e) => handleConfigUpdate(
+                async () => onUpdatePanic(e.currentTarget.checked),
+                `Panic stop ${e.currentTarget.checked ? 'activated' : 'deactivated'}`
+              )}
               disabled={!health || saving}
               color="red"
             />
           </Group>
           
-          <Group justify="space-between">
+          <Divider />
+          
+          <Group justify="space-between" align="flex-start">
             <div>
-              <Text fw={500}>Rules configuration</Text>
-              <Text size="sm" c="dimmed">Reload rules from configuration file</Text>
+              <Text fw={500}>Rules Configuration</Text>
+              <Text size="sm" c="dimmed">
+                Reload moderation rules from the configuration file. 
+                This will apply any changes made to rules.yml without restarting the service.
+              </Text>
             </div>
-            <Button variant="light" onClick={onReloadRules} disabled={saving}>
+            <Button 
+              variant="light" 
+              leftSection={<IconRefresh size={16} />}
+              onClick={() => handleConfigUpdate(
+                async () => onReloadRules(),
+                'Rules configuration reloaded successfully'
+              )} 
+              disabled={saving}
+              loading={saving}
+            >
               Reload Rules
+            </Button>
+          </Group>
+        </Stack>
+      </Card>
+
+      {/* Configuration Information Card */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Current Configuration</Title>
+        <Grid>
+          <Grid.Col span={6}>
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Dry Run:</Text>
+                <Badge color={health?.dry_run ? "blue" : "gray"} variant="light" size="sm">
+                  {health?.dry_run ? "Enabled" : "Disabled"}
+                </Badge>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Panic Stop:</Text>
+                <Badge color={health?.panic_stop ? "red" : "gray"} variant="light" size="sm">
+                  {health?.panic_stop ? "Active" : "Inactive"}
+                </Badge>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Batch Size:</Text>
+                <Text size="sm" fw={500}>{health?.batch_size || 'Unknown'}</Text>
+              </Group>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={6}>
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Database:</Text>
+                <Badge color={health?.db_ok ? "green" : "red"} variant="light" size="sm">
+                  {health?.db_ok ? "Connected" : "Error"}
+                </Badge>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Redis:</Text>
+                <Badge color={health?.redis_ok ? "green" : "red"} variant="light" size="sm">
+                  {health?.redis_ok ? "Connected" : "Error"}
+                </Badge>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Version:</Text>
+                <Text size="sm" fw={500}>{health?.version || 'Unknown'}</Text>
+              </Group>
+            </Stack>
+          </Grid.Col>
+        </Grid>
+      </Card>
+
+      {/* Help and Documentation Card */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Help & Documentation</Title>
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            For more information about configuration options and troubleshooting, 
+            refer to the project documentation.
+          </Text>
+          <Group>
+            <Button variant="light" size="sm" component="a" href="/docs" target="_blank">
+              View Documentation
+            </Button>
+            <Button variant="light" size="sm" component="a" href="/metrics" target="_blank">
+              View Metrics
             </Button>
           </Group>
         </Stack>
