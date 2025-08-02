@@ -1,25 +1,18 @@
-from typing import List, Any
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Dict, Any, Optional
 import re
+from datetime import datetime
 
-from app.auth import require_admin_hybrid
+from app.auth import require_api_key, get_api_key
 from app.db import SessionLocal
-from app.models import Rule
-from app.schemas import User
+from app.models import Rule, Analysis
+from app.oauth import User, require_admin_hybrid
 from app.services.rule_service import rule_service
 from app.enhanced_scanning import EnhancedScanningSystem
+from sqlalchemy.orm import Session
+from sqlalchemy import desc, func
 
 router = APIRouter()
-
-# Database dependency
-def get_db_session():
-    """Dependency to get database session"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/rules/current", tags=["rules"])
 def get_current_rules(_: User = Depends(require_admin_hybrid)):
@@ -30,13 +23,14 @@ def get_current_rules(_: User = Depends(require_admin_hybrid)):
             **all_rules,
             "report_threshold": config.get("report_threshold", 1.0)
         },
-        "report_threshold": config.get("report/threshold", 1.0)
+        "report_threshold": config.get("report_threshold", 1.0)
     }
 
 
 @router.get("/rules", tags=["rules"])
 def list_rules(_: User = Depends(require_admin_hybrid)):
-    """List all rules (file-based and database rules)"""    all_rules, _, _ = rule_service.get_active_rules()
+    """List all rules (file-based and database rules)"""
+    all_rules, _, _ = rule_service.get_active_rules()
     response = []
     
     # Convert to flat list for easier frontend consumption
@@ -54,7 +48,7 @@ def list_rules(_: User = Depends(require_admin_hybrid)):
 def create_rule(
     rule_data: dict, 
     _: User = Depends(require_admin_hybrid),
-    session: Session = Depends(get_db_session)
+    session: Session = Depends(SessionLocal)
 ):
     """Create a new rule"""
     try:
@@ -79,7 +73,7 @@ def create_rule(
                 detail={
                     "error": f"Invalid detector_type: {rule_data['detector_type']}",
                     "valid_types": valid_detector_types,
-                    "help": "Use GET /rules/help to see examples for each detector type"
+                    "help": "Use GET /rules/help to see examples for each rule type"
                 }
             )
         
@@ -98,21 +92,6 @@ def create_rule(
                 }
             )
         
-        # Validate trigger_threshold
-        try:
-            trigger_threshold = float(rule_data["trigger_threshold"])
-            if trigger_threshold < 0 or trigger_threshold > 10.0:
-                raise ValueError("Trigger threshold must be between 0 and 10.0")
-        except (ValueError, TypeError) as e:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": f"Invalid trigger_threshold: {str(e)}",
-                    "guidelines": "Trigger threshold should be 0.1-10.0",
-                    "help": "Use GET /rules/help for trigger threshold guidelines and examples"
-                }
-            )
-
         # Test regex pattern if detector_type is regex
         if rule_data["detector_type"] == "regex":
             try:
@@ -133,9 +112,9 @@ def create_rule(
             name=rule_data["name"],
             detector_type=rule_data["detector_type"],
             pattern=rule_data["pattern"],
-            weight=weight,
+            weight=rule_data["weight"],
             action_type=rule_data["action_type"],
-            trigger_threshold=trigger_threshold,
+            trigger_threshold=rule_data["trigger_threshold"],
             action_duration_seconds=rule_data.get("action_duration_seconds"),
             action_warning_text=rule_data.get("action_warning_text"),
             warning_preset_id=rule_data.get("warning_preset_id"),
@@ -144,57 +123,71 @@ def create_rule(
             created_by=_.username if _ else "system"
         )
         
-        return {
-            "id": new_rule.id,
-            "name": new_rule.name,
-            "detector_type": new_rule.detector_type,
-            "pattern": new_rule.pattern,
-            "weight": float(new_rule.weight),
-            "action_type": new_rule.action_type,
-            "trigger_threshold": float(new_rule.trigger_threshold),
-            "enabled": new_rule.enabled,
-            "is_default": new_rule.is_default
-        }
+        return new_rule
         
     except HTTPException:
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create rule: {e}")
+        logger.error("Failed to create rule", extra={"error": str(e), "rule_data": rule_data})
+        raise HTTPException(status_code=500, detail="Failed to create rule")
 
 
 @router.get("/rules/help", tags=["rules"])
 def get_rule_creation_help():
     """Get comprehensive help text and examples for creating rules"""
     return {
-        "detector_types": {
+        "rule_types": {
             "regex": {
                 "description": "Matches against text content using regular expressions.",
+                "fields": ["pattern", "weight", "action_type", "trigger_threshold", "description"],
                 "examples": [
-                    {"name": "Spam URLs", "pattern": r"https?://[a-zA-Z0-9.-]+\\.(tk|ml|ga|cf|gq)/", "weight": 1.5, "action_type": "report", "trigger_threshold": 1.0, "description": "Matches suspicious free domain extensions often used for spam"},
+                    {
+                        "name": "Spam URL Regex",
+                        "detector_type": "regex",
+                        "pattern": r"https?://[a-zA-Z0-9.-]+\\.(tk|ml|ga|cf|gq)/",
+                        "weight": 1.5,
+                        "action_type": "report",
+                        "trigger_threshold": 1.0,
+                        "description": "Detects common spam URLs using free domains."
+                    }
                 ]
             },
             "keyword": {
-                "description": "Matches against text content using keywords.",
+                "description": "Matches against text content for specific keywords.",
+                "fields": ["pattern" (comma-separated keywords), "weight", "action_type", "trigger_threshold", "target_field" (username, display_name, content), "description"],
                 "examples": [
-                    {"name": "Crypto Keywords", "pattern": "bitcoin,ethereum,crypto", "weight": 1.2, "action_type": "silence", "trigger_threshold": 1.0, "description": "Matches common cryptocurrency terms"},
+                    {
+                        "name": "Crypto Keywords",
+                        "detector_type": "keyword",
+                        "pattern": "bitcoin, crypto, nft, blockchain",
+                        "weight": 0.8,
+                        "action_type": "silence",
+                        "trigger_threshold": 1.0,
+                        "target_field": "content",
+                        "description": "Detects cryptocurrency related keywords in posts."
+                    }
                 ]
             },
             "behavioral": {
                 "description": "Matches against account behavior metrics.",
+                "fields": ["pattern" (behavior type, e.g., 'rapid_posting'), "weight", "action_type", "trigger_threshold", "description"],
                 "examples": [
-                    {"name": "Rapid Posting", "pattern": "posts_last_1h", "weight": 0.8, "action_type": "suspend", "trigger_threshold": 50, "description": "Matches accounts posting more than 50 times in the last hour"},
+                    {
+                        "name": "Rapid Posting Behavior",
+                        "detector_type": "behavioral",
+                        "pattern": "rapid_posting",
+                        "weight": 1.2,
+                        "action_type": "suspend",
+                        "trigger_threshold": 5.0,
+                        "description": "Detects accounts posting more than 5 times in an hour."
+                    }
                 ]
             }
         },
-        "action_types": {
-            "report": "Generates a report to the Mastodon instance.",
-            "silence": "Silences the account on the Mastodon instance.",
-            "suspend": "Suspends the account on the Mastodon instance.",
-            "disable": "Disables the account on the Mastodon instance.",
-            "sensitive": "Marks content as sensitive.",
-            "domain_block": "Blocks the domain of the account."
-        },
+        "action_types": [
+            "report", "silence", "suspend", "disable", "sensitive", "domain_block"
+        ],
         "weight_guidelines": {
             "description": "Rule weight determines how much each match contributes to the final score",
             "guidelines": [
@@ -208,8 +201,9 @@ def get_rule_creation_help():
         "trigger_threshold_guidelines": {
             "description": "The score an account must reach to trigger the rule's action.",
             "guidelines": [
-                "For text-based detectors (regex, keyword), this is typically 1.0 or higher, meaning a single strong match can trigger.",
-                "For behavioral detectors, this is the numerical threshold for the metric (e.g., 50 for 'posts_last_1h')."
+                "For simple rules, often 1.0 (a single match triggers the action).",
+                "For behavioral rules, this might be a count (e.g., 5 posts in an hour).",
+                "Can be used to combine multiple weaker rules to trigger a stronger action."
             ]
         },
         "regex_tips": {
@@ -217,10 +211,10 @@ def get_rule_creation_help():
             "tips": [
                 "Use ^ and $ to match the entire string (^pattern$)",
                 "Use .* to match any characters before/after your pattern",
-                "Use \\d for digits, \\w for word characters, \\s for spaces",
+                "Use \d for digits, \w for word characters, \s for spaces",
                 "Use + for one or more, * for zero or more, {3,} for 3 or more",
                 "Use (option1|option2) for alternatives",
-                "Escape special characters with backslash: \\. \\? \\+ \\* \\(",
+                "Escape special characters with backslash: \. \? \+ \*",
                 "Test your patterns carefully - they affect real moderation decisions"
             ]
         },
@@ -234,94 +228,20 @@ def get_rule_creation_help():
                 "5. Use the dry-run mode to test before applying",
                 "6. Review triggered rules regularly for accuracy"
             ]
-        }
-    }
-
-
-@router.post("/rules/validate-pattern", tags=["rules"])
-def validate_rule_pattern(
-    pattern_data: dict,
-    _: User = Depends(require_admin_hybrid)
-):
-    """Validate a regex pattern and provide feedback"""
-    try:
-        pattern = pattern_data.get("pattern", "")
-        test_strings = pattern_data.get("test_strings", [])
-        
-        if not pattern:
-            raise HTTPException(status_code=400, detail="Pattern is required")
-        
-        # Test if the regex is valid
-        try:
-            compiled_pattern = re.compile(pattern)
-        except re.error as e:
-            return {
-                "valid": False,
-                "error": f"Invalid regex pattern: {str(e)}",
-                "suggestions": [
-                    "Check for unescaped special characters: . ? + * [ ] ( ) { } ^ $ |",
-                    "Ensure balanced parentheses and brackets",
-                    "Use raw strings (r'pattern') to avoid escape issues",
-                    "Test your pattern on regex101.com first"
-                ]
-            }
-        
-        # Test against provided strings
-        test_results = []
-        if test_strings:
-            for test_string in test_strings[:10]:  # Limit to 10 test strings
-                try:
-                    match = compiled_pattern.search(str(test_string))
-                    test_results.append({
-                        "string": test_string,
-                        "matches": bool(match),
-                        "match_text": match.group(0) if match else None
-                    })
-                except Exception as e:
-                    test_results.append({
-                        "string": test_string,
-                        "matches": False,
-                        "error": str(e)
-                    })
-        
-        # Pattern complexity analysis
-        complexity_score = 0
-        complexity_notes = []
-        
-        if len(pattern) > 100:
-            complexity_score += 1
-            complexity_notes.append("Long pattern - consider breaking into multiple rules")
-        
-        if pattern.count('.*') > 3:
-            complexity_score += 1
-            complexity_notes.append("Many .* wildcards - may be too broad")
-        
-        if '|' in pattern and pattern.count('|') > 5:
-            complexity_score += 1
-            complexity_notes.effective = "High"
-            complexity_notes.append("Many alternatives - consider separate rules")
-        
-        complexity_level = "Low" if complexity_score == 0 else "Medium" if complexity_score == 1 else "High"
-        
-        return {
-            "valid": True,
-            "pattern": pattern,
-            "test_results": test_results,
-            "complexity": {
-                "level": complexity_level,
-                "score": complexity_score,
-                "notes": complexity_notes
-            },
-            "recommendations": [
-                "Test with a variety of strings before deploying",
-                "Start with a low weight (0.1-0.3) for new patterns",
-                "Monitor false positives after deployment",
-                "Consider case sensitivity for your use case"
+        },
+        "best_practices": {
+            "description": "Best practices for effective moderation rules",
+            "practices": [
+                "Create specific rules rather than overly broad ones",
+                "Use descriptive names that explain what the rule catches",
+                "Start conservative and adjust based on results",
+                "Combine multiple weak indicators rather than one strong one",
+                "Regularly review and update rules as spam evolves",
+                "Document the reasoning behind each rule",
+                "Consider cultural and language differences"
             ]
         }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to validate pattern: {e}")
+    }
 
 
 @router.put("/rules/{rule_id}", tags=["rules"])
@@ -329,45 +249,34 @@ def update_rule(
     rule_id: int,
     rule_data: dict,
     _: User = Depends(require_admin_hybrid),
-    session: Session = Depends(get_db_session)
+    session: Session = Depends(SessionLocal)
 ):
     """Update an existing rule"""
     try:
-        rule = session.query(Rule).filter(Rule.id == rule_id).first()
-        if not rule:
+        updated_rule = rule_service.update_rule(rule_id, **rule_data)
+        if not updated_rule:
             raise HTTPException(status_code=404, detail="Rule not found")
         
-        updated_rule = rule_service.update_rule(rule_id, **rule_data)
-        
-        return {
-            "id": updated_rule.id,
-            "name": updated_rule.name,
-            "detector_type": updated_rule.detector_type,
-            "pattern": updated_rule.pattern,
-            "weight": float(updated_rule.weight),
-            "action_type": updated_rule.action_type,
-            "trigger_threshold": float(updated_rule.trigger_threshold),
-            "enabled": updated_rule.enabled,
-            "is_default": updated_rule.is_default,
-            "message": "Rule updated"
-        }
+        return updated_rule
         
     except HTTPException:
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update rule: {e}")
+        logger.error("Failed to update rule", extra={"error": str(e), "rule_id": rule_id, "rule_data": rule_data})
+        raise HTTPException(status_code=500, detail="Failed to update rule")
 
 
 @router.delete("/rules/{rule_id}", tags=["rules"])
 def delete_rule(
     rule_id: int,
     _: User = Depends(require_admin_hybrid),
-    session: Session = Depends(get_db_session)
+    session: Session = Depends(SessionLocal)
 ):
     """Delete a rule"""
     try:
-        rule_service.delete_rule(rule_id)
+        if not rule_service.delete_rule(rule_id):
+            raise HTTPException(status_code=404, detail="Rule not found")
         
         return {"message": "Rule deleted successfully"}
         
@@ -375,18 +284,21 @@ def delete_rule(
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete rule: {e}")
+        logger.error("Failed to delete rule", extra={"error": str(e), "rule_id": rule_id})
+        raise HTTPException(status_code=500, detail="Failed to delete rule")
 
 
 @router.post("/rules/{rule_id}/toggle", tags=["rules"])
 def toggle_rule(
     rule_id: int,
     _: User = Depends(require_admin_hybrid),
-    session: Session = Depends(get_db_session)
+    session: Session = Depends(SessionLocal)
 ):
     """Toggle rule enabled/disabled status"""
     try:
-        toggled_rule = rule_service.toggle_rule(rule_id, not rule_service.get_rule_by_id(rule_id).enabled)
+        toggled_rule = rule_service.toggle_rule(rule_id, not rule_service.get_rule_by_id(rule_id).enabled) # Assuming get_rule_by_id exists and returns a Rule object
+        if not toggled_rule:
+            raise HTTPException(status_code=404, detail="Rule not found")
         
         # Invalidate content scans due to rule changes
         enhanced_scanner = EnhancedScanningSystem()
@@ -403,7 +315,8 @@ def toggle_rule(
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to toggle rule: {e}")
+        logger.error("Failed to toggle rule", extra={"error": str(e), "rule_id": rule_id})
+        raise HTTPException(status_code=500, detail="Failed to toggle rule")
 
 
 @router.post("/rules/bulk-toggle", tags=["rules"])
@@ -411,7 +324,7 @@ def bulk_toggle_rules(
     rule_ids: List[int],
     enabled: bool,
     _: User = Depends(require_admin_hybrid),
-    session: Session = Depends(get_db_session)
+    session: Session = Depends(SessionLocal)
 ):
     """Toggle multiple rules at once"""
     try:
@@ -420,14 +333,121 @@ def bulk_toggle_rules(
         # Invalidate content scans due to rule changes
         enhanced_scanner = EnhancedScanningSystem()
         enhanced_scanner.invalidate_content_scans(rule_changes=True)
-
+        
         return {
-            "message": f"Successfully {"enabled" if enabled else "disabled"} {len(updated_rules)} rules.",
-            "updated_rules_count": len(updated_rules)
+            "updated_rules": [r.name for r in updated_rules],
+            "enabled": enabled,
+            "message": f"{len(updated_rules)} rules {"enabled" if enabled else "disabled"}"
         }
         
     except HTTPException:
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to bulk toggle rules: {e}")
+        logger.error("Failed to bulk toggle rules", extra={"error": str(e), "rule_ids": rule_ids})
+        raise HTTPException(status_code=500, detail="Failed to bulk toggle rules")
+
+
+@router.get("/rules/{rule_id}/details", tags=["rules"])
+def get_rule_details(
+    rule_id: int,
+    _: User = Depends(require_admin_hybrid),
+    session: Session = Depends(SessionLocal)
+):
+    """Get detailed information about a specific rule"""
+    try:
+        rule = session.query(Rule).filter(Rule.id == rule_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        
+        # Get recent analyses using this rule
+        recent_analyses = (
+            session.query(Analysis)
+            .filter(Analysis.rule_key == rule.name) # Assuming rule.name is used as rule_key in Analysis
+            .order_by(desc(Analysis.created_at))
+            .limit(10)
+            .all()
+        )
+        
+        return {
+            "id": rule.id,
+            "name": rule.name,
+            "detector_type": rule.detector_type,
+            "pattern": rule.pattern,
+            "weight": float(rule.weight),
+            "action_type": rule.action_type,
+            "trigger_threshold": float(rule.trigger_threshold),
+            "action_duration_seconds": rule.action_duration_seconds,
+            "action_warning_text": rule.action_warning_text,
+            "warning_preset_id": rule.warning_preset_id,
+            "enabled": rule.enabled,
+            "description": rule.description,
+            "created_by": rule.created_by,
+            "updated_by": rule.updated_by,
+            "created_at": rule.created_at.isoformat() if rule.created_at else None,
+            "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+            "recent_analyses": [
+                {
+                    "id": analysis.id,
+                    "mastodon_account_id": analysis.mastodon_account_id,
+                    "score": float(analysis.score),
+                    "created_at": analysis.created_at.isoformat(),
+                    "evidence": analysis.evidence
+                }
+                for analysis in recent_analyses
+            ]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get rule details", extra={"error": str(e), "rule_id": rule_id})
+        raise HTTPException(status_code=500, detail="Failed to get rule details")
+
+@router.post("/rules/reload", tags=["ops"])
+def reload_rules(_: User = Depends(require_admin_hybrid)):
+    """Reload rules from database"""
+    try:
+        old_sha = rule_service.ruleset_sha256 if rule_service.ruleset_sha256 else "unknown"
+
+        try:
+            rule_service.get_active_rules(force_refresh=True)
+        except Exception as e:
+            logger.error(
+                "Failed to load rules from database",
+                extra={"error": str(e), "error_type": type(e).__name__},
+            )
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "rules_load_failed", "message": f"Failed to load rules from database: {str(e)}"},
+            )
+
+        new_sha = rule_service.ruleset_sha256
+
+        logger.info(
+            "Rules configuration reloaded from database",
+            extra={
+                "old_sha": old_sha[:8] if old_sha != "unknown" else old_sha,
+                "new_sha": new_sha[:8],
+                "sha_changed": old_sha != new_sha,
+            },
+        )
+
+        return {"reloaded": True, "ruleset_sha256": new_sha, "previous_sha256": old_sha, "changed": old_sha != new_sha}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to reload rules", extra={"error": str(e), "error_type": type(e).__name__})
+        raise HTTPException(
+            status_code=500, detail={"error": "rules_reload_failed", "message": f"Failed to reload rules: {str(e)}"}
+        )
+
+@router.get("/analytics/rules/statistics", tags=["analytics"])
+def get_rule_statistics(_: User = Depends(require_admin_hybrid)):
+    """Get comprehensive rule statistics and performance metrics"""
+    try:
+        rule_stats = rule_service.get_rule_statistics()
+        return rule_stats
+    except Exception as e:
+        logger.error("Failed to fetch rule statistics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch rule statistics")

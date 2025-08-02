@@ -2,10 +2,11 @@ from typing import List, Dict, Any
 
 from app.services.detectors.base import BaseDetector
 from app.schemas import Violation, Evidence
+from app.models import Rule
 
 
 class KeywordDetector(BaseDetector):
-    def evaluate(self, rule: Any, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
+    def evaluate(self, rule: Rule, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
         violations: List[Violation] = []
 
         terms = [term.strip() for term in rule.pattern.split(",")]

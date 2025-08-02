@@ -39,20 +39,34 @@ class MastoClient:
             timeout=30.0,
         )
 
-    
+    def _parse_next_cursor(self, link_header: Optional[str]) -> Optional[str]:
+        """Parses the Link header to extract the next_max_id for pagination."""
+        if not link_header:
+            return None
+        import re
+        for link in link_header.split(","):
+            if 'rel="next"' in link:
+                match = re.search(r'max_id=(\\d+)', link)
+                if match:
+                    return match.group(1)
+        return None
 
     # Type-safe methods using generated client
+
+    from app.clients.mastodon.api.accounts import get_account as api_get_account
 
     def get_account(self, account_id: str) -> Dict[str, Any]:
         """Get account information using the generated client."""
         throttle_if_needed(self._bucket_key)
         with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}").time():
-            response = self._api_client.get_httpx_client().get(f"/api/v1/accounts/{account_id}")
+            response = api_get_account.sync_detailed(client=self._api_client, id=account_id)
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint=f"/api/v1/accounts/{account_id}", code=str(response.status_code)).inc()
         response.raise_for_status()
-        return response.json()
+        return response.parsed.to_dict()
+
+    from app.clients.mastodon.api.accounts import get_account_statuses as api_get_account_statuses
 
     def get_account_statuses(
         self,
@@ -66,26 +80,24 @@ class MastoClient:
     ) -> List[Dict[str, Any]]:
         """Get account statuses using the generated client."""
         throttle_if_needed(self._bucket_key)
-        params = {
-            "limit": limit,
-            "exclude_reblogs": exclude_reblogs,
-            "exclude_replies": exclude_replies,
-            "only_media": only_media,
-            "pinned": pinned,
-        }
-        if max_id:
-            params["max_id"] = max_id
-            
-        path = f"/api/v1/accounts/{account_id}/statuses"
-        with api_call_seconds.labels(endpoint=path).time():
-            response = self._api_client.get_httpx_client().get(path, params=params)
+        with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}/statuses").time():
+            response = api_get_account_statuses.sync_detailed(
+                client=self._api_client,
+                id=account_id,
+                limit=limit,
+                max_id=max_id,
+                exclude_reblogs=exclude_reblogs,
+                exclude_replies=exclude_replies,
+                only_media=only_media,
+                pinned=pinned,
+            )
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
-            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+            http_errors.labels(endpoint=f"/api/v1/accounts/{account_id}/statuses", code=str(response.status_code)).inc()
         response.raise_for_status()
-        return response.json()
+        return [s.to_dict() for s in response.parsed]
 
-    from app.clients.mastodon.models.create_report_body import CreateReportBody
+    from app.clients.mastodon.api.reports import create_report as api_create_report
 
     def create_report(
         self,
@@ -112,12 +124,14 @@ class MastoClient:
 
         path = "/api/v1/reports"
         with api_call_seconds.labels(endpoint=path).time():
-            response = self._api_client.get_httpx_client().post(path, json=report_body.to_dict())
+            response = api_create_report.sync_detailed(client=self._api_client, body=report_body)
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
         response.raise_for_status()
         return response
+
+    from app.clients.mastodon.api.admin import get_admin_accounts as api_get_admin_accounts
 
     def get_admin_accounts(
         self,
@@ -128,49 +142,36 @@ class MastoClient:
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         """Get admin accounts using the generated client, with pagination."""
         throttle_if_needed(self._bucket_key)
-        params = {
-            "limit": limit,
-        }
-        if origin:
-            params["origin"] = origin
-        if status:
-            params["status"] = status
-        if max_id:
-            params["max_id"] = max_id
-
-        path = "/api/v1/admin/accounts"
-        with api_call_seconds.labels(endpoint=path).time():
-            response = self._api_client.get_httpx_client().get(path, params=params)
+        with api_call_seconds.labels(endpoint="/api/v1/admin/accounts").time():
+            response = api_get_admin_accounts.sync_detailed(
+                client=self._api_client,
+                origin=origin,
+                status=status,
+                limit=limit,
+                max_id=max_id,
+            )
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
-            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+            http_errors.labels(endpoint="/api/v1/admin/accounts", code=str(response.status_code)).inc()
         response.raise_for_status()
 
-        next_max_id = None
-        if "Link" in response.headers:
-            link_header = response.headers["Link"]
-            # Example: <https://mastodon.social/api/v1/admin/accounts?max_id=123&limit=50>; rel="next"
-            # We need to parse the max_id from the 'next' link
-            for link in link_header.split(","):
-                if 'rel="next"' in link:
-                    import re
-                    match = re.search(r'max_id=(\d+)', link)
-                    if match:
-                        next_max_id = match.group(1)
-                    break
-        return response.json(), next_max_id
+        accounts = [a.to_dict() for a in response.parsed]
+        next_max_id = self._parse_next_cursor(response.headers.get("Link"))
+        return accounts, next_max_id
+
+    from app.clients.mastodon.api.instance import get_instance_rules as api_get_instance_rules
 
     def get_instance_rules(self) -> List[Dict[str, Any]]:
         """Get instance rules using the generated client."""
         throttle_if_needed(self._bucket_key)
         path = "/api/v1/instance/rules"
         with api_call_seconds.labels(endpoint=path).time():
-            response = self._api_client.get_httpx_client().get(path)
+            response = api_get_instance_rules.sync_detailed(client=self._api_client)
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
         response.raise_for_status()
-        return response.json()
+        return [r.to_dict() for r in response.parsed]
 
     
 

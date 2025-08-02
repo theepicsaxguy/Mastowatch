@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 from app.services.detectors.base import BaseDetector
 from app.schemas import Violation, Evidence
 from app.db import engine
-from app.models import InteractionHistory, AccountBehaviorMetrics
+from app.models import InteractionHistory, AccountBehaviorMetrics, Rule
 
 
 class BehavioralDetector(BaseDetector):
-    def evaluate(self, rule: Any, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
+    def evaluate(self, rule: Rule, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
         violations: List[Violation] = []
         mastodon_account_id = account_data.get("mastodon_account_id")
 

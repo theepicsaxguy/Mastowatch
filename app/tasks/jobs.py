@@ -540,21 +540,33 @@ def process_new_report(report_payload: dict):
 
         if violations:
             logging.info(f"Report {report_data.get('id')} triggered {len(violations)} violations.")
-            # Here you would decide on the action based on the violations
-            # For example, if a rule with action_type='report' and score > threshold is found
-            # you might call enforcement_service.perform_account_action
-            # This part needs to be fleshed out based on the desired action logic
-            # For now, we'll just log the violations.
             for violation in violations:
-                logging.info(f"  Violation: {violation.rule_name}, Score: {violation.score}")
-                # Example: if a rule suggests reporting, and it hasn't been reported yet
-                # if violation.action_type == 'report' and not report_data.get('mastodon_report_id'):
-                #     enforcement_service.perform_account_action(
-                #         account_id=account_data['id'],
-                #         action_type='report',
-                #         report_id=report_data.get('id'),
-                #         comment=f"Automated report: {violation.rule_name} (Score: {violation.score})"
-                #     )
+                logging.info(f"  Violation: {violation.rule_name}, Score: {violation.score}, Action: {violation.action_type}")
+                
+                # Decide on action based on the rule's action_type and trigger_threshold
+                # For 'report' action, we need to ensure it's not already reported
+                if violation.action_type == 'report':
+                    # Check if a report for this account/status combination already exists
+                    # This is a simplified check, a more robust one might involve dedupe_key
+                    if not report_data.get('mastodon_report_id'): # Assuming this field indicates if it's already reported
+                        logging.info(f"Attempting to perform automated report for account {account_data['id']} due to rule {violation.rule_name}")
+                        enforcement_service.perform_account_action(
+                            account_id=account_data['id'],
+                            action_type=violation.action_type,
+                            report_id=report_data.get('id'), # Pass the original report ID if available
+                            comment=f"Automated report: {violation.rule_name} (Score: {violation.score})",
+                            status_ids=[s.get('id') for s in statuses if s.get('id')] # Pass relevant status IDs
+                        )
+                elif violation.action_type in ['silence', 'suspend', 'disable', 'sensitive', 'domain_block']:
+                    logging.info(f"Attempting to perform automated action {violation.action_type} for account {account_data['id']} due to rule {violation.rule_name}")
+                    enforcement_service.perform_account_action(
+                        account_id=account_data['id'],
+                        action_type=violation.action_type,
+                        comment=f"Automated action: {violation.rule_name} (Score: {violation.score})",
+                        duration=violation.action_duration_seconds, # Pass duration if applicable
+                        warning_text=violation.action_warning_text, # Pass warning text if applicable
+                        warning_preset_id=violation.warning_preset_id # Pass warning preset if applicable
+                    )
         else:
             logging.info(f"Report {report_data.get('id')} did not trigger any violations.")
 
@@ -590,18 +602,29 @@ def process_new_status(status_payload: dict):
 
         if violations:
             logging.info(f"Status {status_data.get('id')} triggered {len(violations)} violations.")
-            # Similar to reports, decide on actions based on violations
             for violation in violations:
-                logging.info(f"  Violation: {violation.rule_name}, Score: {violation.score}")
-                # Example: if a rule suggests silencing or suspending
-                # admin_client = _get_admin_client()
-                # enforcement_service = EnforcementService(mastodon_client=admin_client)
-                # if violation.action_type == 'silence':
-                #     enforcement_service.perform_account_action(
-                #         account_id=account_data['id'],
-                #         action_type='silence',
-                #         comment=f"Automated silence: {violation.rule_name} (Score: {violation.score})"
-                #     )
+                logging.info(f"  Violation: {violation.rule_name}, Score: {violation.score}, Action: {violation.action_type}")
+                
+                # Decide on action based on the rule's action_type and trigger_threshold
+                if violation.action_type in ['silence', 'suspend', 'disable', 'sensitive', 'domain_block']:
+                    logging.info(f"Attempting to perform automated action {violation.action_type} for account {account_data['id']} due to rule {violation.rule_name}")
+                    enforcement_service.perform_account_action(
+                        account_id=account_data['id'],
+                        action_type=violation.action_type,
+                        comment=f"Automated action: {violation.rule_name} (Score: {violation.score})",
+                        duration=violation.action_duration_seconds, # Pass duration if applicable
+                        warning_text=violation.action_warning_text, # Pass warning text if applicable
+                        warning_preset_id=violation.warning_preset_id # Pass warning preset if applicable
+                    )
+                elif violation.action_type == 'report':
+                    # For status-triggered reports, create a new report
+                    logging.info(f"Attempting to create automated report for account {account_data['id']} due to rule {violation.rule_name}")
+                    enforcement_service.perform_account_action(
+                        account_id=account_data['id'],
+                        action_type=violation.action_type,
+                        comment=f"Automated report: {violation.rule_name} (Score: {violation.score})",
+                        status_ids=[status_data.get('id')] # Report the specific status
+                    )
         else:
             logging.info(f"Status {status_data.get('id')} did not trigger any violations.")
 

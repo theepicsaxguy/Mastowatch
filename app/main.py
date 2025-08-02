@@ -51,10 +51,6 @@ run_all_startup_validations()
 app = FastAPI(title="MastoWatch", version="1.0.0")
 settings = get_settings()
 
-# Initialize rule service
-rule_service.load_rules_from_database()
-logger.info("Rules loaded successfully from database")
-
 if settings.CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
@@ -350,43 +346,350 @@ def set_report_threshold(body: ReportThresholdToggle, _: User = Depends(require_
         )
 
 
-@app.post("/config/rules/reload", tags=["ops"])
-def reload_rules(_: User = Depends(require_admin_hybrid)):
-    """Reload rules from database"""
-    try:
-        old_sha = rule_service.ruleset_sha256 if rule_service.ruleset_sha256 else "unknown"
-
-        try:
-            rule_service.load_rules_from_database()
-        except Exception as e:
-            logger.error(
-                "Failed to load rules from database",
-                extra={"error": str(e), "error_type": type(e).__name__},
-            )
-            raise HTTPException(
-                status_code=500,
-                detail={"error": "rules_load_failed", "message": f"Failed to load rules from database: {str(e)}"},
-            )
-
-        new_sha = rule_service.ruleset_sha256
-
-        logger.info(
-            "Rules configuration reloaded from database",
-            extra={
-                "old_sha": old_sha[:8] if old_sha != "unknown" else old_sha,
-                "new_sha": new_sha[:8],
-                "sha_changed": old_sha != new_sha,
-            },
+# OAuth Authentication Routes
+@app.get("/admin/login", tags=["auth"])
+async def admin_login(request: Request, response: Response, popup: bool = False):
+    """Initiate OAuth login flow"""
+    oauth_config = get_oauth_config()
+    
+    if not oauth_config.configured:
+        raise HTTPException(
+            status_code=503,
+            detail="OAuth not configured - admin login unavailable"
         )
+    
+    # Generate state parameter for CSRF protection
+    state = secrets.token_urlsafe(32)
+    
+    # Store state in Redis with short TTL instead of cookies to avoid cross-origin issues
+    try:
+        import redis
+        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        r.setex(f"oauth_state:{state}", 600, "valid")  # 10 minutes TTL
+    except Exception as e:
+        logger.warning(f"Failed to store OAuth state in Redis: {e}")
+        # Fallback: still try cookie approach
+        response.set_cookie(
+            key="oauth_state",
+            value=state,
+            max_age=600,  # 10 minutes
+            httponly=False,  # Allow JavaScript access for debugging
+            secure=False,  # HTTP only
+            samesite="lax"  # More permissive for OAuth redirects
+        )
+    
+    # Use configured redirect URIs or fall back to dynamic generation
+    if popup:
+        redirect_uri = settings.OAUTH_POPUP_REDIRECT_URI or settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/popup-callback"
+    else:
+        redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+    
+    # Build authorization URL
+    params = {
+        "client_id": settings.OAUTH_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "read:accounts",
+        "state": state
+    }
+    
+    auth_url = f"{str(settings.INSTANCE_BASE).rstrip('/')}/oauth/authorize?" + urlencode(params)
+    
+    logger.info(f"Redirecting to OAuth login: {auth_url}")
+    return RedirectResponse(url=auth_url)
 
-        return {"reloaded": True, "ruleset_sha256": new_sha, "previous_sha256": old_sha, "changed": old_sha != new_sha}
+
+@app.get("/admin/callback", tags=["auth"])
+async def admin_callback(
+    request: Request, 
+    response: Response, 
+    code: str = None, 
+    error: str = None, 
+    state: str = None,
+    format: str = "redirect"  # "redirect" or "token"
+):
+    """Handle OAuth callback"""
+    oauth_config = get_oauth_config()
+    
+    if not oauth_config.configured:
+        raise HTTPException(status_code=503, detail="OAuth not configured")
+    
+    if error:
+        logger.warning(f"OAuth error: {error}")
+        raise HTTPException(status_code=400, detail=f"OAuth error: {error}")
+    
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+    
+    # Verify CSRF state parameter using Redis instead of cookies
+    stored_state_cookie = request.cookies.get("oauth_state")
+    stored_state_redis = None
+    
+    try:
+        import redis
+        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        redis_key = f"oauth_state:{state}"
+        stored_state_redis = r.get(redis_key)
+        if stored_state_redis:
+            r.delete(redis_key)  # Use once
+    except Exception as e:
+        logger.warning(f"Failed to retrieve OAuth state from Redis: {e}")
+    
+    logger.info(f"OAuth callback - cookie_state: {stored_state_cookie}, redis_state: {stored_state_redis}, received_state: {state}")
+    
+    # Strictly compare state parameter
+    if not state or (state != stored_state_cookie and state != stored_state_redis):
+        logger.warning(f"OAuth CSRF state mismatch - cookie: {stored_state_cookie}, redis: {stored_state_redis}, received: {state}")
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
+    
+    # Clear the state cookie
+    response.set_cookie(
+        key="oauth_state",
+        value="",
+        max_age=0,
+        httponly=False,
+        secure=False,
+        samesite="lax"
+    )
+    
+    try:
+        # Exchange code for access token using generated client
+        from app.clients.mastodon.client import Client
+        
+        # Determine the correct redirect URI based on the context
+        # If format=token, this is from a popup, so use popup-callback URI
+        # Use the same base URL logic as in the login endpoint to ensure consistency
+        if format == "token":
+            # Extract the base URL from the configured redirect URI if available
+            if settings.OAUTH_REDIRECT_URI:
+                # Replace /admin/callback with /admin/popup-callback
+                redirect_uri = settings.OAUTH_REDIRECT_URI.replace("/admin/callback", "/admin/popup-callback")
+            else:
+                redirect_uri = f"{request.base_url}admin/popup-callback"
+        else:
+            redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+        
+        # Use generated client for OAuth token exchange
+        oauth_client = Client(base_url=str(settings.INSTANCE_BASE))
+        
+        # Prepare token exchange data
+        token_data = {
+            "client_id": settings.OAUTH_CLIENT_ID,
+            "client_secret": settings.OAUTH_CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }
+        
+        # Use the generated client's HTTP session for consistency
+        async with oauth_client.get_async_httpx_client() as http_client:
+            token_response = await http_client.post("/oauth/token", data=token_data)
+        
+        if token_response.status_code != 200:
+            logger.error(f"Token exchange failed: {token_response.status_code}")
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
+        
+        token_json = token_response.json()
+        access_token = token_json.get("access_token")
+        
+        if not access_token:
+            raise HTTPException(status_code=400, detail="No access token received")
+        
+        # Fetch user information
+        user = await oauth_config.fetch_user_info(access_token)
+        
+        if not user:
+            raise HTTPException(status_code=400, detail="Failed to fetch user information")
+        
+        if not user.is_admin:
+            logger.warning(f"Non-admin user attempted login: {user.acct}")
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        logger.info(f"Admin user logged in: {user.acct}")
+        
+        # Handle different response formats
+        if format == "token":
+            # Return JWT token for API access
+            jwt_config = get_jwt_config()
+            token = jwt_config.create_access_token(user.model_dump())
+            
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "user": user.model_dump()
+            }
+        else:
+            # Traditional redirect with session cookie
+            create_session_cookie(response, user, settings)
+            
+            # Redirect to dashboard
+            # For development, redirect to the frontend dev server
+            frontend_url = "http://localhost:5173"
+            return RedirectResponse(url=frontend_url, status_code=302)
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to reload rules", extra={"error": str(e), "error_type": type(e).__name__})
-        raise HTTPException(
-            status_code=500, detail={"error": "rules_reload_failed", "message": f"Failed to reload rules: {str(e)}"}
-        )
+        logger.error(f"OAuth callback error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
+
+@app.get("/admin/popup-callback", response_class=HTMLResponse, tags=["auth"])
+async def admin_popup_callback(request: Request, code: str = None, error: str = None, state: str = None):
+    """Handle OAuth callback for popup windows - returns HTML that communicates with parent"""
+    oauth_callback_html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OAuth Callback</title>
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                padding: 20px;
+                text-align: center;
+                background: #f5f5f5;
+            }}
+            .container {{
+                max-width: 400px;
+                margin: 50px auto;
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            .loading {{
+                color: #666;
+            }}
+            .success {{
+                color: #28a745;
+            }}
+            .error {{
+                color: #dc3545;
+            }}
+            .spinner {{
+                border: 2px solid #f3f3f3;
+                border-top: 2px solid #3498db;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                animation: spin 1s linear infinite;
+                margin: 10px auto;
+            }}
+            @keyframes spin {{
+                0% {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(360deg); }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div id="status" class="loading">
+                <div class="spinner"></div>
+                <p>Completing authentication...</p>
+            </div>
+        </div>
+
+        <script>
+            (async function() {{
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const error = urlParams.get('error');
+                const state = urlParams.get('state');
+
+                try {{
+                    if (error) {{
+                        throw new Error(error);
+                    }}
+
+                    if (!code) {{
+                        throw new Error('No authorization code received');
+                    }}
+
+                    // Exchange code for token
+                    const response = await fetch(`/admin/callback?format=token&code=${{code}}&state=${{state}}}`);
+                    
+                    if (!response.ok) {{
+                        const text = await response.text();
+                        throw new Error(`${{response.status}}: ${{text}}`);
+                    }}
+
+                    const authData = await response.json();
+
+                    // Show success
+                    document.getElementById('status').innerHTML = `
+                        <div class="success">
+                            <p>✅ Authentication successful!</p>
+                            <p>Welcome, ${{authData.user.display_name}}!</p>
+                            <p>This window will close automatically...</p>
+                        </div>
+                    `;
+
+                    // Send auth data to parent window
+                    if (window.opener) {{
+                        window.opener.postMessage({{
+                            type: 'oauth-success',
+                            auth: authData
+                        }}, '{settings.UI_ORIGIN}');
+                    }}
+
+                    // Close window after a short delay
+                    setTimeout(() => {{
+                        window.close();
+                    }}, 2000);
+
+                }} catch (error) {{
+                    console.error('OAuth callback error:', error);
+                    
+                    // Show error
+                    document.getElementById('status').innerHTML = `
+                        <div class="error">
+                            <p>❌ Authentication failed</p>
+                            <p>${{error.message}}</p>
+                            <p>This window will close automatically...</p>
+                        </div>
+                    `;
+
+                    // Send error to parent window
+                    if (window.opener) {{
+                        window.opener.postMessage({{
+                            type: 'oauth-error',
+                            error: error.message
+                        }}, '{settings.UI_ORIGIN}');
+                    }}
+
+                    // Close window after a short delay
+                    setTimeout(() => {{
+                        window.close();
+                    }}, 3000);
+                }}
+            }})();
+        </script>
+    </body>
+    </html>
+    """
+    return oauth_callback_html
+
+
+@app.post("/admin/logout", tags=["auth"])
+async def admin_logout(response: Response):
+    """Logout and clear session"""
+    clear_session_cookie(response, settings)
+    return {"logged_out": True}
+
+
+@app.get("/api/v1/me", tags=["auth"])
+async def get_current_user_info(current_user: User = Depends(require_authenticated_hybrid)):
+    """Get current user information"""
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "acct": current_user.acct,
+        "display_name": current_user.display_name,
+        "is_admin": current_user.is_admin,
+        "avatar": current_user.avatar
+    }
 
 
 @app.post("/dryrun/evaluate", tags=["ops"])
