@@ -39,48 +39,19 @@ class MastoClient:
             timeout=30.0,
         )
 
-    def _make_raw_request(
-        self,
-        method: str,
-        path: str,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
-    ) -> httpx.Response:
-        """
-        Make a raw HTTP request for endpoints not available in the generated client.
-        Creates a fresh HTTPX client for each request to avoid reuse issues in Celery tasks.
-        """
-        throttle_if_needed(self._bucket_key)
-
-        # Create a fresh HTTPX client for each request to avoid closure issues
-        headers = {"User-Agent": self._ua, "Authorization": f"Bearer {self._token}"}
-        
-        with httpx.Client(
-            base_url=self._base_url,
-            headers=headers,
-            timeout=30.0,
-        ) as client:
-            with api_call_seconds.labels(endpoint=path).time():
-                if method.upper() == "GET":
-                    response = client.get(path, params=params)
-                elif method.upper() == "POST":
-                    response = client.post(path, data=data, json=json)
-                else:
-                    raise ValueError(f"Unsupported HTTP method: {method}")
-
-            update_from_headers(self._bucket_key, response.headers)
-            if response.status_code >= 400:
-                http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
-            response.raise_for_status()
-            return response
+    
 
     # Type-safe methods using generated client
 
     def get_account(self, account_id: str) -> Dict[str, Any]:
-        """Get account information using direct HTTP call."""
-        path = f"/api/v1/accounts/{account_id}"
-        response = self._make_raw_request("GET", path)
+        """Get account information using the generated client."""
+        throttle_if_needed(self._bucket_key)
+        with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}").time():
+            response = self._api_client.get_httpx_client().get(f"/api/v1/accounts/{account_id}")
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=f"/api/v1/accounts/{account_id}", code=str(response.status_code)).inc()
+        response.raise_for_status()
         return response.json()
 
     def get_account_statuses(
@@ -93,7 +64,8 @@ class MastoClient:
         only_media: bool = False,
         pinned: bool = False,
     ) -> List[Dict[str, Any]]:
-        """Get account statuses using direct HTTP call."""
+        """Get account statuses using the generated client."""
+        throttle_if_needed(self._bucket_key)
         params = {
             "limit": limit,
             "exclude_reblogs": exclude_reblogs,
@@ -105,8 +77,15 @@ class MastoClient:
             params["max_id"] = max_id
             
         path = f"/api/v1/accounts/{account_id}/statuses"
-        response = self._make_raw_request("GET", path, params=params)
+        with api_call_seconds.labels(endpoint=path).time():
+            response = self._api_client.get_httpx_client().get(path, params=params)
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+        response.raise_for_status()
         return response.json()
+
+    from app.clients.mastodon.models.create_report_body import CreateReportBody
 
     def create_report(
         self,
@@ -118,53 +97,28 @@ class MastoClient:
         rule_ids: Optional[List[str]] = None,
     ) -> httpx.Response:
         """
-        Create a report - falls back to raw HTTP since not in community OpenAPI spec.
-        Returns raw response to maintain backward compatibility.
+        Create a report using the generated client and models.
         """
-        data = {
-            "account_id": account_id,
-            "comment": comment,
-            "category": category,
-            "forward": forward,
-        }
-        
-        if status_ids:
-            data["status_ids[]"] = status_ids
-        if rule_ids:
-            data["rule_ids[]"] = rule_ids
+        throttle_if_needed(self._bucket_key)
 
-        return self._make_raw_request("POST", "/api/v1/reports", data=data)
+        report_body = CreateReportBody(
+            account_id=account_id,
+            comment=comment,
+            status_ids=status_ids,
+            category=category,
+            forward=forward,
+            rule_ids=rule_ids,
+        )
 
-    # Fallback methods for admin endpoints (not in community spec)
+        path = "/api/v1/reports"
+        with api_call_seconds.labels(endpoint=path).time():
+            response = self._api_client.get_httpx_client().post(path, json=report_body.to_dict())
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+        response.raise_for_status()
+        return response
 
-    def get_admin_accounts(
-        self, origin: str = "remote", status: str = "active", limit: int = 100, max_id: Optional[str] = None
-    ) -> httpx.Response:
-        """
-        Get admin accounts - falls back to raw HTTP since not in community OpenAPI spec.
-        Returns raw response to maintain backward compatibility.
-        """
-        params = {
-            "origin": origin,
-            "status": status,
-            "limit": limit,
-        }
-        if max_id:
-            params["max_id"] = max_id
+    
 
-        return self._make_raw_request("GET", "/api/v1/admin/accounts", params=params)
-
-    def get_instance_rules(self) -> List[Dict[str, Any]]:
-        """Get instance rules with type information."""
-        response = self._make_raw_request("GET", "/api/v1/instance/rules")
-        return response.json()
-
-    # Legacy compatibility methods
-
-    def get(self, path: str, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
-        """Legacy get method for backward compatibility."""
-        return self._make_raw_request("GET", path, params=params)
-
-    def post(self, path: str, data: Optional[Dict[str, Any]] = None, json: Optional[Dict[str, Any]] = None) -> httpx.Response:
-        """Legacy post method for backward compatibility."""
-        return self._make_raw_request("POST", path, data=data, json=json)
+    

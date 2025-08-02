@@ -212,7 +212,7 @@ def create_session_cookie(response: Response, user: User, settings) -> None:
         value=session_token,
         max_age=settings.SESSION_COOKIE_MAX_AGE,
         httponly=True,
-        secure=str(settings.INSTANCE_BASE).startswith("https://"),
+        secure=True,
         samesite="lax"
     )
 
@@ -224,6 +224,6 @@ def clear_session_cookie(response: Response, settings) -> None:
         value="",
         max_age=0,
         httponly=True,
-        secure=str(settings.INSTANCE_BASE).startswith("https://"),
+        secure=True,
         samesite="lax"
     )

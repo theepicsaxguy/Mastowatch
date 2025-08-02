@@ -26,18 +26,17 @@ from app.models import Account, Analysis, Config, Report, Rule, ScanSession, Con
 from app.oauth import (
     get_oauth_config, 
     get_current_user, 
-    require_admin, 
-    require_authenticated,
     create_session_cookie,
     clear_session_cookie,
     User
 )
+from sqlalchemy import inspect
 from app.jwt_auth import (
     get_jwt_config,
     require_admin_hybrid,
     require_authenticated_hybrid
 )
-from app.rules import Rules
+from app.services.rule_service import rule_service
 from app.enhanced_scanning import EnhancedScanningSystem
 from app.startup_validation import run_all_startup_validations
 from app.tasks.jobs import analyze_and_maybe_report, scan_federated_content, check_domain_violations  # reuse pipeline
@@ -51,14 +50,9 @@ run_all_startup_validations()
 app = FastAPI(title="MastoWatch", version="1.0.0")
 settings = get_settings()
 
-# Load rules from database only (no more file-based rules)
-try:
-    rules = Rules.from_database()
-    logger.info("Rules loaded successfully from database")
-except Exception as e:
-    logger.error(f"Failed to load rules from database: {e}, using minimal default rules")
-    # Create minimal default rules to prevent hard failure
-    rules = Rules({"report_threshold": 1.0}, "database", [])
+# Initialize rule service
+rule_service.load_rules_from_database()
+logger.info("Rules loaded successfully from database")
 
 if settings.CORS_ORIGINS:
     app.add_middleware(
@@ -86,73 +80,10 @@ def get_db_session():
         db.close()
 
 
-def sync_default_rules():
-    """Sync default rules to database if they don't exist"""
-    try:
-        with SessionLocal() as session:
-            # Check if we have any rules at all
-            existing_count = session.query(Rule).count()
-            
-            if existing_count == 0:
-                # Add some basic default rules if none exist
-                default_rules = [
-                    {
-                        "name": "Spam Bot Pattern",
-                        "rule_type": "username_regex",
-                        "pattern": r".*bot.*\d{3,}$",
-                        "weight": 1.0,
-                        "enabled": True
-                    },
-                    {
-                        "name": "Suspicious Display Name",
-                        "rule_type": "display_name_regex", 
-                        "pattern": r"(free|win|prize|offer).*",
-                        "weight": 0.6,
-                        "enabled": True
-                    },
-                    {
-                        "name": "Spam Content",
-                        "rule_type": "content_regex",
-                        "pattern": r".*(send.*bitcoin|free.*crypto).*",
-                        "weight": 1.2,
-                        "enabled": True
-                    }
-                ]
-                
-                for rule_data in default_rules:
-                    default_rule = Rule(
-                        name=rule_data["name"],
-                        rule_type=rule_data["rule_type"],
-                        pattern=rule_data["pattern"],
-                        weight=rule_data["weight"],
-                        enabled=True,
-                        is_default=True
-                    )
-                    session.add(default_rule)
-                
-                session.commit()
-                logger.info(f"Added {len(default_rules)} default rules to database")
-            
-            # Ensure report_threshold config exists
-            existing_config = session.execute(
-                text("SELECT value FROM config WHERE key='report_threshold'")
-            ).scalar()
-            
-            if not existing_config:
-                session.merge(Config(
-                    key="report_threshold", 
-                    value={"threshold": 1.0}, 
-                    updated_by="system"
-                ))
-                session.commit()
-                logger.info("Added default report_threshold configuration")
-            
-    except Exception as e:
-        logger.error(f"Failed to sync default rules: {e}")
 
 
-# Sync default rules on startup
-sync_default_rules()
+
+
 
 
 @app.get("/healthz", tags=["ops"])
@@ -393,8 +324,7 @@ def set_report_threshold(body: ReportThresholdToggle, _: User = Depends(require_
                 )
 
         # Reload rules to pick up new threshold
-        global rules
-        rules = Rules.from_database()
+        rule_service.load_rules_from_database()
         
         logger.info(
             "Report threshold configuration updated",
@@ -423,11 +353,10 @@ def set_report_threshold(body: ReportThresholdToggle, _: User = Depends(require_
 def reload_rules(_: User = Depends(require_admin_hybrid)):
     """Reload rules from database"""
     try:
-        global rules
-        old_sha = rules.ruleset_sha256 if rules else "unknown"
+        old_sha = rule_service.ruleset_sha256 if rule_service.ruleset_sha256 else "unknown"
 
         try:
-            rules = Rules.from_database()
+            rule_service.load_rules_from_database()
         except Exception as e:
             logger.error(
                 "Failed to load rules from database",
@@ -438,7 +367,7 @@ def reload_rules(_: User = Depends(require_admin_hybrid)):
                 detail={"error": "rules_load_failed", "message": f"Failed to load rules from database: {str(e)}"},
             )
 
-        new_sha = rules.ruleset_sha256
+        new_sha = rule_service.ruleset_sha256
 
         logger.info(
             "Rules configuration reloaded from database",
@@ -463,7 +392,7 @@ def reload_rules(_: User = Depends(require_admin_hybrid)):
 async def dryrun_evaluate(payload: dict):
     acct = payload.get("account") or {}
     statuses = payload.get("statuses") or []
-    score, hits = rules.eval_account(acct, statuses)
+    score, hits = rule_service.eval_account(acct, statuses)
     return {"score": score, "hits": hits}
 
 
@@ -774,14 +703,10 @@ async def admin_callback(
     
     logger.info(f"OAuth callback - cookie_state: {stored_state_cookie}, redis_state: {stored_state_redis}, received_state: {state}")
     
-    # Accept state from either cookie or Redis
-    if not stored_state_cookie and not stored_state_redis:
-        logger.warning(f"OAuth CSRF state missing - cookie: {stored_state_cookie}, redis: {stored_state_redis}, received: {state}")
+    # Strictly compare state parameter
+    if not state or (state != stored_state_cookie and state != stored_state_redis):
+        logger.warning(f"OAuth CSRF state mismatch - cookie: {stored_state_cookie}, redis: {stored_state_redis}, received: {state}")
         raise HTTPException(status_code=400, detail="Invalid state parameter")
-        
-    if not state:
-        logger.warning("OAuth callback missing state parameter")
-        raise HTTPException(status_code=400, detail="Missing state parameter")
     
     # Clear the state cookie
     response.set_cookie(
@@ -1274,20 +1199,20 @@ def get_account_analyses(account_id: str, limit: int = 50, offset: int = 0, _: U
 @app.get("/rules/current", tags=["rules"])
 def get_current_rules(_: User = Depends(require_admin_hybrid)):
     """Get current rule configuration including database rules"""
-    all_rules = rules.get_all_rules()
+    all_rules, config, _ = rule_service.get_active_rules()
     return {
         "rules": {
             **all_rules,
-            "report_threshold": rules.cfg.get("report_threshold", 1.0)
+            "report_threshold": config.get("report_threshold", 1.0)
         },
-        "report_threshold": rules.cfg.get("report_threshold", 1.0)
+        "report_threshold": config.get("report_threshold", 1.0)
     }
 
 
 @app.get("/rules", tags=["rules"])
 def list_rules(_: User = Depends(require_admin_hybrid)):
     """List all rules (file-based and database rules)"""
-    all_rules = rules.get_all_rules()
+    all_rules, _, _ = rule_service.get_active_rules()
     response = []
     
     # Convert to flat list for easier frontend consumption
@@ -1403,8 +1328,7 @@ def create_rule(
         session.refresh(new_rule)
         
         # Reload rules to include the new one
-        global rules
-        rules = Rules.from_database()
+        rule_service.load_rules_from_database()
         
         return {
             "id": new_rule.id,
@@ -1690,77 +1614,17 @@ def update_rule(
         if not rule:
             raise HTTPException(status_code=404, detail="Rule not found")
         
-        if rule.is_default:
-            # Instead of preventing edits, create a custom copy of the default rule
-            custom_rule = Rule(
-                name=rule.name + " (Custom)",
-                rule_type=rule.rule_type,
-                pattern=rule.pattern,
-                weight=rule.weight,
-                enabled=rule.enabled,
-                is_default=False,
-                created_by=_.username if _ else "admin"
-            )
-            session.add(custom_rule)
-            session.flush()  # Get the new ID
-            
-            # Disable the default rule instead of modifying it
-            rule.enabled = False
-            rule_id = custom_rule.id  # Use the new custom rule ID for response
-        
-        else:
-            # Update allowed fields for non-default rules
-            if "name" in rule_data:
-                rule.name = rule_data["name"]
-            if "pattern" in rule_data:
-                # Test regex pattern
-                try:
-                    re.compile(rule_data["pattern"])
-                    rule.pattern = rule_data["pattern"]
-                except re.error as e:
-                    raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
-            if "weight" in rule_data:
-                rule.weight = rule_data["weight"]
-            if "enabled" in rule_data:
-                rule.enabled = rule_data["enabled"]
-            
-            rule_id = rule.id
-        
-        # Apply updates to the appropriate rule (either existing or new custom rule)
-        if rule_id != rule.id:  # We created a custom rule
-            custom_rule = session.query(Rule).filter(Rule.id == rule_id).first()
-            target_rule = custom_rule
-            # Apply the updates to the custom rule
-            if "name" in rule_data:
-                target_rule.name = rule_data.get("name", rule.name)
-            if "pattern" in rule_data:
-                try:
-                    re.compile(rule_data["pattern"])
-                    target_rule.pattern = rule_data["pattern"]
-                except re.error as e:
-                    raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
-            if "weight" in rule_data:
-                target_rule.weight = rule_data["weight"]
-            if "enabled" in rule_data:
-                target_rule.enabled = rule_data["enabled"]
-        else:
-            target_rule = rule
-        
-        session.commit()
-        
-        # Reload rules
-        global rules
-        rules = Rules.from_database()
+        updated_rule = rule_service.update_rule(session, rule_id, rule_data, _.username if _ else "admin")
         
         return {
-            "id": target_rule.id,
-            "name": target_rule.name,
-            "rule_type": target_rule.rule_type,
-            "pattern": target_rule.pattern,
-            "weight": float(target_rule.weight),
-            "enabled": target_rule.enabled,
-            "is_default": target_rule.is_default,
-            "message": "Custom rule created from default" if target_rule.id != rule.id else "Rule updated"
+            "id": updated_rule.id,
+            "name": updated_rule.name,
+            "rule_type": updated_rule.rule_type,
+            "pattern": updated_rule.pattern,
+            "weight": float(updated_rule.weight),
+            "enabled": updated_rule.enabled,
+            "is_default": updated_rule.is_default,
+            "message": "Rule updated"
         }
         
     except HTTPException:
@@ -1779,19 +1643,7 @@ def delete_rule(
 ):
     """Delete a rule"""
     try:
-        rule = session.query(Rule).filter(Rule.id == rule_id).first()
-        if not rule:
-            raise HTTPException(status_code=404, detail="Rule not found")
-        
-        if rule.is_default:
-            raise HTTPException(status_code=400, detail="Cannot delete default rules from file")
-        
-        session.delete(rule)
-        session.commit()
-        
-        # Reload rules
-        global rules
-        rules = Rules.from_database()
+        rule_service.delete_rule(session, rule_id)
         
         return {"message": "Rule deleted successfully"}
         
@@ -1811,29 +1663,17 @@ def toggle_rule(
 ):
     """Toggle rule enabled/disabled status"""
     try:
-        rule = session.query(Rule).filter(Rule.id == rule_id).first()
-        if not rule:
-            raise HTTPException(status_code=404, detail="Rule not found")
-        
-        if rule.is_default:
-            raise HTTPException(status_code=400, detail="Cannot toggle default rules from file")
-        
-        rule.enabled = not rule.enabled
-        session.commit()
-        
-        # Reload rules
-        global rules
-        rules = Rules.from_database()
+        toggled_rule = rule_service.toggle_rule(session, rule_id)
         
         # Invalidate content scans due to rule changes
         enhanced_scanner = EnhancedScanningSystem()
         enhanced_scanner.invalidate_content_scans(rule_changes=True)
         
         return {
-            "id": rule.id,
-            "name": rule.name,
-            "enabled": rule.enabled,
-            "message": f"Rule {'enabled' if rule.enabled else 'disabled'}"
+            "id": toggled_rule.id,
+            "name": toggled_rule.name,
+            "enabled": toggled_rule.enabled,
+            "message": f"Rule {'enabled' if toggled_rule.enabled else 'disabled'}"
         }
         
     except HTTPException:
@@ -1847,10 +1687,17 @@ def toggle_rule(
 # Enhanced Analytics and Scanning Endpoints
 @app.get("/analytics/scanning", tags=["analytics"])
 def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
-    """Get enhanced scanning analytics and progress"""
+    """Get real-time scanning analytics and job tracking (15-second refresh)"""
     try:
         enhanced_scanner = EnhancedScanningSystem()
         
+        # Get active jobs from Redis/Celery
+        import redis
+        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        
+        # Get Celery queue length
+        queue_length = r.llen("celery") # Assuming default Celery queue name is "celery"
+
         with SessionLocal() as db:
             # Get active scan sessions
             active_sessions = db.query(ScanSession).filter(ScanSession.status == 'active').all()
@@ -1860,9 +1707,17 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
                 db.query(ScanSession)
                 .filter(ScanSession.completed_at.isnot(None))
                 .order_by(desc(ScanSession.completed_at))
-                .limit(10)
+                .limit(5) # Latest 5 sessions
                 .all()
             )
+
+            # Get last federated scan and domain check times
+            last_federated_scan = db.query(ScanSession.completed_at)
+                                    .filter(ScanSession.session_type == 'federated', ScanSession.status == 'completed')
+                                    .order_by(desc(ScanSession.completed_at)).first()
+            last_domain_check = db.query(ScanSession.completed_at)
+                                  .filter(ScanSession.session_type == 'domain_check', ScanSession.status == 'completed')
+                                  .order_by(desc(ScanSession.completed_at)).first()
             
             # Get content scan statistics
             content_scan_stats = db.query(
@@ -1872,37 +1727,43 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
             ).first()
             
             return {
-                "active_sessions": [
+                "active_jobs": [], # Placeholder for actual active Celery jobs if needed
+                "scan_sessions": [
                     {
                         "id": session.id,
                         "session_type": session.session_type,
                         "accounts_processed": session.accounts_processed,
                         "total_accounts": session.total_accounts,
                         "started_at": session.started_at.isoformat(),
+                        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+                        "status": session.status,
                         "current_cursor": session.current_cursor
                     }
-                    for session in active_sessions
+                    for session in active_sessions + recent_sessions
                 ],
-                "recent_sessions": [
-                    {
-                        "id": session.id,
-                        "session_type": session.session_type,
-                        "accounts_processed": session.accounts_processed,
-                        "started_at": session.started_at.isoformat(),
-                        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
-                        "status": session.status
-                    }
-                    for session in recent_sessions
-                ],
+                "system_status": {
+                    "last_federated_scan": last_federated_scan[0].isoformat() if last_federated_scan else None,
+                    "last_domain_check": last_domain_check[0].isoformat() if last_domain_check else None,
+                    "queue_length": queue_length,
+                    "system_load": "normal" # Placeholder, can be enhanced with system metrics
+                },
                 "content_scan_stats": {
                     "total_scans": content_scan_stats.total_scans or 0,
                     "needs_rescan": content_scan_stats.needs_rescan or 0,
                     "last_scan": content_scan_stats.last_scan.isoformat() if content_scan_stats.last_scan else None
+                },
+                "metadata": {
+                    "last_updated": datetime.utcnow().isoformat(),
+                    "refresh_interval_seconds": 15,
+                    "supports_real_time": True,
+                    "data_lag_seconds": 0
                 }
             }
+            
     except Exception as e:
-        logger.error("Failed to fetch scanning analytics", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Failed to fetch scanning analytics")
+        logger.error("Failed to get scanning analytics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to get scanning analytics")
+
 
 
 @app.get("/analytics/domains", tags=["analytics"])

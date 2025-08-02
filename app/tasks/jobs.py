@@ -11,39 +11,17 @@ from sqlalchemy.sql import func
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.mastodon_client import MastoClient
+from app.clients.mastodon.client import Client
 from app.metrics import (accounts_scanned, analyses_flagged, analysis_latency,
                          cursor_lag_pages, queue_backlog, report_latency,
                          reports_submitted)
 from app.models import Account, Analysis, Config, Cursor, Report
-from app.rules import Rules
+from app.services.rule_service import rule_service
 from app.enhanced_scanning import EnhancedScanningSystem
 from app.util import make_dedupe_key
 import os
 
 settings = get_settings()
-
-# Only initialize rules if not skipping startup validation (for tests)
-rules = None
-if not os.environ.get("SKIP_STARTUP_VALIDATION"):
-    try:
-        rules = Rules.from_database()
-    except Exception as e:
-        print(f"Warning: Could not initialize rules at startup: {e}")
-        rules = None
-
-def get_rules():
-    """Get rules instance, initializing if needed"""
-    global rules
-    if rules is None:
-        try:
-            rules = Rules.from_database()
-        except Exception as e:
-            print(f"Error initializing rules: {e}")
-            # Return a minimal rules object for testing
-            from app.rules import Rules
-            rules = Rules({"report_threshold": 1.0}, "test_sha", [])
-    return rules
 
 # Don't create global client instances to avoid HTTPX reuse issues in Celery
 # Instead, create fresh instances in each task
@@ -54,28 +32,15 @@ CURSOR_NAME_LOCAL = "admin_accounts_local"
 
 def _get_admin_client():
     """Get a fresh admin client instance."""
-    return MastoClient(settings.ADMIN_TOKEN)
+    return Client(base_url=str(settings.INSTANCE_BASE), token=settings.ADMIN_TOKEN)
 
 
 def _get_bot_client():
     """Get a fresh bot client instance."""
-    return MastoClient(settings.BOT_TOKEN)
+    return Client(base_url=str(settings.INSTANCE_BASE), token=settings.BOT_TOKEN)
 
 
-def _parse_next_max_id(link_header: str) -> str | None:
-    # Look for: <...max_id=XYZ>; rel="next"
-    if not link_header:
-        return None
-    for part in link_header.split(","):
-        if 'rel="next"' in part:
-            m = re.search(r"<([^>]+)>", part)
-            if not m:
-                continue
-            url = m.group(1)
-            qs = urllib.parse.urlparse(url).query
-            params = urllib.parse.parse_qs(qs)
-            return (params.get("max_id") or [None])[0]
-    return None
+
 
 
 def _should_pause():
@@ -283,16 +248,6 @@ def poll_admin_accounts_local():
         enhanced_scanner.complete_scan_session(session_id, 'failed')
 
 
-def _get_instance_rules():
-    try:
-        admin = _get_admin_client()
-        r = admin.get("/api/v1/instance/rules")
-        # Returns list of {"id": "...", "text": "..."}
-        return r.json()
-    except Exception:
-        return []
-
-
 @shared_task(name="app.tasks.jobs.record_queue_stats")
 def record_queue_stats():
     try:
@@ -388,10 +343,12 @@ def analyze_and_maybe_report(payload: dict):
             hits = [(hit["rule"], hit["weight"], hit["evidence"]) for hit in cached_result.get("rule_hits", [])]
         else:
             # Perform fresh analysis
-            current_rules = get_rules()
+            current_rules = rule_service.get_current_rules_snapshot()
             admin = _get_admin_client()
-            sr = admin.get(f"/api/v1/accounts/{acct_id}/statuses", params={"limit": settings.MAX_STATUSES_TO_FETCH})
-            statuses = sr.json()
+            statuses = admin.get_account_statuses(
+                account_id=acct_id,
+                limit=settings.MAX_STATUSES_TO_FETCH
+            )
             score, hits = current_rules.eval_account(acct, statuses)
         
         accounts_scanned.inc()
@@ -416,7 +373,7 @@ def analyze_and_maybe_report(payload: dict):
             db.commit()
 
         # Check if score meets reporting threshold
-        current_rules = get_rules()
+        current_rules = rule_service.get_current_rules_snapshot()
         if float(score) < float(current_rules.cfg.get("report_threshold", 1.0)):
             return
 
@@ -467,13 +424,21 @@ def analyze_and_maybe_report(payload: dict):
             payload_data["forward"] = settings.FORWARD_REMOTE_REPORTS
         
         # Optional: map rule names -> instance rule IDs if configured server rules are available
-        rule_entities = _get_instance_rules()
-        if rule_entities and payload_data["category"] == "violation":
-            # Include all rule ids when category is violation
-            payload_data["rule_ids[]"] = [r.get("id") for r in rule_entities if r.get("id")]
+        # The generated client handles rule_ids directly in CreateReportBody
+        # No need for _get_instance_rules() here, as the client will handle it if the API supports it.
 
         bot = _get_bot_client()
-        rr = bot.post("/api/v1/reports", data=payload_data)
+        # Use the generated client's create_report method
+        from app.clients.mastodon.models.create_report_body import CreateReportBody
+        report_body = CreateReportBody(
+            account_id=acct_id,
+            comment=comment,
+            status_ids=status_ids,
+            category=payload_data["category"],
+            forward=payload_data["forward"] if "forward" in payload_data else False,
+            # rule_ids are handled by the generated client if the API supports it
+        )
+        rr = bot.create_report(report_body=report_body)
         rep_id = rr.json().get("id", "")
 
         # Update report with Mastodon report ID

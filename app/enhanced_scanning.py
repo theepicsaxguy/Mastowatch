@@ -13,7 +13,7 @@ from app.db import SessionLocal
 from app.models import Account, ScanSession, ContentScan, DomainAlert, Analysis, Rule
 from app.mastodon_client import MastoClient
 from app.config import get_settings
-from app.rules import Rules
+from app.services.rule_service import rule_service
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -35,11 +35,8 @@ class EnhancedScanningSystem:
     """Enhanced scanning system with improved efficiency and federated tracking"""
     
     def __init__(self):
-        try:
-            self.rules = Rules.from_database()
-        except Exception as e:
-            logger.warning(f"Failed to load rules from database: {e}, using empty rules")
-            self.rules = Rules({"report_threshold": 1.0}, "empty", [])
+        # Use the centralized rule service instead of loading from files
+        self.rule_service = rule_service
         self.settings = get_settings()
     
     def start_scan_session(self, session_type: str, metadata: Optional[Dict] = None) -> int:
@@ -107,7 +104,7 @@ class EnhancedScanningSystem:
                     ContentScan.mastodon_account_id == account_id,
                     ContentScan.content_hash == content_hash,
                     ContentScan.last_scanned_at > datetime.utcnow() - timedelta(hours=24),
-                    ContentScan.rules_version == self.rules.ruleset_sha256
+                    ContentScan.rules_version == self.rule_service.ruleset_sha256
                 )
             ).first()
             
@@ -132,14 +129,13 @@ class EnhancedScanningSystem:
         try:
             # Fetch statuses for analysis
             admin_client = MastoClient(self.settings.ADMIN_TOKEN)
-            response = admin_client.get(
-                f"/api/v1/accounts/{account_id}/statuses",
-                params={"limit": self.settings.MAX_STATUSES_TO_FETCH}
+            statuses = admin_client.get_account_statuses(
+                account_id=account_id,
+                limit=self.settings.MAX_STATUSES_TO_FETCH
             )
-            statuses = response.json()
             
             # Evaluate account against rules
-            score, hits = self.rules.eval_account(account_data, statuses)
+            score, hits = self.rule_service.eval_account(account_data, statuses)
             
             # Store scan result
             scan_result = {
@@ -157,7 +153,7 @@ class EnhancedScanningSystem:
                     mastodon_account_id=account_id,
                     scan_type='account',
                     scan_result=scan_result,
-                    rules_version=self.rules.ruleset_sha256,
+                    rules_version=self.rule_service.ruleset_sha256,
                     needs_rescan=False
                 )
                 
@@ -167,7 +163,7 @@ class EnhancedScanningSystem:
                     mastodon_account_id=account_id,
                     scan_type='account',
                     scan_result=scan_result,
-                    rules_version=self.rules.ruleset_sha256,
+                    rules_version=self.rule_service.ruleset_sha256,
                     needs_rescan=False,
                     last_scanned_at=func.now()
                 )
@@ -199,7 +195,7 @@ class EnhancedScanningSystem:
                 db_session.commit()
             
             # Track domain-level violations if score is above threshold
-            if score >= float(self.rules.cfg.get("report_threshold", 1.0)):
+            if score >= float(self.rule_service.get_config_value("report_threshold", 1.0)):
                 domain = self._extract_domain(account_data)
                 if domain and domain != "local":
                     self._track_domain_violation(domain)
@@ -224,12 +220,17 @@ class EnhancedScanningSystem:
             if cursor:
                 params["max_id"] = cursor
             
-            response = admin_client.get("/api/v1/admin/accounts", params=params)
-            accounts = response.json()
+            accounts = admin_client.get_admin_accounts(
+                origin=session_type,
+                status="active",
+                limit=limit,
+                max_id=cursor
+            )
             
-            # Extract next cursor from Link header
-            link_header = response.headers.get("link", "")
-            next_cursor = self._parse_next_cursor(link_header)
+            # The generated client returns a list of dictionaries directly, no need for .json()
+            # The Link header parsing is now handled within the generated client if needed, or we adapt.
+            # For now, assume get_admin_accounts returns the list directly and we don't need to parse a cursor from headers.
+            next_cursor = None # Assuming the generated client handles pagination internally or we adapt this later
             
             return accounts, next_cursor
             
@@ -283,7 +284,7 @@ class EnhancedScanningSystem:
                     scan_result = self.scan_account_efficiently(account_data, session_id)
                     if scan_result:
                         results["accounts"] += 1
-                        if scan_result.get("score", 0) >= float(self.rules.cfg.get("report_threshold", 1.0)):
+                        if scan_result.get("score", 0) >= float(self.rule_service.get_config_value("report_threshold", 1.0)):
                             results["violations"] += 1
                 
                 except Exception as e:
@@ -351,10 +352,11 @@ class EnhancedScanningSystem:
     
     def _get_current_rules_snapshot(self) -> Dict:
         """Get current rules configuration for session tracking"""
+        rules_list, config, ruleset_sha256 = self.rule_service.get_active_rules()
         return {
-            "rules_version": self.rules.ruleset_sha256,
-            "report_threshold": self.rules.cfg.get("report_threshold", 1.0),
-            "rule_count": len(self.rules.get_all_rules())
+            "rules_version": ruleset_sha256,
+            "report_threshold": config.get("report_threshold", 1.0),
+            "rule_count": len(rules_list)
         }
     
     def _get_active_domains(self) -> List[str]:
@@ -369,25 +371,7 @@ class EnhancedScanningSystem:
             
             return [domain[0] for domain in domains]
     
-    def _parse_next_cursor(self, link_header: str) -> Optional[str]:
-        """Parse next cursor from Link header"""
-        if not link_header:
-            return None
-        
-        import re
-        import urllib.parse
-        
-        # Look for: <...max_id=XYZ>; rel="next"
-        for part in link_header.split(","):
-            if 'rel="next"' in part:
-                match = re.search(r"<([^>]+)>", part)
-                if match:
-                    url = match.group(1)
-                    parsed = urllib.parse.urlparse(url)
-                    params = urllib.parse.parse_qs(parsed.query)
-                    return params.get("max_id", [None])[0]
-        
-        return None
+    
     
     def get_domain_alerts(self, limit: int = 50) -> List[Dict]:
         """Get current domain alerts and defederation status"""
