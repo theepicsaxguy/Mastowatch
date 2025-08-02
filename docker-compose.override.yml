@@ -28,6 +28,8 @@ services:
       target: dev
     ports:
       - "127.0.0.1:5173:5173"
+    environment:
+      - DOCKER_ENV=true
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html

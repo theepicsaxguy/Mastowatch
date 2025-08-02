@@ -10,7 +10,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 import { apiFetch } from './api';
-import { getCurrentUser, logout, redirectToLogin, User } from './auth';
+import { getCurrentUser, logout, login, User } from './auth';
 import { 
   fetchOverview, fetchTimeline, fetchAccounts, fetchReports, 
   fetchAccountAnalyses, fetchCurrentRules, OverviewMetrics, 
@@ -46,6 +46,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const statusBadge = useMemo(() => {
     if (!health) return null;
@@ -62,6 +63,20 @@ export default function App() {
       setCurrentUser(null);
     } finally {
       setAuthLoading(false);
+    }
+  }
+
+  async function handleLogin() {
+    setLoginLoading(true);
+    try {
+      const user = await login();
+      if (user) {
+        setCurrentUser(user);
+      }
+    } catch (error) {
+      console.error('Login failed:', error);
+    } finally {
+      setLoginLoading(false);
     }
   }
 
@@ -230,7 +245,8 @@ export default function App() {
             </div>
             <Button 
               leftSection={<IconLogin size={16} />}
-              onClick={redirectToLogin}
+              onClick={handleLogin}
+              loading={loginLoading}
               size="lg"
             >
               Sign In with Mastodon
@@ -255,6 +271,22 @@ export default function App() {
               {statusBadge}
             </Group>
             <Group>
+              <Menu shadow="md" width={200}>
+                <Menu.Target>
+                  <Button variant="light" leftSection={<IconUser size={16} />}>
+                    {currentUser.display_name}
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item 
+                    leftSection={<IconLogout size={16} />}
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+              
               <Select
                 placeholder="Time Range"
                 value={timeRange}

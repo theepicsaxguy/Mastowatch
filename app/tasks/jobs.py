@@ -21,11 +21,22 @@ from app.util import make_dedupe_key
 
 settings = get_settings()
 rules = Rules.from_yaml("rules.yml")
-admin = MastoClient(settings.ADMIN_TOKEN)
-bot = MastoClient(settings.BOT_TOKEN)
+
+# Don't create global client instances to avoid HTTPX reuse issues in Celery
+# Instead, create fresh instances in each task
 
 CURSOR_NAME = "admin_accounts"
 CURSOR_NAME_LOCAL = "admin_accounts_local"
+
+
+def _get_admin_client():
+    """Get a fresh admin client instance."""
+    return MastoClient(settings.ADMIN_TOKEN)
+
+
+def _get_bot_client():
+    """Get a fresh bot client instance."""
+    return MastoClient(settings.BOT_TOKEN)
 
 
 def _parse_next_max_id(link_header: str) -> str | None:
@@ -93,6 +104,7 @@ def poll_admin_accounts():
         params = {"origin": "remote", "status": "active", "limit": settings.BATCH_SIZE}
         if next_max:
             params["max_id"] = next_max
+        admin = _get_admin_client()
         r = admin.get("/api/v1/admin/accounts", params=params)
         accounts = r.json()
         link = r.headers.get("link", "")
@@ -134,6 +146,7 @@ def poll_admin_accounts_local():
         params = {"origin": "local", "status": "active", "limit": settings.BATCH_SIZE}
         if next_max:
             params["max_id"] = next_max
+        admin = _get_admin_client()
         r = admin.get("/api/v1/admin/accounts", params=params)
         accounts = r.json()
         link = r.headers.get("link", "")
@@ -156,6 +169,7 @@ def poll_admin_accounts_local():
 
 def _get_instance_rules():
     try:
+        admin = _get_admin_client()
         r = admin.get("/api/v1/instance/rules")
         # Returns list of {"id": "...", "text": "..."}
         return r.json()
@@ -193,6 +207,7 @@ def analyze_and_maybe_report(payload: dict):
         acct_id = acct.get("id")
         if not acct_id:
             return
+        admin = _get_admin_client()
         sr = admin.get(f"/api/v1/accounts/{acct_id}/statuses", params={"limit": settings.MAX_STATUSES_TO_FETCH})
         statuses = sr.json()
         accounts_scanned.inc()
@@ -258,6 +273,7 @@ def analyze_and_maybe_report(payload: dict):
             # naive example: include all rule ids when category is violation
             payload["rule_ids[]"] = [r.get("id") for r in rule_entities if r.get("id")]
 
+        bot = _get_bot_client()
         rr = bot.post("/api/v1/reports", data=payload)
         rep_id = rr.json().get("id", "")
 
