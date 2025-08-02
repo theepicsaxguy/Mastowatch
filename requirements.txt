@@ -12,6 +12,7 @@ prometheus-client==0.22.1
 pyyaml==6.0.2
 python-json-logger==3.3.0
 python-dotenv==1.1.1
+openapi-python-client==0.22.0
 
 # Development dependencies (also needed for CI)
 flake8==7.1.1

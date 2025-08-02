@@ -69,6 +69,20 @@ typecheck:
 # Combined quality checks
 check: lint format-check typecheck test
 
+# OpenAPI client management
+update-api-spec:
+	curl -L "https://abraham.github.io/2d1b5745-0dd7-41ce-b651-97082ae9b878" -o specs/openapi.json
+
+regenerate-client:
+	rm -rf app/clients/mastodon
+	openapi-python-client generate --path specs/openapi.json --meta none
+	mkdir -p app/clients
+	mv mastodon_api_client app/clients/mastodon
+
+update-mastodon-client: update-api-spec regenerate-client
+	@echo "Mastodon API client updated successfully!"
+	@echo "Remember to restart your application to use the new client."
+
 # Stop all services
 stop:
 	docker compose down
@@ -122,4 +136,7 @@ help:
 	@echo "  stop             - Stop all services"
 	@echo "  status           - Show service status"
 	@echo "  shell-<service>  - Enter running container shell"
+	@echo "  update-api-spec      - Download latest Mastodon OpenAPI specification"
+	@echo "  regenerate-client    - Regenerate typed client from OpenAPI spec"
+	@echo "  update-mastodon-client - Update API spec and regenerate client"
 	@echo "  help             - Show this help message"
