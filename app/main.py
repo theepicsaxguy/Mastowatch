@@ -1259,17 +1259,38 @@ def create_rule(
         try:
             re.compile(rule_data["pattern"])
         except re.error as e:
+            # Provide specific suggestions based on rule type
+            suggestions = [
+                "Check for unescaped special characters",
+                "Ensure balanced parentheses and brackets", 
+                "Test on regex101.com first",
+                "Use POST /rules/validate-pattern to test your pattern"
+            ]
+            
+            # Add rule-type specific suggestions
+            if rule_data["rule_type"] == "username_regex":
+                suggestions.extend([
+                    "Username patterns: ^suspicious_prefix, _bot$, ^[0-9]+$",
+                    "Remember usernames don't include @ symbol"
+                ])
+            elif rule_data["rule_type"] == "display_name_regex":
+                suggestions.extend([
+                    "Display name patterns: [🔥💰], URGENT|BUY NOW, ^Admin$",
+                    "Display names can contain emojis and spaces"
+                ])
+            elif rule_data["rule_type"] == "content_regex":
+                suggestions.extend([
+                    "Content patterns: https?://[^\\s]+, #(crypto|forex), (?i)(buy.*now)",
+                    "Use (?i) for case-insensitive matching"
+                ])
+                
             raise HTTPException(
                 status_code=400, 
                 detail={
                     "error": f"Invalid regex pattern: {str(e)}",
                     "pattern": rule_data["pattern"],
-                    "suggestions": [
-                        "Check for unescaped special characters",
-                        "Ensure balanced parentheses and brackets", 
-                        "Test on regex101.com first",
-                        "Use POST /rules/validate-pattern to test your pattern"
-                    ]
+                    "rule_type": rule_data["rule_type"],
+                    "suggestions": suggestions
                 }
             )
         
