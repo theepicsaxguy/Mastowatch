@@ -17,7 +17,10 @@ RUN npm ci && npm run build
 ### --- Backend stage ---
 FROM base as backend
 COPY --from=dependencies /wheels /wheels
-RUN pip install --no-cache-dir /wheels/*.whl
+RUN pip install --no-cache-dir /wheels/*.whl && \
+    apt-get update && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY app /app/app
 COPY alembic.ini /app/alembic.ini

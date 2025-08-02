@@ -22,7 +22,7 @@ Set these in `.env` (copied from `.env.example`):
 * `BOT_TOKEN`: token with `write:reports` scope
 * `ADMIN_TOKEN`: token with admin read scopes
 * `DRY_RUN`: `true` to log without sending reports
-* `BATCH_SIZE`: admin polling batch size (default 80)
+* `MAX_PAGES_PER_POLL`: admin polling pages per batch (default 3)
 
 ### Getting Mastodon Access Tokens
 
@@ -47,6 +47,32 @@ This application uses **direct access tokens** rather than OAuth2 client credent
 
 **Note**: You only need the access tokens, not the client key/secret shown in the application details.
 
+## API Client
+
+MastoWatch uses a **type-safe, auto-updating Mastodon API client** based on the community-maintained OpenAPI specification:
+
+- **Automatic updates**: Weekly sync with [abraham/mastodon-openapi](https://github.com/abraham/mastodon-openapi)
+- **Type safety**: Generated Python client with full IDE support and validation
+- **Backward compatibility**: Fallback to raw HTTP for admin endpoints
+- **Documentation**: Self-documenting through types
+
+### Managing the API Client
+
+```bash
+# Check current status
+make api-client-status
+
+# Update from latest Mastodon API spec
+make update-mastodon-client
+
+# Just update the schema
+make update-api-spec
+
+# Just regenerate client
+make regenerate-client
+```
+
+See [docs/mastodon-api-client.md](docs/mastodon-api-client.md) for detailed documentation.
 
 Endpoints:
 
