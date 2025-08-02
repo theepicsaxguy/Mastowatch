@@ -5,7 +5,7 @@ from datetime import datetime
 
 import yaml
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from app.db import engine
 from app.models import Rule
@@ -27,6 +27,34 @@ class Rules:
         # Load database rules
         with Session(engine) as session:
             db_rules = session.query(Rule).all()
+        
+        return Rules(config, ruleset_sha256, db_rules)
+
+    @staticmethod
+    def from_database():
+        """Load rules from database only"""
+        with Session(engine) as session:
+            db_rules = session.query(Rule).all()
+            
+            # Create a hash from all the rule data for versioning
+            rule_data = []
+            for rule in db_rules:
+                rule_data.append(f"{rule.id}:{rule.pattern}:{rule.weight}:{rule.enabled}")
+            
+            ruleset_content = "|".join(sorted(rule_data))
+            ruleset_sha256 = hashlib.sha256(ruleset_content.encode()).hexdigest()
+            
+            # Get report threshold from database config or use default
+            config_row = session.execute(
+                text("SELECT value FROM config WHERE key='report_threshold'")
+            ).scalar()
+            
+            if config_row and isinstance(config_row, dict):
+                report_threshold = config_row.get("threshold", 1.0)
+            else:
+                report_threshold = 1.0
+            
+            config = {"report_threshold": report_threshold}
         
         return Rules(config, ruleset_sha256, db_rules)
 

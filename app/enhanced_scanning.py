@@ -35,7 +35,11 @@ class EnhancedScanningSystem:
     """Enhanced scanning system with improved efficiency and federated tracking"""
     
     def __init__(self):
-        self.rules = Rules.from_yaml("rules.yml")
+        try:
+            self.rules = Rules.from_database()
+        except Exception as e:
+            logger.warning(f"Failed to load rules from database: {e}, using empty rules")
+            self.rules = Rules({"report_threshold": 1.0}, "empty", [])
         self.settings = get_settings()
     
     def start_scan_session(self, session_type: str, metadata: Optional[Dict] = None) -> int:

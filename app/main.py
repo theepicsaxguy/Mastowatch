@@ -51,17 +51,14 @@ run_all_startup_validations()
 app = FastAPI(title="MastoWatch", version="1.0.0")
 settings = get_settings()
 
-# Load rules with graceful fallback
+# Load rules from database only (no more file-based rules)
 try:
-    rules = Rules.from_yaml("rules.yml")
-    logger.info("Rules loaded successfully")
-except FileNotFoundError:
-    logger.warning("Rules file not found, using minimal default rules")
-    # Create minimal default rules to prevent hard failure
-    rules = Rules({"rules": [], "report_threshold": 1.0})
+    rules = Rules.from_database()
+    logger.info("Rules loaded successfully from database")
 except Exception as e:
-    logger.error(f"Failed to parse rules.yml: {e}, using minimal default rules")
-    rules = Rules({"rules": [], "report_threshold": 1.0})
+    logger.error(f"Failed to load rules from database: {e}, using minimal default rules")
+    # Create minimal default rules to prevent hard failure
+    rules = Rules({"report_threshold": 1.0}, "database", [])
 
 if settings.CORS_ORIGINS:
     app.add_middleware(
@@ -90,28 +87,51 @@ def get_db_session():
 
 
 def sync_default_rules():
-    """Sync default rules from YAML to database if they don't exist"""
+    """Sync default rules to database if they don't exist"""
     try:
         with SessionLocal() as session:
-            # Clear existing default rules
-            session.query(Rule).filter(Rule.is_default == True).delete()
+            # Check if we have any rules at all
+            existing_count = session.query(Rule).count()
             
-            # Add default rules from YAML
-            for rule_type in ['username_regex', 'display_name_regex', 'content_regex']:
-                if rule_type in rules.cfg:
-                    for rule_data in rules.cfg[rule_type]:
-                        default_rule = Rule(
-                            name=rule_data['name'],
-                            rule_type=rule_type,
-                            pattern=rule_data['pattern'],
-                            weight=rule_data['weight'],
-                            enabled=True,
-                            is_default=True
-                        )
-                        session.add(default_rule)
-            
-            session.commit()
-            logger.info("Default rules synced to database")
+            if existing_count == 0:
+                # Add some basic default rules if none exist
+                default_rules = [
+                    {
+                        "name": "Spam Bot Pattern",
+                        "rule_type": "username_regex",
+                        "pattern": r".*bot.*\d{3,}$",
+                        "weight": 1.0,
+                        "enabled": True
+                    },
+                    {
+                        "name": "Suspicious Display Name",
+                        "rule_type": "display_name_regex", 
+                        "pattern": r"(free|win|prize|offer).*",
+                        "weight": 0.6,
+                        "enabled": True
+                    },
+                    {
+                        "name": "Spam Content",
+                        "rule_type": "content_regex",
+                        "pattern": r".*(send.*bitcoin|free.*crypto).*",
+                        "weight": 1.2,
+                        "enabled": True
+                    }
+                ]
+                
+                for rule_data in default_rules:
+                    default_rule = Rule(
+                        name=rule_data["name"],
+                        rule_type=rule_data["rule_type"],
+                        pattern=rule_data["pattern"],
+                        weight=rule_data["weight"],
+                        enabled=True,
+                        is_default=True
+                    )
+                    session.add(default_rule)
+                
+                session.commit()
+                logger.info(f"Added {len(default_rules)} default rules to database")
             
     except Exception as e:
         logger.error(f"Failed to sync default rules: {e}")
@@ -319,35 +339,95 @@ def set_panic_stop(body: PanicToggle, _: User = Depends(require_admin_hybrid)):
         )
 
 
+class ReportThresholdToggle(BaseModel):
+    threshold: float
+    updated_by: str | None = None
+
+
+@app.post("/config/report_threshold", tags=["ops"])
+def set_report_threshold(body: ReportThresholdToggle, _: User = Depends(require_admin_hybrid)):
+    """Set report threshold and persist to database"""
+    try:
+        if body.threshold is None:
+            raise HTTPException(
+                status_code=400, detail={"error": "missing_threshold", "message": "threshold cannot be null"}
+            )
+        
+        if body.threshold < 0 or body.threshold > 10.0:
+            raise HTTPException(
+                status_code=400, detail={"error": "invalid_threshold", "message": "threshold must be between 0 and 10.0"}
+            )
+
+        with SessionLocal() as db:
+            try:
+                db.merge(Config(key="report_threshold", value={"threshold": body.threshold}, updated_by=body.updated_by))
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.error(
+                    "Failed to persist report threshold configuration to database",
+                    extra={
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "threshold": body.threshold,
+                        "updated_by": body.updated_by,
+                    },
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail={"error": "database_update_failed", "message": "Failed to persist configuration to database"},
+                )
+
+        # Reload rules to pick up new threshold
+        global rules
+        rules = Rules.from_database()
+        
+        logger.info(
+            "Report threshold configuration updated",
+            extra={"threshold": body.threshold, "updated_by": body.updated_by or "unknown", "persisted": True},
+        )
+        return {"threshold": body.threshold, "persisted": True}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to update report threshold setting",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "requested_threshold": getattr(body, "threshold", None),
+                "updated_by": getattr(body, "updated_by", None),
+            },
+        )
+        raise HTTPException(
+            status_code=500, detail={"error": "configuration_update_failed", "message": "Failed to update report threshold setting"}
+        )
+
+
 @app.post("/config/rules/reload", tags=["ops"])
 def reload_rules(_: User = Depends(require_admin_hybrid)):
-    """Reload rules from rules.yml file"""
+    """Reload rules from database"""
     try:
         global rules
         old_sha = rules.ruleset_sha256 if rules else "unknown"
 
         try:
-            rules = Rules.from_yaml("rules.yml")
-        except FileNotFoundError as e:
-            logger.error("Rules file not found", extra={"error": str(e), "file_path": "rules.yml"})
-            raise HTTPException(
-                status_code=404,
-                detail={"error": "rules_file_not_found", "message": "Rules configuration file (rules.yml) not found"},
-            )
+            rules = Rules.from_database()
         except Exception as e:
             logger.error(
-                "Failed to parse rules configuration",
-                extra={"error": str(e), "error_type": type(e).__name__, "file_path": "rules.yml"},
+                "Failed to load rules from database",
+                extra={"error": str(e), "error_type": type(e).__name__},
             )
             raise HTTPException(
-                status_code=400,
-                detail={"error": "rules_parse_failed", "message": f"Failed to parse rules configuration: {str(e)}"},
+                status_code=500,
+                detail={"error": "rules_load_failed", "message": f"Failed to load rules from database: {str(e)}"},
             )
 
         new_sha = rules.ruleset_sha256
 
         logger.info(
-            "Rules configuration reloaded",
+            "Rules configuration reloaded from database",
             extra={
                 "old_sha": old_sha[:8] if old_sha != "unknown" else old_sha,
                 "new_sha": new_sha[:8],
@@ -1310,7 +1390,7 @@ def create_rule(
         
         # Reload rules to include the new one
         global rules
-        rules = Rules.from_yaml("rules.yml")
+        rules = Rules.from_database()
         
         return {
             "id": new_rule.id,
@@ -1656,7 +1736,7 @@ def update_rule(
         
         # Reload rules
         global rules
-        rules = Rules.from_yaml("rules.yml")
+        rules = Rules.from_database()
         
         return {
             "id": target_rule.id,
@@ -1697,7 +1777,7 @@ def delete_rule(
         
         # Reload rules
         global rules
-        rules = Rules.from_yaml("rules.yml")
+        rules = Rules.from_database()
         
         return {"message": "Rule deleted successfully"}
         
@@ -1729,7 +1809,7 @@ def toggle_rule(
         
         # Reload rules
         global rules
-        rules = Rules.from_yaml("rules.yml")
+        rules = Rules.from_database()
         
         # Invalidate content scans due to rule changes
         enhanced_scanner = EnhancedScanningSystem()
@@ -2057,7 +2137,7 @@ def bulk_toggle_rules(
         
         # Reload rules
         global rules
-        rules = Rules.from_yaml("rules.yml")
+        rules = Rules.from_database()
         
         # Invalidate content scans due to rule changes
         enhanced_scanner = EnhancedScanningSystem()

@@ -27,7 +27,7 @@ settings = get_settings()
 rules = None
 if not os.environ.get("SKIP_STARTUP_VALIDATION"):
     try:
-        rules = Rules.from_yaml("rules.yml")
+        rules = Rules.from_database()
     except Exception as e:
         print(f"Warning: Could not initialize rules at startup: {e}")
         rules = None
@@ -37,12 +37,12 @@ def get_rules():
     global rules
     if rules is None:
         try:
-            rules = Rules.from_yaml("rules.yml")
+            rules = Rules.from_database()
         except Exception as e:
             print(f"Error initializing rules: {e}")
             # Return a minimal rules object for testing
             from app.rules import Rules
-            rules = Rules({}, "test_sha", [])
+            rules = Rules({"report_threshold": 1.0}, "test_sha", [])
     return rules
 
 # Don't create global client instances to avoid HTTPX reuse issues in Celery
