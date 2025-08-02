@@ -52,7 +52,7 @@ Endpoints:
 
 * `GET /healthz`
 * `GET /metrics`
-* `POST /config/dry_run`  (body: `true|false`)
+* `POST /config/dry_run`  (body: `{"dry_run": true|false, "updated_by": "optional-string"}`)
 * `POST /dryrun/evaluate` (body: `{"account": {...}, "statuses": [...]}`)
 
 ## Notes

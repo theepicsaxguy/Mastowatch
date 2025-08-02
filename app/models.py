@@ -36,10 +36,10 @@ class Config(Base):
     key = Column(Text, primary_key=True)
     value = Column(JSON, nullable=False)
     updated_by = Column(Text)
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
 class Cursor(Base):
     __tablename__ = "cursors"
     name = Column(Text, primary_key=True)
     position = Column(Text, nullable=False)
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())

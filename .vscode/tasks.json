@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "compose up",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.yml -f docker-compose.override.yml up --build",
+      "problemMatcher": []
+    }
+  ]
+}

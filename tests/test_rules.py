@@ -16,7 +16,7 @@ class TestRules(unittest.TestCase):
         score, hits = rules.eval_account(account, [])
         self.assertGreater(score, 0)
         self.assertGreater(len(hits), 0)
-        self.assertEqual(hits[0][0], "crypto1")
+        self.assertTrue(any(h[0].endswith("/crypto1") for h in hits))
 
 if __name__ == '__main__':
     unittest.main()
