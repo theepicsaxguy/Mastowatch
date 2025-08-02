@@ -37,9 +37,13 @@ class Settings(BaseSettings):
     OAUTH_CLIENT_ID: str | None = None
     OAUTH_CLIENT_SECRET: str | None = None
     OAUTH_REDIRECT_URI: str | None = None
+    OAUTH_POPUP_REDIRECT_URI: str | None = None
     SESSION_SECRET_KEY: str | None = None
     SESSION_COOKIE_NAME: str = "mastowatch_session"
     SESSION_COOKIE_MAX_AGE: int = 86400  # 24 hours in seconds
+    
+    # Frontend UI origin for popup postMessage
+    UI_ORIGIN: str = "http://localhost:5173"
 
     class Config:
         case_sensitive = True

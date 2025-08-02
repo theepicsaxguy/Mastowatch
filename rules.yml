@@ -1,7 +1,0 @@
-report_threshold: 1.0
-username_regex:
-  - { name: "crypto1", pattern: "(ai|gpt|coin|arb|doge)", weight: 0.6 }
-display_name_regex:
-  - { name: "pump", pattern: "pump|airdrops?", weight: 0.5 }
-content_regex:
-  - { name: "giveaway", pattern: "giveaway|free\\s+(btc|eth|nft)", weight: 0.7 }

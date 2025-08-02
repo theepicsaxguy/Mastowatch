@@ -49,17 +49,23 @@ class MastoClient:
     ) -> httpx.Response:
         """
         Make a raw HTTP request for endpoints not available in the generated client.
-        Uses the centralized session from the generated client to maintain consistency.
+        Creates a fresh HTTPX client for each request to avoid reuse issues in Celery tasks.
         """
         throttle_if_needed(self._bucket_key)
 
-        # Use the generated client's httpx session instead of creating our own
-        with self._api_client.get_httpx_client() as client:
+        # Create a fresh HTTPX client for each request to avoid closure issues
+        headers = {"User-Agent": self._ua, "Authorization": f"Bearer {self._token}"}
+        
+        with httpx.Client(
+            base_url=self._base_url,
+            headers=headers,
+            timeout=30.0,
+        ) as client:
             with api_call_seconds.labels(endpoint=path).time():
                 if method.upper() == "GET":
-                    response = client.get(f"{self._base_url}{path}", params=params)
+                    response = client.get(path, params=params)
                 elif method.upper() == "POST":
-                    response = client.post(f"{self._base_url}{path}", data=data, json=json)
+                    response = client.post(path, data=data, json=json)
                 else:
                     raise ValueError(f"Unsupported HTTP method: {method}")
 
