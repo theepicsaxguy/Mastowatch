@@ -20,24 +20,18 @@ Mastowatch/
 │   └── openapi.json               # Our copy of the spec
 ├── app/
 │   ├── clients/mastodon/          # Generated Python client
-│   ├── mastodon_client.py         # Legacy HTTP client
-│   └── mastodon_client_v2.py      # New type-safe client
+│   └── mastodon_client_v2.py      # Type-safe client with admin fallbacks
 └── scripts/
     └── update_mastodon_client.sh  # Management script
 ```
 
-## Client Types
+## Mastodon Client
 
-### MastoClientV2 (Recommended)
+### MastoClientV2
 - **Type-safe** methods for common endpoints (accounts, statuses, reports)
 - **Fallback** to raw HTTP for admin endpoints not in OpenAPI spec
 - **Full compatibility** with existing rate limiting and metrics
 - **Auto-completion** and validation in IDEs
-
-### MastoClient (Legacy)
-- Raw HTTP calls using httpx
-- Manual JSON parsing
-- Still used for admin endpoints not available in community spec
 
 ## Usage Examples
 
@@ -114,44 +108,53 @@ make regenerate-client
 make update-mastodon-client
 ```
 
-## Migration Guide
+## Client Usage
 
-### Gradual Migration Strategy
+### Basic Usage
 
-1. **Start with new client instances:**
-   ```python
-   # Replace this
-   admin = MastoClient(settings.ADMIN_TOKEN)
-   
-   # With this
-   admin = MastoClientV2(settings.ADMIN_TOKEN)
-   ```
+```python
+from app.mastodon_client_v2 import MastoClientV2
 
-2. **Update type-safe endpoints first:**
-   ```python
-   # Old approach
-   r = admin.get(f"/api/v1/accounts/{account_id}")
-   account_data = r.json()
-   
-   # New approach
-   account = admin.get_account(account_id)
-   # account.username, account.followers_count, etc. are all typed!
-   ```
+# Initialize client
+admin = MastoClientV2(settings.ADMIN_TOKEN)
+bot = MastoClientV2(settings.BOT_TOKEN)
+```
 
-3. **Keep legacy methods for admin endpoints:**
-   ```python
-   # Admin endpoints still work the same way
-   response = admin.get("/api/v1/admin/accounts", params={"origin": "remote"})
-   accounts = response.json()
-   ```
+### Type-safe Operations
 
-### Benefits of Migration
+```python
+# Get account with full type safety
+account = admin.get_account(account_id)
+# account.username, account.followers_count, etc. are all typed!
+
+# Get account statuses
+statuses = admin.get_account_statuses(account_id, limit=40)
+# statuses is List[Status] with full type information
+
+# Create reports
+report = bot.create_report(
+    account_id=account_id,
+    comment="Automated moderation report",
+    status_ids=status_ids
+)
+# report.id is typed and available
+```
+
+### Admin Endpoints (Raw HTTP)
+
+```python
+# Admin endpoints not in OpenAPI spec use raw HTTP
+response = admin.get("/api/v1/admin/accounts", params={"origin": "remote"})
+accounts = response.json()
+```
+
+### Benefits
 
 - ✅ **Type Safety**: IDE autocomplete and compile-time validation
 - ✅ **Fewer Errors**: No more `.json()` typos or missing fields
 - ✅ **Better Documentation**: Types serve as documentation
 - ✅ **Easier Refactoring**: Type-aware code transformations
-- ✅ **Backward Compatibility**: Legacy methods still work
+- ✅ **Backward Compatibility**: Raw HTTP methods for missing endpoints
 
 ## Automation
 

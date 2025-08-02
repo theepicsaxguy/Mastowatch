@@ -11,7 +11,7 @@ from sqlalchemy.sql import func
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.mastodon_client_v2 import MastoClientV2
+from app.mastodon_client import MastoClient
 from app.metrics import (accounts_scanned, analyses_flagged, analysis_latency,
                          cursor_lag_pages, queue_backlog, report_latency,
                          reports_submitted)
@@ -21,8 +21,8 @@ from app.util import make_dedupe_key
 
 settings = get_settings()
 rules = Rules.from_yaml("rules.yml")
-admin = MastoClientV2(settings.ADMIN_TOKEN)
-bot = MastoClientV2(settings.BOT_TOKEN)
+admin = MastoClient(settings.ADMIN_TOKEN)
+bot = MastoClient(settings.BOT_TOKEN)
 
 CURSOR_NAME = "admin_accounts"
 CURSOR_NAME_LOCAL = "admin_accounts_local"

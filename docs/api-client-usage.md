@@ -69,11 +69,6 @@ statuses = client.get_account_statuses("123", limit=10)
 4. **Rate Limiting**: Centralized rate limiting and metrics collection
 5. **Testability**: Easier to mock and test with a consistent interface
 
-## Legacy Code
-
-- `app.mastodon_client.MastoClient` is **deprecated** - use `MastoClientV2` instead
-- Manual API functions in `app.clients.mastodon.api.*` should be avoided in favor of direct HTTP calls through the generated client
-
 ## Adding New Endpoints
 
 1. **First choice**: Use the generated client's HTTP session for the new endpoint
