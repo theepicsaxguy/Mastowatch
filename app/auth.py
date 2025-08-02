@@ -1,9 +1,10 @@
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Header, HTTPException, status
 from app.config import get_settings
 
-def require_api_key():
-    """
-    Authentication dependency for dashboard endpoints.
-    Since the dashboard is protected by SSO, we skip API key validation.
-    """
+def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")):
+    settings = get_settings()
+    if not settings.API_KEY:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="API_KEY not configured")
+    if x_api_key != settings.API_KEY:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
     return True

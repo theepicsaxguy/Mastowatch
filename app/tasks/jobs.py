@@ -231,8 +231,9 @@ def analyze_and_maybe_report(payload: dict):
         rep_id = rr.json().get("id", "")
 
         with SessionLocal() as db:
+            from sqlalchemy import text
             db.execute(
-                "UPDATE reports SET mastodon_report_id = :rid WHERE dedupe_key = :dk",
+                text("UPDATE reports SET mastodon_report_id = :rid WHERE dedupe_key = :dk"),
                 {"rid": rep_id, "dk": dedupe}
             )
             db.commit()

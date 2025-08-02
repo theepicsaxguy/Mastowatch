@@ -16,7 +16,7 @@ class Rules:
 
     def eval_account(self, acct: Dict[str, Any], statuses: List[Dict[str,Any]]) -> Tuple[float, List[Tuple[str,float,dict]]]:
         hits, score = [], 0.0
-        u = (acct.get("username") or "")
+        u = (acct.get("username") or (acct.get("acct","").split("@")[0]) or "")
         dn = (acct.get("display_name") or "")
         for rule in self.cfg.get("username_regex", []):
             if re.search(rule["pattern"], u, re.I):

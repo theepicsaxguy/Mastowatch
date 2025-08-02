@@ -12,7 +12,9 @@ export default defineConfig({
       '/metrics': 'http://localhost:8080',
       '/config': 'http://localhost:8080',
       '/dryrun': 'http://localhost:8080',
-      '/webhooks': 'http://localhost:8080'
+      '/webhooks': 'http://localhost:8080',
+      '/analytics': 'http://localhost:8080',
+      '/rules': 'http://localhost:8080'
     }
   },
   build: {
