@@ -6,12 +6,10 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.patch_accounts_update_credentials_body_fields_attributes import (
-        PatchAccountsUpdateCredentialsBodyFieldsAttributes,
-    )
-    from ..models.patch_accounts_update_credentials_body_source import (
-        PatchAccountsUpdateCredentialsBodySource,
-    )
+    from ..models.patch_accounts_update_credentials_body_fields_attributes import \
+        PatchAccountsUpdateCredentialsBodyFieldsAttributes
+    from ..models.patch_accounts_update_credentials_body_source import \
+        PatchAccountsUpdateCredentialsBodySource
 
 
 T = TypeVar("T", bound="PatchAccountsUpdateCredentialsBody")
@@ -42,9 +40,7 @@ class PatchAccountsUpdateCredentialsBody:
     bot: Union[Unset, bool] = UNSET
     discoverable: Union[Unset, bool] = UNSET
     display_name: Union[Unset, str] = UNSET
-    fields_attributes: Union[
-        Unset, "PatchAccountsUpdateCredentialsBodyFieldsAttributes"
-    ] = UNSET
+    fields_attributes: Union[Unset, "PatchAccountsUpdateCredentialsBodyFieldsAttributes"] = UNSET
     header: Union[Unset, str] = UNSET
     hide_collections: Union[Unset, bool] = UNSET
     indexable: Union[Unset, bool] = UNSET
@@ -116,12 +112,10 @@ class PatchAccountsUpdateCredentialsBody:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.patch_accounts_update_credentials_body_fields_attributes import (
-            PatchAccountsUpdateCredentialsBodyFieldsAttributes,
-        )
-        from ..models.patch_accounts_update_credentials_body_source import (
-            PatchAccountsUpdateCredentialsBodySource,
-        )
+        from ..models.patch_accounts_update_credentials_body_fields_attributes import \
+            PatchAccountsUpdateCredentialsBodyFieldsAttributes
+        from ..models.patch_accounts_update_credentials_body_source import \
+            PatchAccountsUpdateCredentialsBodySource
 
         d = src_dict.copy()
         attribution_domains = cast(list[str], d.pop("attribution_domains", UNSET))
@@ -135,17 +129,11 @@ class PatchAccountsUpdateCredentialsBody:
         display_name = d.pop("display_name", UNSET)
 
         _fields_attributes = d.pop("fields_attributes", UNSET)
-        fields_attributes: Union[
-            Unset, PatchAccountsUpdateCredentialsBodyFieldsAttributes
-        ]
+        fields_attributes: Union[Unset, PatchAccountsUpdateCredentialsBodyFieldsAttributes]
         if isinstance(_fields_attributes, Unset):
             fields_attributes = UNSET
         else:
-            fields_attributes = (
-                PatchAccountsUpdateCredentialsBodyFieldsAttributes.from_dict(
-                    _fields_attributes
-                )
-            )
+            fields_attributes = PatchAccountsUpdateCredentialsBodyFieldsAttributes.from_dict(_fields_attributes)
 
         header = d.pop("header", UNSET)
 

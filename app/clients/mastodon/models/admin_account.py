@@ -256,9 +256,7 @@ class AdminAccount:
                 return data
             return cast(Union[None, Unset, str], data)
 
-        created_by_application_id = _parse_created_by_application_id(
-            d.pop("created_by_application_id", UNSET)
-        )
+        created_by_application_id = _parse_created_by_application_id(d.pop("created_by_application_id", UNSET))
 
         def _parse_domain(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -285,9 +283,7 @@ class AdminAccount:
                 return data
             return cast(Union[None, Unset, str], data)
 
-        invited_by_account_id = _parse_invited_by_account_id(
-            d.pop("invited_by_account_id", UNSET)
-        )
+        invited_by_account_id = _parse_invited_by_account_id(d.pop("invited_by_account_id", UNSET))
 
         def _parse_ip(data: object) -> Union[None, Unset, str]:
             if data is None:

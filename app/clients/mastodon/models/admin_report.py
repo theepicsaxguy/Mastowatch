@@ -247,9 +247,7 @@ class AdminReport:
                 pass
             return cast(Union["AdminAccount", None, Unset], data)
 
-        action_taken_by_account = _parse_action_taken_by_account(
-            d.pop("action_taken_by_account", UNSET)
-        )
+        action_taken_by_account = _parse_action_taken_by_account(d.pop("action_taken_by_account", UNSET))
 
         def _parse_assigned_account(data: object) -> Union["AdminAccount", None, Unset]:
             if data is None:

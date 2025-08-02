@@ -7,9 +7,8 @@ from ..models.filter_context import FilterContext
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.create_filter_v2_body_keywords_attributes_item import (
-        CreateFilterV2BodyKeywordsAttributesItem,
-    )
+    from ..models.create_filter_v2_body_keywords_attributes_item import \
+        CreateFilterV2BodyKeywordsAttributesItem
 
 
 T = TypeVar("T", bound="CreateFilterV2Body")
@@ -33,9 +32,7 @@ class CreateFilterV2Body:
     title: str
     expires_in: Union[Unset, int] = UNSET
     filter_action: Union[Unset, str] = UNSET
-    keywords_attributes: Union[
-        Unset, list["CreateFilterV2BodyKeywordsAttributesItem"]
-    ] = UNSET
+    keywords_attributes: Union[Unset, list["CreateFilterV2BodyKeywordsAttributesItem"]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -76,9 +73,8 @@ class CreateFilterV2Body:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.create_filter_v2_body_keywords_attributes_item import (
-            CreateFilterV2BodyKeywordsAttributesItem,
-        )
+        from ..models.create_filter_v2_body_keywords_attributes_item import \
+            CreateFilterV2BodyKeywordsAttributesItem
 
         d = src_dict.copy()
         context = []
@@ -97,11 +93,7 @@ class CreateFilterV2Body:
         keywords_attributes = []
         _keywords_attributes = d.pop("keywords_attributes", UNSET)
         for keywords_attributes_item_data in _keywords_attributes or []:
-            keywords_attributes_item = (
-                CreateFilterV2BodyKeywordsAttributesItem.from_dict(
-                    keywords_attributes_item_data
-                )
-            )
+            keywords_attributes_item = CreateFilterV2BodyKeywordsAttributesItem.from_dict(keywords_attributes_item_data)
 
             keywords_attributes.append(keywords_attributes_item)
 

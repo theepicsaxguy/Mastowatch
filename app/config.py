@@ -1,6 +1,8 @@
-from pydantic_settings import BaseSettings
-from pydantic import AnyUrl, Field
 from functools import lru_cache
+
+from pydantic import AnyUrl, Field
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     VERSION: str = "0.1.0"
@@ -35,6 +37,7 @@ class Settings(BaseSettings):
         case_sensitive = True
         env_file = ".env"
         env_file_encoding = "utf-8"
+
 
 @lru_cache
 def get_settings():

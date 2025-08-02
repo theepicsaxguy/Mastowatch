@@ -67,9 +67,7 @@ class ScheduledStatus:
         media_attachments = []
         _media_attachments = d.pop("media_attachments")
         for media_attachments_item_data in _media_attachments:
-            media_attachments_item = MediaAttachment.from_dict(
-                media_attachments_item_data
-            )
+            media_attachments_item = MediaAttachment.from_dict(media_attachments_item_data)
 
             media_attachments.append(media_attachments_item)
 

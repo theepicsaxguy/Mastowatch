@@ -58,16 +58,10 @@ class CreateMediaBody:
         file = self.file.to_tuple()
 
         description = (
-            self.description
-            if isinstance(self.description, Unset)
-            else (None, str(self.description).encode(), "text/plain")
+            self.description if isinstance(self.description, Unset) else (None, str(self.description).encode(), "text/plain")
         )
 
-        focus = (
-            self.focus
-            if isinstance(self.focus, Unset)
-            else (None, str(self.focus).encode(), "text/plain")
-        )
+        focus = self.focus if isinstance(self.focus, Unset) else (None, str(self.focus).encode(), "text/plain")
 
         thumbnail: Union[Unset, FileJsonType] = UNSET
         if not isinstance(self.thumbnail, Unset):

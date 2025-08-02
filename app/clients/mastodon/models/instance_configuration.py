@@ -4,15 +4,16 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.instance_configuration_accounts import InstanceConfigurationAccounts
-    from ..models.instance_configuration_media_attachments import (
-        InstanceConfigurationMediaAttachments,
-    )
-    from ..models.instance_configuration_polls import InstanceConfigurationPolls
-    from ..models.instance_configuration_statuses import InstanceConfigurationStatuses
-    from ..models.instance_configuration_translation import (
-        InstanceConfigurationTranslation,
-    )
+    from ..models.instance_configuration_accounts import \
+        InstanceConfigurationAccounts
+    from ..models.instance_configuration_media_attachments import \
+        InstanceConfigurationMediaAttachments
+    from ..models.instance_configuration_polls import \
+        InstanceConfigurationPolls
+    from ..models.instance_configuration_statuses import \
+        InstanceConfigurationStatuses
+    from ..models.instance_configuration_translation import \
+        InstanceConfigurationTranslation
     from ..models.instance_configuration_urls import InstanceConfigurationUrls
 
 
@@ -75,29 +76,25 @@ class InstanceConfiguration:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.instance_configuration_accounts import (
-            InstanceConfigurationAccounts,
-        )
-        from ..models.instance_configuration_media_attachments import (
-            InstanceConfigurationMediaAttachments,
-        )
-        from ..models.instance_configuration_polls import InstanceConfigurationPolls
-        from ..models.instance_configuration_statuses import (
-            InstanceConfigurationStatuses,
-        )
-        from ..models.instance_configuration_translation import (
-            InstanceConfigurationTranslation,
-        )
-        from ..models.instance_configuration_urls import InstanceConfigurationUrls
+        from ..models.instance_configuration_accounts import \
+            InstanceConfigurationAccounts
+        from ..models.instance_configuration_media_attachments import \
+            InstanceConfigurationMediaAttachments
+        from ..models.instance_configuration_polls import \
+            InstanceConfigurationPolls
+        from ..models.instance_configuration_statuses import \
+            InstanceConfigurationStatuses
+        from ..models.instance_configuration_translation import \
+            InstanceConfigurationTranslation
+        from ..models.instance_configuration_urls import \
+            InstanceConfigurationUrls
 
         d = src_dict.copy()
         accounts = InstanceConfigurationAccounts.from_dict(d.pop("accounts"))
 
         limited_federation = d.pop("limited_federation")
 
-        media_attachments = InstanceConfigurationMediaAttachments.from_dict(
-            d.pop("media_attachments")
-        )
+        media_attachments = InstanceConfigurationMediaAttachments.from_dict(d.pop("media_attachments"))
 
         polls = InstanceConfigurationPolls.from_dict(d.pop("polls"))
 

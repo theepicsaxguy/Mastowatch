@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.credential_account_source_privacy import CredentialAccountSourcePrivacy
+from ..models.credential_account_source_privacy import \
+    CredentialAccountSourcePrivacy
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:

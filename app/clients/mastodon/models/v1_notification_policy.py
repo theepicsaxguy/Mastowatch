@@ -4,7 +4,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.v1_notification_policy_summary import V1NotificationPolicySummary
+    from ..models.v1_notification_policy_summary import \
+        V1NotificationPolicySummary
 
 
 T = TypeVar("T", bound="V1NotificationPolicy")
@@ -61,7 +62,8 @@ class V1NotificationPolicy:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.v1_notification_policy_summary import V1NotificationPolicySummary
+        from ..models.v1_notification_policy_summary import \
+            V1NotificationPolicySummary
 
         d = src_dict.copy()
         filter_new_accounts = d.pop("filter_new_accounts")

@@ -157,9 +157,7 @@ class Filter:
                 keywords_type_0 = []
                 _keywords_type_0 = data
                 for keywords_type_0_item_data in _keywords_type_0:
-                    keywords_type_0_item = FilterKeyword.from_dict(
-                        keywords_type_0_item_data
-                    )
+                    keywords_type_0_item = FilterKeyword.from_dict(keywords_type_0_item_data)
 
                     keywords_type_0.append(keywords_type_0_item)
 
@@ -181,9 +179,7 @@ class Filter:
                 statuses_type_0 = []
                 _statuses_type_0 = data
                 for statuses_type_0_item_data in _statuses_type_0:
-                    statuses_type_0_item = FilterStatus.from_dict(
-                        statuses_type_0_item_data
-                    )
+                    statuses_type_0_item = FilterStatus.from_dict(statuses_type_0_item_data)
 
                     statuses_type_0.append(statuses_type_0_item)
 

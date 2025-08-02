@@ -10,7 +10,8 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.account_warning import AccountWarning
-    from ..models.relationship_severance_event import RelationshipSeveranceEvent
+    from ..models.relationship_severance_event import \
+        RelationshipSeveranceEvent
     from ..models.report import Report
 
 
@@ -64,7 +65,8 @@ class NotificationGroup:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import \
+            RelationshipSeveranceEvent
         from ..models.report import Report
 
         group_key = self.group_key
@@ -158,7 +160,8 @@ class NotificationGroup:
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import \
+            RelationshipSeveranceEvent
         from ..models.report import Report
 
         d = src_dict.copy()
@@ -208,9 +211,7 @@ class NotificationGroup:
                 pass
             return cast(Union[None, Unset, datetime.datetime], data)
 
-        latest_page_notification_at = _parse_latest_page_notification_at(
-            d.pop("latest_page_notification_at", UNSET)
-        )
+        latest_page_notification_at = _parse_latest_page_notification_at(d.pop("latest_page_notification_at", UNSET))
 
         def _parse_moderation_warning(
             data: object,
@@ -229,9 +230,7 @@ class NotificationGroup:
                 pass
             return cast(Union["AccountWarning", None, Unset], data)
 
-        moderation_warning = _parse_moderation_warning(
-            d.pop("moderation_warning", UNSET)
-        )
+        moderation_warning = _parse_moderation_warning(d.pop("moderation_warning", UNSET))
 
         def _parse_page_max_id(data: object) -> Union[None, Unset, str]:
             if data is None:

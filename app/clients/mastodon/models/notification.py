@@ -11,7 +11,8 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.account import Account
     from ..models.account_warning import AccountWarning
-    from ..models.relationship_severance_event import RelationshipSeveranceEvent
+    from ..models.relationship_severance_event import \
+        RelationshipSeveranceEvent
     from ..models.report import Report
     from ..models.status import Status
 
@@ -93,7 +94,8 @@ class Notification:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import \
+            RelationshipSeveranceEvent
         from ..models.report import Report
         from ..models.status import Status
 
@@ -165,7 +167,8 @@ class Notification:
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
         from ..models.account import Account
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import \
+            RelationshipSeveranceEvent
         from ..models.report import Report
         from ..models.status import Status
 
@@ -216,9 +219,7 @@ class Notification:
                 pass
             return cast(Union["AccountWarning", None, Unset], data)
 
-        moderation_warning = _parse_moderation_warning(
-            d.pop("moderation_warning", UNSET)
-        )
+        moderation_warning = _parse_moderation_warning(d.pop("moderation_warning", UNSET))
 
         def _parse_report(data: object) -> Union["Report", None, Unset]:
             if data is None:

@@ -35,16 +35,27 @@ jobs:
       run: |
         # Stop build if there are Python syntax errors or undefined names
         flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 app tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        # Fail build on style violations (remove exit-zero)
+        flake8 app tests --count --max-complexity=10 --max-line-length=127 --statistics
         
     - name: Format check with black
       run: |
-        black --check app tests
+        black --check --diff app tests
         
     - name: Type check with mypy
       run: |
-        mypy app
+        mypy app tests
+        
+    - name: Security check with bandit
+      run: |
+        pip install bandit[toml]
+        bandit -r app -f json -o bandit-report.json
+        bandit -r app
+        
+    - name: Import sorting check with isort
+      run: |
+        pip install isort
+        isort --check-only --diff app tests
         
     - name: Run Python tests
       run: |

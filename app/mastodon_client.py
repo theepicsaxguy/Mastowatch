@@ -1,9 +1,13 @@
-import httpx, hashlib
+import hashlib
+
+import httpx
+
 from app.config import get_settings
-from app.rate_limit import update_from_headers, throttle_if_needed
 from app.metrics import api_call_seconds, http_errors
+from app.rate_limit import throttle_if_needed, update_from_headers
 
 settings = get_settings()
+
 
 class MastoClient:
     def __init__(self, token: str):
@@ -14,10 +18,7 @@ class MastoClient:
         self._bucket_key = f"{self._base}:{tok}"
 
     def _client(self):
-        return httpx.Client(timeout=30.0, headers={
-            "Authorization": f"Bearer {self._token}",
-            "User-Agent": self._ua
-        })
+        return httpx.Client(timeout=30.0, headers={"Authorization": f"Bearer {self._token}", "User-Agent": self._ua})
 
     def get(self, path: str, params=None):
         throttle_if_needed(self._bucket_key)

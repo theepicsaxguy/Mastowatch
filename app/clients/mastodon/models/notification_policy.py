@@ -80,7 +80,8 @@ class NotificationPolicy:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.notification_policy_summary import NotificationPolicySummary
+        from ..models.notification_policy_summary import \
+            NotificationPolicySummary
 
         d = src_dict.copy()
         for_limited_accounts = d.pop("for_limited_accounts")

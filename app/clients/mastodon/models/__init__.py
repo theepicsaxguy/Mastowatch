@@ -39,9 +39,8 @@ from .create_email_confirmations_body import CreateEmailConfirmationsBody
 from .create_featured_tag_body import CreateFeaturedTagBody
 from .create_filter_body import CreateFilterBody
 from .create_filter_v2_body import CreateFilterV2Body
-from .create_filter_v2_body_keywords_attributes_item import (
-    CreateFilterV2BodyKeywordsAttributesItem,
-)
+from .create_filter_v2_body_keywords_attributes_item import \
+    CreateFilterV2BodyKeywordsAttributesItem
 from .create_list_body import CreateListBody
 from .create_marker_body import CreateMarkerBody
 from .create_marker_body_home import CreateMarkerBodyHome
@@ -50,15 +49,12 @@ from .create_media_body import CreateMediaBody
 from .create_media_v2_body import CreateMediaV2Body
 from .create_push_subscription_body import CreatePushSubscriptionBody
 from .create_push_subscription_body_data import CreatePushSubscriptionBodyData
-from .create_push_subscription_body_data_alerts import (
-    CreatePushSubscriptionBodyDataAlerts,
-)
-from .create_push_subscription_body_subscription import (
-    CreatePushSubscriptionBodySubscription,
-)
-from .create_push_subscription_body_subscription_keys import (
-    CreatePushSubscriptionBodySubscriptionKeys,
-)
+from .create_push_subscription_body_data_alerts import \
+    CreatePushSubscriptionBodyDataAlerts
+from .create_push_subscription_body_subscription import \
+    CreatePushSubscriptionBodySubscription
+from .create_push_subscription_body_subscription_keys import \
+    CreatePushSubscriptionBodySubscriptionKeys
 from .create_report_body import CreateReportBody
 from .create_report_body_category import CreateReportBodyCategory
 from .create_status_idempotency_key import CreateStatusIdempotencyKey
@@ -69,9 +65,8 @@ from .credential_application import CredentialApplication
 from .custom_emoji import CustomEmoji
 from .delete_domain_blocks_body import DeleteDomainBlocksBody
 from .delete_list_accounts_body import DeleteListAccountsBody
-from .discover_oauth_server_configuration_response import (
-    DiscoverOauthServerConfigurationResponse,
-)
+from .discover_oauth_server_configuration_response import \
+    DiscoverOauthServerConfigurationResponse
 from .domain_block import DomainBlock
 from .domain_block_severity import DomainBlockSeverity
 from .error import Error
@@ -85,7 +80,8 @@ from .filter_filter_action import FilterFilterAction
 from .filter_keyword import FilterKeyword
 from .filter_result import FilterResult
 from .filter_status import FilterStatus
-from .get_instance_activity_response_200_item import GetInstanceActivityResponse200Item
+from .get_instance_activity_response_200_item import \
+    GetInstanceActivityResponse200Item
 from .get_markers_timeline_item import GetMarkersTimelineItem
 from .grouped_notifications_results import GroupedNotificationsResults
 from .identity_proof import IdentityProof
@@ -93,12 +89,12 @@ from .instance import Instance
 from .instance_api_versions import InstanceApiVersions
 from .instance_configuration import InstanceConfiguration
 from .instance_configuration_accounts import InstanceConfigurationAccounts
-from .instance_configuration_media_attachments import (
-    InstanceConfigurationMediaAttachments,
-)
+from .instance_configuration_media_attachments import \
+    InstanceConfigurationMediaAttachments
 from .instance_configuration_polls import InstanceConfigurationPolls
 from .instance_configuration_statuses import InstanceConfigurationStatuses
-from .instance_configuration_translation import InstanceConfigurationTranslation
+from .instance_configuration_translation import \
+    InstanceConfigurationTranslation
 from .instance_configuration_urls import InstanceConfigurationUrls
 from .instance_contact import InstanceContact
 from .instance_icon import InstanceIcon
@@ -124,16 +120,14 @@ from .notification_type_enum import NotificationTypeEnum
 from .o_auth_scope import OAuthScope
 from .o_embed_response import OEmbedResponse
 from .partial_account_with_avatar import PartialAccountWithAvatar
-from .patch_accounts_update_credentials_body import PatchAccountsUpdateCredentialsBody
-from .patch_accounts_update_credentials_body_fields_attributes import (
-    PatchAccountsUpdateCredentialsBodyFieldsAttributes,
-)
-from .patch_accounts_update_credentials_body_source import (
-    PatchAccountsUpdateCredentialsBodySource,
-)
-from .patch_accounts_update_credentials_body_source_privacy import (
-    PatchAccountsUpdateCredentialsBodySourcePrivacy,
-)
+from .patch_accounts_update_credentials_body import \
+    PatchAccountsUpdateCredentialsBody
+from .patch_accounts_update_credentials_body_fields_attributes import \
+    PatchAccountsUpdateCredentialsBodyFieldsAttributes
+from .patch_accounts_update_credentials_body_source import \
+    PatchAccountsUpdateCredentialsBodySource
+from .patch_accounts_update_credentials_body_source_privacy import \
+    PatchAccountsUpdateCredentialsBodySourcePrivacy
 from .policy_enum import PolicyEnum
 from .poll import Poll
 from .poll_option import PollOption
@@ -158,7 +152,8 @@ from .preview_type_enum import PreviewTypeEnum
 from .privacy_policy import PrivacyPolicy
 from .put_push_subscription_body import PutPushSubscriptionBody
 from .put_push_subscription_body_data import PutPushSubscriptionBodyData
-from .put_push_subscription_body_data_alerts import PutPushSubscriptionBodyDataAlerts
+from .put_push_subscription_body_data_alerts import \
+    PutPushSubscriptionBodyDataAlerts
 from .quote import Quote
 from .reaction import Reaction
 from .relationship import Relationship
@@ -179,7 +174,8 @@ from .status import Status
 from .status_application_type_0 import StatusApplicationType0
 from .status_edit import StatusEdit
 from .status_edit_poll_type_0 import StatusEditPollType0
-from .status_edit_poll_type_0_options_item import StatusEditPollType0OptionsItem
+from .status_edit_poll_type_0_options_item import \
+    StatusEditPollType0OptionsItem
 from .status_mention import StatusMention
 from .status_source import StatusSource
 from .status_tag import StatusTag
@@ -199,10 +195,10 @@ from .trends_link_history_item import TrendsLinkHistoryItem
 from .types_enum import TypesEnum
 from .update_filter_body import UpdateFilterBody
 from .update_filter_v2_body import UpdateFilterV2Body
-from .update_filter_v2_body_keywords_attributes_item import (
-    UpdateFilterV2BodyKeywordsAttributesItem,
-)
-from .update_filters_keywords_by_id_v2_body import UpdateFiltersKeywordsByIdV2Body
+from .update_filter_v2_body_keywords_attributes_item import \
+    UpdateFilterV2BodyKeywordsAttributesItem
+from .update_filters_keywords_by_id_v2_body import \
+    UpdateFiltersKeywordsByIdV2Body
 from .update_list_body import UpdateListBody
 from .update_media_body import UpdateMediaBody
 from .update_scheduled_status_body import UpdateScheduledStatusBody
@@ -212,9 +208,8 @@ from .v1_filter import V1Filter
 from .v1_instance import V1Instance
 from .v1_instance_configuration import V1InstanceConfiguration
 from .v1_instance_configuration_accounts import V1InstanceConfigurationAccounts
-from .v1_instance_configuration_media_attachments import (
-    V1InstanceConfigurationMediaAttachments,
-)
+from .v1_instance_configuration_media_attachments import \
+    V1InstanceConfigurationMediaAttachments
 from .v1_instance_configuration_polls import V1InstanceConfigurationPolls
 from .v1_instance_configuration_statuses import V1InstanceConfigurationStatuses
 from .v1_instance_stats import V1InstanceStats
@@ -223,9 +218,8 @@ from .v1_notification_policy import V1NotificationPolicy
 from .v1_notification_policy_summary import V1NotificationPolicySummary
 from .validation_error import ValidationError
 from .validation_error_details import ValidationErrorDetails
-from .validation_error_details_additional_property_item import (
-    ValidationErrorDetailsAdditionalPropertyItem,
-)
+from .validation_error_details_additional_property_item import \
+    ValidationErrorDetailsAdditionalPropertyItem
 from .visibility_enum import VisibilityEnum
 from .web_push_subscription import WebPushSubscription
 from .web_push_subscription_alerts import WebPushSubscriptionAlerts

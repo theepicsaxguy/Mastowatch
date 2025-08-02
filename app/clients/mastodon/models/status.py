@@ -425,9 +425,7 @@ class Status:
         media_attachments = []
         _media_attachments = d.pop("media_attachments")
         for media_attachments_item_data in _media_attachments:
-            media_attachments_item = MediaAttachment.from_dict(
-                media_attachments_item_data
-            )
+            media_attachments_item = MediaAttachment.from_dict(media_attachments_item_data)
 
             media_attachments.append(media_attachments_item)
 
@@ -539,9 +537,7 @@ class Status:
                 filtered_type_0 = []
                 _filtered_type_0 = data
                 for filtered_type_0_item_data in _filtered_type_0:
-                    filtered_type_0_item = FilterResult.from_dict(
-                        filtered_type_0_item_data
-                    )
+                    filtered_type_0_item = FilterResult.from_dict(filtered_type_0_item_data)
 
                     filtered_type_0.append(filtered_type_0_item)
 
@@ -559,9 +555,7 @@ class Status:
                 return data
             return cast(Union[None, Unset, str], data)
 
-        in_reply_to_account_id = _parse_in_reply_to_account_id(
-            d.pop("in_reply_to_account_id", UNSET)
-        )
+        in_reply_to_account_id = _parse_in_reply_to_account_id(d.pop("in_reply_to_account_id", UNSET))
 
         def _parse_in_reply_to_id(data: object) -> Union[None, Unset, str]:
             if data is None:

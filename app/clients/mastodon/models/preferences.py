@@ -3,7 +3,8 @@ from typing import Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.preferences_readingexpandmedia import PreferencesReadingexpandmedia
+from ..models.preferences_readingexpandmedia import \
+    PreferencesReadingexpandmedia
 from ..models.visibility_enum import VisibilityEnum
 from ..types import UNSET, Unset
 
@@ -72,9 +73,7 @@ class Preferences:
 
         postingdefaultvisibility = VisibilityEnum(d.pop("posting:default:visibility"))
 
-        readingexpandmedia = PreferencesReadingexpandmedia(
-            d.pop("reading:expand:media")
-        )
+        readingexpandmedia = PreferencesReadingexpandmedia(d.pop("reading:expand:media"))
 
         readingexpandspoilers = d.pop("reading:expand:spoilers")
 
@@ -85,9 +84,7 @@ class Preferences:
                 return data
             return cast(Union[None, Unset, str], data)
 
-        postingdefaultlanguage = _parse_postingdefaultlanguage(
-            d.pop("posting:default:language", UNSET)
-        )
+        postingdefaultlanguage = _parse_postingdefaultlanguage(d.pop("posting:default:language", UNSET))
 
         preferences = cls(
             postingdefaultsensitive=postingdefaultsensitive,
