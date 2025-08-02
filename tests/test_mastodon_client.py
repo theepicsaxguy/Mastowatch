@@ -8,18 +8,23 @@ from unittest.mock import MagicMock, Mock, patch
 from app.clients.mastodon.models import Account, Status
 from app.clients.mastodon.models.create_report_body_category import \
     CreateReportBodyCategory
-from app.mastodon_client_v2 import MastoClientV2
+from app.mastodon_client import MastoClient
 
 
-class TestMastoClientV2(unittest.TestCase):
-    """Test the type-safe Mastodon client."""
+class TestMastoClient(unittest.TestCase):
+    """Test suite for the Mastodon API client"""
 
     def setUp(self):
-        """Set up test fixtures."""
-        with patch("app.mastodon_client_v2.get_settings") as mock_settings:
-            mock_settings.return_value.INSTANCE_BASE = "https://mastodon.example"
-            mock_settings.return_value.USER_AGENT = "Test/1.0"
-            self.client = MastoClientV2("test_token")
+        """Set up test environment with mocked dependencies"""
+        with patch.dict(
+            os.environ,
+            {
+                "INSTANCE_BASE": "https://test.mastodon.social",
+                "ADMIN_TOKEN": "test_admin_token",
+                "BOT_TOKEN": "test_bot_token",
+            },
+        ):
+            self.client = MastoClient("test_token")
 
     @patch("app.mastodon_client_v2.throttle_if_needed")
     @patch("app.mastodon_client_v2.update_from_headers")

@@ -20,14 +20,14 @@ Mastowatch/
 │   └── openapi.json               # Our copy of the spec
 ├── app/
 │   ├── clients/mastodon/          # Generated Python client
-│   └── mastodon_client_v2.py      # Type-safe client with admin fallbacks
+│   └── mastodon_client.py         # Type-safe client with admin fallbacks
 └── scripts/
     └── update_mastodon_client.sh  # Management script
 ```
 
 ## Mastodon Client
 
-### MastoClientV2
+### MastoClient
 - **Type-safe** methods for common endpoints (accounts, statuses, reports)
 - **Fallback** to raw HTTP for admin endpoints not in OpenAPI spec
 - **Full compatibility** with existing rate limiting and metrics
@@ -37,9 +37,9 @@ Mastowatch/
 
 ### Type-safe Account Operations
 ```python
-from app.mastodon_client_v2 import MastoClientV2
+from app.mastodon_client_v2 import MastoClient
 
-client = MastoClientV2(token)
+client = MastoClient(token)
 
 # Get account with full type safety
 account = client.get_account("123456")
@@ -113,11 +113,11 @@ make update-mastodon-client
 ### Basic Usage
 
 ```python
-from app.mastodon_client_v2 import MastoClientV2
+from app.mastodon_client import MastoClient
 
 # Initialize client
-admin = MastoClientV2(settings.ADMIN_TOKEN)
-bot = MastoClientV2(settings.BOT_TOKEN)
+admin = MastoClient(settings.ADMIN_TOKEN)
+bot = MastoClient(settings.BOT_TOKEN)
 ```
 
 ### Type-safe Operations
@@ -220,7 +220,7 @@ The abraham/mastodon-openapi repository is automatically updated weekly via GitH
 ### Adding New Endpoints
 
 1. **Check if endpoint exists** in generated client
-2. **Add to MastoClientV2** if available in OpenAPI spec
+2. **Add to MastoClient** if available in OpenAPI spec
 3. **Use fallback method** if admin-only or missing from spec
 4. **Consider contributing** missing endpoints to abraham/mastodon-openapi
 

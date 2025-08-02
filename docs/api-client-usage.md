@@ -51,12 +51,12 @@ async with client.get_async_httpx_client() as http_client:
 
 ### 3. High-Level Facade (Optional)
 
-For complex workflows, use `MastoClientV2` as a high-level facade:
+For complex workflows, use `MastoClient` as a high-level facade:
 
 ```python
-from app.mastodon_client_v2 import MastoClientV2
+from app.mastodon_client import MastoClient
 
-client = MastoClientV2(token="your_token")
+client = MastoClient(token="your_token")
 account = client.get_account("123")
 statuses = client.get_account_statuses("123", limit=10)
 ```
@@ -72,7 +72,7 @@ statuses = client.get_account_statuses("123", limit=10)
 ## Adding New Endpoints
 
 1. **First choice**: Use the generated client's HTTP session for the new endpoint
-2. **If complex**: Add a method to `MastoClientV2` that uses `_make_raw_request`
+2. **If complex**: Add a method to `MastoClient` that uses `_make_raw_request`
 3. **Document** any endpoints not in the OpenAPI spec for future addition
 
 ## Testing

@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
 
 try:
-    from mastodon_client_v2 import MastoClientV2
+    from mastodon_client_v2 import MastoClient
     from clients.mastodon.models import Account, Status
     print("✅ Successfully imported type-safe client")
 except ImportError as e:
@@ -25,7 +25,7 @@ def test_type_annotations():
     print("\n🔍 Testing type annotations...")
     
     # This would be a real client in production
-    # client = MastoClientV2("fake_token_for_testing")
+    # client = MastoClient("fake_token_for_testing")
     
     # Check that we can import all the expected types
     from clients.mastodon.models.account import Account
@@ -36,8 +36,8 @@ def test_type_annotations():
     print("✅ All type imports successful")
     
     # Show available methods
-    methods = [m for m in dir(MastoClientV2) if not m.startswith('_')]
-    print(f"✅ MastoClientV2 has {len(methods)} public methods")
+    methods = [m for m in dir(MastoClient) if not m.startswith('_')]
+    print(f"✅ MastoClient has {len(methods)} public methods")
     
     # Check for type-safe methods
     type_safe_methods = [
@@ -45,7 +45,7 @@ def test_type_annotations():
     ]
     
     for method in type_safe_methods:
-        if hasattr(MastoClientV2, method):
+        if hasattr(MastoClient, method):
             print(f"✅ Type-safe method available: {method}")
         else:
             print(f"❌ Type-safe method missing: {method}")
@@ -53,7 +53,7 @@ def test_type_annotations():
     # Check for legacy compatibility
     legacy_methods = ['get', 'post', 'get_admin_accounts']
     for method in legacy_methods:
-        if hasattr(MastoClientV2, method):
+        if hasattr(MastoClient, method):
             print(f"✅ Legacy compatibility method: {method}")
         else:
             print(f"❌ Legacy compatibility missing: {method}")
@@ -105,7 +105,7 @@ def main():
     
     print("\n✅ Type-safe Mastodon client is ready!")
     print("\n🚀 Next steps:")
-    print("   1. Update your code to use MastoClientV2")
+    print("   1. Update your code to use MastoClient")
     print("   2. Enjoy type safety and better IDE support")
     print("   3. Use fallback methods for admin endpoints")
     print("   4. Run 'make update-mastodon-client' periodically for updates")
