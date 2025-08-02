@@ -1,11 +1,12 @@
 from pydantic_settings import BaseSettings
-from pydantic import AnyUrl
+from pydantic import AnyUrl, Field
 from functools import lru_cache
 
 class Settings(BaseSettings):
+    VERSION: str = "0.1.0"
     INSTANCE_BASE: AnyUrl
     BOT_TOKEN: str
-    ADMIN_TOKEN: str
+    ADMIN_TOKEN: str = Field(..., min_length=1)
     DATABASE_URL: str
     REDIS_URL: str
     DRY_RUN: bool = True

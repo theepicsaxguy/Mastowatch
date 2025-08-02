@@ -1,22 +1,18 @@
 import re, yaml, hashlib
 from typing import Dict, Any, List, Tuple
-from threading import RLock
 
 class Rules:
-    def __init__(self, path="rules.yml"):
-        self.path = path
-        self.lock = RLock()
-        self._load()
+    def __init__(self, config: Dict[str, Any], ruleset_sha256: str):
+        self.cfg = config
+        self.ruleset_sha256 = ruleset_sha256
 
-    def _load(self):
-        with open(self.path, "r", encoding="utf-8") as f:
-            self.cfg = yaml.safe_load(f) or {}
-        with open(self.path, "rb") as f:
-            self.ruleset_sha256 = hashlib.sha256(f.read()).hexdigest()
-
-    def reload(self):
-        with self.lock:
-            self._load()
+    @staticmethod
+    def from_yaml(path="rules.yml"):
+        with open(path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+        with open(path, "rb") as f:
+            ruleset_sha256 = hashlib.sha256(f.read()).hexdigest()
+        return Rules(config, ruleset_sha256)
 
     def eval_account(self, acct: Dict[str, Any], statuses: List[Dict[str,Any]]) -> Tuple[float, List[Tuple[str,float,dict]]]:
         hits, score = [], 0.0

@@ -14,7 +14,7 @@ from sqlalchemy.sql import func
 import redis
 
 settings = get_settings()
-rules = Rules()
+rules = Rules.from_yaml("rules.yml")
 admin = MastoClient(settings.ADMIN_TOKEN)
 bot = MastoClient(settings.BOT_TOKEN)
 

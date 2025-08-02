@@ -4,26 +4,16 @@ Analyze accounts/statuses and **file reports via API** so human moderators act i
 
 ## Quick start
 
-To get a working stack, follow these steps:
-
-### 1) Host "dev-doctor" (one-time fix)
-
-Run the `scripts/dev-doctor.sh` script to ensure your host is set up correctly for Docker development. This script will install Docker (if missing), enable required kernel modules and sysctls, and verify the bridge/veth networking.
+To get a working stack, run:
 
 ```bash
-./scripts/dev-doctor.sh
+docker compose up
 ```
 
-This script is designed for Debian/Ubuntu-like systems. If you are on a different OS, or encounter issues, please refer to the Docker documentation for your specific environment.
-
-### 2) One-command dev spin-up
-
-Use the `dev` script for easy spin-up:
+If you want to develop locally, you can use the override file:
 
 ```bash
-./dev up      # Builds, brings up, and detaches
-./dev logs    # Follows logs
-./dev down    # Tears down
+docker compose -f docker-compose.yml -f docker-compose.override.yml up
 ```
 
 Set these in `.env` (copied from `.env.example`):

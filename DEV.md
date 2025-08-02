@@ -3,10 +3,7 @@
 ## Quick Start
 
 ```bash
-./dev up        # Start database services
-./dev api       # Start API server (new terminal)
-./dev frontend  # Start frontend dev server (new terminal) 
-./dev down      # Stop everything when done
+docker compose -f docker-compose.yml -f docker-compose.override.yml up
 ```
 
 ## Prerequisites
@@ -46,65 +43,7 @@ This application requires **two access tokens** from your Mastodon instance:
 
 **Note**: This app uses direct access tokens, not OAuth2 client credentials. You only need the "Your access token" value from each application, not the client key/secret.
 
-## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `./dev up` | Start database services (PostgreSQL + Redis) |
-| `./dev down` | Stop and clean up all services |
-| `./dev api` | Start API server (run after `up`) |
-| `./dev frontend` | Start frontend dev server |
-| `./dev logs` | Show container logs |
-| `./dev shell` | Shell with development environment |
-
-## Accessing Services
-
-- **API**: http://localhost:8080
-- **Frontend**: http://localhost:5173
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-
-## Typical Development Workflow
-
-1. **Start databases**: `./dev up`
-2. **Start API** (new terminal): `./dev api`
-3. **Start frontend** (new terminal): `./dev frontend`
-4. **Make changes** to code - both servers auto-reload
-5. **Stop everything**: `./dev down`
-
-## Architecture
-
-This setup uses:
-- **Docker with host networking** for databases (avoids networking issues)
-- **Local Python environment** for the API server (fast iteration)
-- **Local Node.js** for the frontend dev server (hot reload)
-
-## Troubleshooting
-
-### Database Connection Issues
-```bash
-./dev down   # Clean up
-./dev up     # Restart fresh
-```
-
-### Python Environment Issues
-```bash
-rm -rf venv  # Remove virtual environment
-./dev api    # Will recreate and install dependencies
-```
-
-### Frontend Issues
-```bash
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Database Migrations
-```bash
-./dev shell  # Enter development shell
-alembic upgrade head  # Run migrations manually
-```
 
 ## Project Structure
 
