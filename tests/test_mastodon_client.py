@@ -1,13 +1,11 @@
-"""
-Tests for the new type-safe Mastodon client.
-"""
+"""Tests for the new type-safe Mastodon client."""
 
+import os
 import unittest
 from unittest.mock import Mock, patch
 
 from app.clients.mastodon.models import Account, Status
-from app.clients.mastodon.models.create_report_body_category import \
-    CreateReportBodyCategory
+from app.clients.mastodon.models.create_report_body_category import CreateReportBodyCategory
 from app.mastodon_client import MastoClient
 
 
@@ -174,7 +172,8 @@ class TestMastoClient(unittest.TestCase):
         self.assertEqual(result, mock_response)
         mock_throttle.assert_called_once()
         mock_client_instance.get.assert_called_once_with(
-            "https://mastodon.example/api/v1/admin/accounts", params={"origin": "remote", "status": "active", "limit": 50}
+            "https://mastodon.example/api/v1/admin/accounts",
+            params={"origin": "remote", "status": "active", "limit": 50},
         )
 
     def test_category_enum_mapping(self):

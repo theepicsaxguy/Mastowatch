@@ -8,7 +8,7 @@ from sqlalchemy import func
 from app.auth import require_api_key
 from app.db import SessionLocal
 from app.enhanced_scanning import EnhancedScanningSystem
-from app.models import ContentScan, DomainAlert, ScanSession
+from app.models import ContentScan
 
 router = APIRouter()
 
@@ -42,7 +42,9 @@ async def get_next_accounts_to_scan(
 
 
 @router.post("/scan/account", response_model=dict[str, Any])
-async def scan_account_efficiently(account_data: dict[str, Any], session_id: str, api_key_valid: bool = Depends(require_api_key)):
+async def scan_account_efficiently(
+    account_data: dict[str, Any], session_id: str, api_key_valid: bool = Depends(require_api_key)
+):
     """Scan a single account efficiently."""
     scanner = EnhancedScanningSystem()
     result = scanner.scan_account_efficiently(account_data, session_id)
@@ -50,14 +52,16 @@ async def scan_account_efficiently(account_data: dict[str, Any], session_id: str
 
 
 @router.get("/scan/federated", response_model=list[dict[str, Any]])
-async def scan_federated_content(target_domains: list[str] | None = None, api_key_valid: bool = Depends(require_api_key)):
+async def scan_federated_content(
+    target_domains: list[str] | None = None, api_key_valid: bool = Depends(require_api_key)
+):
     """Scan federated content."""
     scanner = EnhancedScanningSystem()
     results = scanner.scan_federated_content(target_domains)
     return results
 
 
-@router.get("/domains/alerts", response_model=list[DomainAlert])
+@router.get("/domains/alerts")
 async def get_domain_alerts(limit: int = 100, api_key_valid: bool = Depends(require_api_key)):
     """Get domain alerts."""
     scanner = EnhancedScanningSystem()
@@ -94,7 +98,9 @@ def trigger_domain_check(api_key_valid: bool = Depends(require_api_key)):
 
 
 @router.post("/scanning/invalidate-cache", tags=["scanning"])
-def invalidate_content_cache(rule_changes: bool = False, time_based: bool = False, api_key_valid: bool = Depends(require_api_key)):
+def invalidate_content_cache(
+    rule_changes: bool = False, time_based: bool = False, api_key_valid: bool = Depends(require_api_key)
+):
     """Invalidate content scan cache."""
     try:
         scanner = EnhancedScanningSystem()

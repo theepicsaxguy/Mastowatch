@@ -4,8 +4,9 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from freezegun import freeze_time
 
-from app.main import app
 from app.config import get_settings
+from app.main import app
+
 
 # Mock settings for testing
 def get_test_settings():
@@ -13,6 +14,7 @@ def get_test_settings():
     settings.REDIS_URL = "redis://localhost:6379/9"  # Use a separate Redis DB for testing
     settings.API_KEY = "test-api-key"
     return settings
+
 
 app.dependency_overrides[get_settings] = get_test_settings
 
@@ -40,9 +42,9 @@ def test_invalidate_scan_cache_and_status():
             "/scanning/invalidate-cache",
             headers={
                 "X-API-Key": "test-api-key",
-                "Authorization": "Bearer test-admin-token" # Mock admin auth
+                "Authorization": "Bearer test-admin-token",  # Mock admin auth
             },
-            json={"rule_changes": True}
+            json={"rule_changes": True},
         )
         assert response.status_code == 200
         assert response.json()["message"] == "Scan cache invalidated successfully"
@@ -54,8 +56,8 @@ def test_invalidate_scan_cache_and_status():
             "/scanning/cache-status",
             headers={
                 "X-API-Key": "test-api-key",
-                "Authorization": "Bearer test-admin-token" # Mock admin auth
-            }
+                "Authorization": "Bearer test-admin-token",  # Mock admin auth
+            },
         )
         assert response.status_code == 200
         assert response.json()["cache_status"] == "invalidated"
@@ -68,8 +70,8 @@ def test_invalidate_scan_cache_and_status():
                 "/scanning/cache-status",
                 headers={
                     "X-API-Key": "test-api-key",
-                    "Authorization": "Bearer test-admin-token" # Mock admin auth
-                }
+                    "Authorization": "Bearer test-admin-token",  # Mock admin auth
+                },
             )
             assert response.status_code == 200
             assert response.json()["cache_status"] == "valid"
@@ -79,40 +81,56 @@ def test_invalidate_scan_cache_and_status():
 
 # Mock the require_admin_hybrid dependency for testing purposes
 # This allows us to bypass actual authentication for unit tests
-@app.dependency_overrides.setdefault("require_admin_hybrid", lambda: None)
 def mock_require_admin_hybrid():
     return type("User", (object,), {"username": "test_admin", "is_admin": True})()
 
 
+app.dependency_overrides["require_admin_hybrid"] = mock_require_admin_hybrid
+
+
 # Mock the get_db_session dependency for testing purposes
-@app.dependency_overrides.setdefault("get_db_session", lambda: None)
 def mock_get_db_session():
     class MockSession:
         def __enter__(self):
             return self
+
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
+
         def query(self, *args, **kwargs):
             return self
+
         def filter(self, *args, **kwargs):
             return self
+
         def first(self):
             return None
+
         def all(self):
             return []
+
         def execute(self, *args, **kwargs):
             return self
+
         def scalar_one_or_none(self):
             return None
+
         def commit(self):
             pass
+
         def rollback(self):
             pass
+
         def refresh(self, *args, **kwargs):
             pass
+
         def add(self, *args, **kwargs):
             pass
+
         def update(self, *args, **kwargs):
             pass
 
     return MockSession()
+
+
+app.dependency_overrides["get_db_session"] = mock_get_db_session
