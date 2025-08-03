@@ -1,0 +1,13 @@
+[MAIN]
+py-version = 3.12
+load-plugins = pylint_restricted_imports
+
+[FORMAT]
+max-module-lines = 500
+max-line-length = 120
+
+[RESTRICTED-IMPORT]
+# Optional: only restrict certain imports in certain trees.
+# Format: <module>:<restricted1>;<restricted2>,...
+# Example: forbid 'requests' and 'httpx' anywhere under 'app.mastodon'
+restricted-imports = app.mastodon:requests;httpx
