@@ -1,17 +1,14 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.v1_instance_configuration_accounts import \
-        V1InstanceConfigurationAccounts
-    from ..models.v1_instance_configuration_media_attachments import \
-        V1InstanceConfigurationMediaAttachments
-    from ..models.v1_instance_configuration_polls import \
-        V1InstanceConfigurationPolls
-    from ..models.v1_instance_configuration_statuses import \
-        V1InstanceConfigurationStatuses
+    from ..models.v1_instance_configuration_accounts import V1InstanceConfigurationAccounts
+    from ..models.v1_instance_configuration_media_attachments import V1InstanceConfigurationMediaAttachments
+    from ..models.v1_instance_configuration_polls import V1InstanceConfigurationPolls
+    from ..models.v1_instance_configuration_statuses import V1InstanceConfigurationStatuses
 
 
 T = TypeVar("T", bound="V1InstanceConfiguration")
@@ -26,6 +23,7 @@ class V1InstanceConfiguration:
         media_attachments (V1InstanceConfigurationMediaAttachments): Hints for which attachments will be accepted.
         polls (V1InstanceConfigurationPolls): Limits related to polls.
         statuses (V1InstanceConfigurationStatuses): Limits related to authoring statuses.
+
     """
 
     accounts: "V1InstanceConfigurationAccounts"
@@ -57,17 +55,13 @@ class V1InstanceConfiguration:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.v1_instance_configuration_accounts import \
-            V1InstanceConfigurationAccounts
-        from ..models.v1_instance_configuration_media_attachments import \
-            V1InstanceConfigurationMediaAttachments
-        from ..models.v1_instance_configuration_polls import \
-            V1InstanceConfigurationPolls
-        from ..models.v1_instance_configuration_statuses import \
-            V1InstanceConfigurationStatuses
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.v1_instance_configuration_accounts import V1InstanceConfigurationAccounts
+        from ..models.v1_instance_configuration_media_attachments import V1InstanceConfigurationMediaAttachments
+        from ..models.v1_instance_configuration_polls import V1InstanceConfigurationPolls
+        from ..models.v1_instance_configuration_statuses import V1InstanceConfigurationStatuses
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         accounts = V1InstanceConfigurationAccounts.from_dict(d.pop("accounts"))
 
         media_attachments = V1InstanceConfigurationMediaAttachments.from_dict(d.pop("media_attachments"))

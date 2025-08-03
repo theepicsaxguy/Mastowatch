@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -13,6 +14,7 @@ class InstanceUsageUsers:
     Attributes:
         active_month (int): The number of active users in the past 4 weeks. This is set to zero for servers with
             `configuration[limited_federation]`.
+
     """
 
     active_month: int
@@ -32,8 +34,8 @@ class InstanceUsageUsers:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         active_month = d.pop("active_month")
 
         instance_usage_users = cls(

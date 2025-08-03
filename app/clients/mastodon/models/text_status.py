@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -26,15 +27,16 @@ class TextStatus:
         spoiler_text (Union[Unset, str]): Text to be shown as a warning or subject before the actual content. Statuses
             are generally collapsed behind this field.
         visibility (Union[Unset, VisibilityEnum]):
+
     """
 
     status: str
-    in_reply_to_id: Union[Unset, str] = UNSET
-    language: Union[Unset, str] = UNSET
-    scheduled_at: Union[Unset, datetime.datetime] = UNSET
-    sensitive: Union[Unset, bool] = False
-    spoiler_text: Union[Unset, str] = UNSET
-    visibility: Union[Unset, VisibilityEnum] = UNSET
+    in_reply_to_id: Unset | str = UNSET
+    language: Unset | str = UNSET
+    scheduled_at: Unset | datetime.datetime = UNSET
+    sensitive: Unset | bool = False
+    spoiler_text: Unset | str = UNSET
+    visibility: Unset | VisibilityEnum = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -44,7 +46,7 @@ class TextStatus:
 
         language = self.language
 
-        scheduled_at: Union[Unset, str] = UNSET
+        scheduled_at: Unset | str = UNSET
         if not isinstance(self.scheduled_at, Unset):
             scheduled_at = self.scheduled_at.isoformat()
 
@@ -52,7 +54,7 @@ class TextStatus:
 
         spoiler_text = self.spoiler_text
 
-        visibility: Union[Unset, str] = UNSET
+        visibility: Unset | str = UNSET
         if not isinstance(self.visibility, Unset):
             visibility = self.visibility.value
 
@@ -79,8 +81,8 @@ class TextStatus:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         status = d.pop("status")
 
         in_reply_to_id = d.pop("in_reply_to_id", UNSET)
@@ -88,7 +90,7 @@ class TextStatus:
         language = d.pop("language", UNSET)
 
         _scheduled_at = d.pop("scheduled_at", UNSET)
-        scheduled_at: Union[Unset, datetime.datetime]
+        scheduled_at: Unset | datetime.datetime
         if isinstance(_scheduled_at, Unset):
             scheduled_at = UNSET
         else:
@@ -99,7 +101,7 @@ class TextStatus:
         spoiler_text = d.pop("spoiler_text", UNSET)
 
         _visibility = d.pop("visibility", UNSET)
-        visibility: Union[Unset, VisibilityEnum]
+        visibility: Unset | VisibilityEnum
         if isinstance(_visibility, Unset):
             visibility = UNSET
         else:

@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -25,20 +26,21 @@ class CreateReportBody:
             Rules and their IDs are available via [GET /api/v1/instance/rules] and [GET /api/v1/instance]. See [Handling and
             sorting IDs] for more information.
         status_ids (Union[Unset, list[str]]): You can attach statuses to the report to provide additional context.
+
     """
 
     account_id: str
-    category: Union[Unset, CreateReportBodyCategory] = CreateReportBodyCategory.OTHER
-    comment: Union[Unset, str] = UNSET
-    forward: Union[Unset, bool] = False
-    rule_ids: Union[Unset, list[str]] = UNSET
-    status_ids: Union[Unset, list[str]] = UNSET
+    category: Unset | CreateReportBodyCategory = CreateReportBodyCategory.OTHER
+    comment: Unset | str = UNSET
+    forward: Unset | bool = False
+    rule_ids: Unset | list[str] = UNSET
+    status_ids: Unset | list[str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         account_id = self.account_id
 
-        category: Union[Unset, str] = UNSET
+        category: Unset | str = UNSET
         if not isinstance(self.category, Unset):
             category = self.category.value
 
@@ -46,11 +48,11 @@ class CreateReportBody:
 
         forward = self.forward
 
-        rule_ids: Union[Unset, list[str]] = UNSET
+        rule_ids: Unset | list[str] = UNSET
         if not isinstance(self.rule_ids, Unset):
             rule_ids = self.rule_ids
 
-        status_ids: Union[Unset, list[str]] = UNSET
+        status_ids: Unset | list[str] = UNSET
         if not isinstance(self.status_ids, Unset):
             status_ids = self.status_ids
 
@@ -75,12 +77,12 @@ class CreateReportBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         account_id = d.pop("account_id")
 
         _category = d.pop("category", UNSET)
-        category: Union[Unset, CreateReportBodyCategory]
+        category: Unset | CreateReportBodyCategory
         if isinstance(_category, Unset):
             category = UNSET
         else:

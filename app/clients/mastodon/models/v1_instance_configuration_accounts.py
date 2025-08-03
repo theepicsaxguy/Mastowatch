@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -12,6 +13,7 @@ class V1InstanceConfigurationAccounts:
 
     Attributes:
         max_featured_tags (int): The maximum number of featured tags allowed for each account.
+
     """
 
     max_featured_tags: int
@@ -31,8 +33,8 @@ class V1InstanceConfigurationAccounts:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         max_featured_tags = d.pop("max_featured_tags")
 
         v1_instance_configuration_accounts = cls(

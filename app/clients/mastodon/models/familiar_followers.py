@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -21,6 +22,7 @@ class FamiliarFollowers:
     Attributes:
         accounts (list['Account']): Accounts you follow that also follow this account.
         id (str): The ID of the Account in the database.
+
     """
 
     accounts: list["Account"]
@@ -47,10 +49,10 @@ class FamiliarFollowers:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         accounts = []
         _accounts = d.pop("accounts")
         for accounts_item_data in _accounts:

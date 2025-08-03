@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 from attrs import define as _attrs_define
@@ -6,8 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.put_push_subscription_body_data import \
-        PutPushSubscriptionBodyData
+    from ..models.put_push_subscription_body_data import PutPushSubscriptionBodyData
 
 
 T = TypeVar("T", bound="PutPushSubscriptionBody")
@@ -20,14 +20,15 @@ class PutPushSubscriptionBody:
         data (Union[Unset, PutPushSubscriptionBodyData]): Object containing properties
         policy (Union[Unset, str]): Specify whether to receive push notifications from `all`, `followed`, `follower`, or
             `none` users.
+
     """
 
     data: Union[Unset, "PutPushSubscriptionBodyData"] = UNSET
-    policy: Union[Unset, str] = UNSET
+    policy: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data: Union[Unset, dict[str, Any]] = UNSET
+        data: Unset | dict[str, Any] = UNSET
         if not isinstance(self.data, Unset):
             data = self.data.to_dict()
 
@@ -44,13 +45,12 @@ class PutPushSubscriptionBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.put_push_subscription_body_data import \
-            PutPushSubscriptionBodyData
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.put_push_subscription_body_data import PutPushSubscriptionBodyData
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         _data = d.pop("data", UNSET)
-        data: Union[Unset, PutPushSubscriptionBodyData]
+        data: Unset | PutPushSubscriptionBodyData
         if isinstance(_data, Unset):
             data = UNSET
         else:

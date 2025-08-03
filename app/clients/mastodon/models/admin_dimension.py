@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -17,6 +18,7 @@ class AdminDimension:
     Attributes:
         data (list['AdminDimensionData']): The data available for the requested dimension.
         key (str): The unique keystring for the requested dimension.
+
     """
 
     data: list["AdminDimensionData"]
@@ -43,10 +45,10 @@ class AdminDimension:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.admin_dimension_data import AdminDimensionData
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         data = []
         _data = d.pop("data")
         for data_item_data in _data:

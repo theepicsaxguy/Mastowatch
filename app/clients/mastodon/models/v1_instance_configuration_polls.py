@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -15,6 +16,7 @@ class V1InstanceConfigurationPolls:
         max_expiration (int): The longest allowed poll duration, in seconds.
         max_options (int): Each poll is allowed to have up to this many options.
         min_expiration (int): The shortest allowed poll duration, in seconds.
+
     """
 
     max_characters_per_option: int
@@ -46,8 +48,8 @@ class V1InstanceConfigurationPolls:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         max_characters_per_option = d.pop("max_characters_per_option")
 
         max_expiration = d.pop("max_expiration")

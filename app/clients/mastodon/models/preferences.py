@@ -1,10 +1,10 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.preferences_readingexpandmedia import \
-    PreferencesReadingexpandmedia
+from ..models.preferences_readingexpandmedia import PreferencesReadingexpandmedia
 from ..models.visibility_enum import VisibilityEnum
 from ..types import UNSET, Unset
 
@@ -27,13 +27,14 @@ class Preferences:
         readingexpandspoilers (bool): Whether CWs should be expanded by default.
         postingdefaultlanguage (Union[None, Unset, str]): Default language for new posts. Equivalent to
             [CredentialAccount#source
+
     """
 
     postingdefaultsensitive: bool
     postingdefaultvisibility: VisibilityEnum
     readingexpandmedia: PreferencesReadingexpandmedia
     readingexpandspoilers: bool
-    postingdefaultlanguage: Union[None, Unset, str] = UNSET
+    postingdefaultlanguage: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,7 +46,7 @@ class Preferences:
 
         readingexpandspoilers = self.readingexpandspoilers
 
-        postingdefaultlanguage: Union[None, Unset, str]
+        postingdefaultlanguage: None | Unset | str
         if isinstance(self.postingdefaultlanguage, Unset):
             postingdefaultlanguage = UNSET
         else:
@@ -67,8 +68,8 @@ class Preferences:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         postingdefaultsensitive = d.pop("posting:default:sensitive")
 
         postingdefaultvisibility = VisibilityEnum(d.pop("posting:default:visibility"))
@@ -77,12 +78,12 @@ class Preferences:
 
         readingexpandspoilers = d.pop("reading:expand:spoilers")
 
-        def _parse_postingdefaultlanguage(data: object) -> Union[None, Unset, str]:
+        def _parse_postingdefaultlanguage(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         postingdefaultlanguage = _parse_postingdefaultlanguage(d.pop("posting:default:language", UNSET))
 

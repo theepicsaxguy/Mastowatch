@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -24,29 +25,30 @@ class UpdateStatusBody:
         sensitive (Union[Unset, bool]): Whether the status should be marked as sensitive.
         spoiler_text (Union[Unset, str]): The plain text subject or content warning of the status.
         status (Union[Unset, str]): The plain text content of the status.
+
     """
 
-    language: Union[Unset, str] = UNSET
-    media_attributes: Union[Unset, list[str]] = UNSET
-    media_ids: Union[Unset, list[str]] = UNSET
+    language: Unset | str = UNSET
+    media_attributes: Unset | list[str] = UNSET
+    media_ids: Unset | list[str] = UNSET
     poll: Union[Unset, "UpdateStatusBodyPoll"] = UNSET
-    sensitive: Union[Unset, bool] = UNSET
-    spoiler_text: Union[Unset, str] = UNSET
-    status: Union[Unset, str] = UNSET
+    sensitive: Unset | bool = UNSET
+    spoiler_text: Unset | str = UNSET
+    status: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         language = self.language
 
-        media_attributes: Union[Unset, list[str]] = UNSET
+        media_attributes: Unset | list[str] = UNSET
         if not isinstance(self.media_attributes, Unset):
             media_attributes = self.media_attributes
 
-        media_ids: Union[Unset, list[str]] = UNSET
+        media_ids: Unset | list[str] = UNSET
         if not isinstance(self.media_ids, Unset):
             media_ids = self.media_ids
 
-        poll: Union[Unset, dict[str, Any]] = UNSET
+        poll: Unset | dict[str, Any] = UNSET
         if not isinstance(self.poll, Unset):
             poll = self.poll.to_dict()
 
@@ -77,10 +79,10 @@ class UpdateStatusBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.update_status_body_poll import UpdateStatusBodyPoll
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         language = d.pop("language", UNSET)
 
         media_attributes = cast(list[str], d.pop("media_attributes[]", UNSET))
@@ -88,7 +90,7 @@ class UpdateStatusBody:
         media_ids = cast(list[str], d.pop("media_ids", UNSET))
 
         _poll = d.pop("poll", UNSET)
-        poll: Union[Unset, UpdateStatusBodyPoll]
+        poll: Unset | UpdateStatusBodyPoll
         if isinstance(_poll, Unset):
             poll = UNSET
         else:

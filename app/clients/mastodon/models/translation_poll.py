@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -17,6 +18,7 @@ class TranslationPoll:
     Attributes:
         id (str): The ID of the poll.
         options (list['TranslationPollOption']): The translated poll options.
+
     """
 
     id: str
@@ -43,10 +45,10 @@ class TranslationPoll:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.translation_poll_option import TranslationPollOption
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         id = d.pop("id")
 
         options = []

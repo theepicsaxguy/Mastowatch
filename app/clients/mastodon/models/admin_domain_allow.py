@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -19,6 +20,7 @@ class AdminDomainAllow:
         created_at (datetime.datetime): When the domain was allowed to federate.
         domain (str): The domain that is allowed to federate.
         id (str): The ID of the DomainAllow in the database.
+
     """
 
     created_at: datetime.datetime
@@ -46,8 +48,8 @@ class AdminDomainAllow:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         created_at = isoparse(d.pop("created_at"))
 
         domain = d.pop("domain")

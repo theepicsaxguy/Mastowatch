@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -14,6 +15,7 @@ class AdminEmailDomainBlockHistory:
         accounts (str): The counted accounts signup attempts using that email domain within that day.
         day (str): UNIX timestamp on midnight of the given day.
         uses (str): The counted IP signup attempts of that email domain within that day.
+
     """
 
     accounts: str
@@ -41,8 +43,8 @@ class AdminEmailDomainBlockHistory:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         accounts = d.pop("accounts")
 
         day = d.pop("day")

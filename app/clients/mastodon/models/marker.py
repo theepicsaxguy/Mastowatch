@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -19,6 +20,7 @@ class Marker:
         last_read_id (str): The ID of the most recently viewed entity.
         updated_at (datetime.datetime): The timestamp of when the marker was set.
         version (int): An incrementing counter, used for locking to prevent write conflicts.
+
     """
 
     last_read_id: str
@@ -46,8 +48,8 @@ class Marker:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         last_read_id = d.pop("last_read_id")
 
         updated_at = isoparse(d.pop("updated_at"))

@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -22,6 +23,7 @@ class AdminCohort:
         data (list['CohortData']): Retention data for users who registered during the given period.
         frequency (AdminCohortFrequency): The size of the bucket for the returned data.
         period (datetime.datetime): The timestamp for the start of the period, at midnight.
+
     """
 
     data: list["CohortData"]
@@ -52,10 +54,10 @@ class AdminCohort:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.cohort_data import CohortData
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         data = []
         _data = d.pop("data")
         for data_item_data in _data:

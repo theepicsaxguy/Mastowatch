@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -17,15 +18,16 @@ class PostAccountFollowBody:
         notify (Union[Unset, bool]): Receive notifications when this account posts a status? Defaults to false. Default:
             False.
         reblogs (Union[Unset, bool]): Receive this account's reblogs in home timeline? Defaults to true. Default: True.
+
     """
 
-    languages: Union[Unset, list[str]] = UNSET
-    notify: Union[Unset, bool] = False
-    reblogs: Union[Unset, bool] = True
+    languages: Unset | list[str] = UNSET
+    notify: Unset | bool = False
+    reblogs: Unset | bool = True
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        languages: Union[Unset, list[str]] = UNSET
+        languages: Unset | list[str] = UNSET
         if not isinstance(self.languages, Unset):
             languages = self.languages
 
@@ -46,8 +48,8 @@ class PostAccountFollowBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         languages = cast(list[str], d.pop("languages", UNSET))
 
         notify = d.pop("notify", UNSET)

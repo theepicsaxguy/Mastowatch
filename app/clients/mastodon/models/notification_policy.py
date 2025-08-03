@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -40,6 +41,7 @@ class NotificationPolicy:
             mentions initiated by the user, as well as accounts the user follows, are always allowed, regardless of this
             value.
         summary (NotificationPolicySummary): Summary of the filtered notifications
+
     """
 
     for_limited_accounts: str
@@ -79,11 +81,10 @@ class NotificationPolicy:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.notification_policy_summary import \
-            NotificationPolicySummary
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.notification_policy_summary import NotificationPolicySummary
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         for_limited_accounts = d.pop("for_limited_accounts")
 
         for_new_accounts = d.pop("for_new_accounts")

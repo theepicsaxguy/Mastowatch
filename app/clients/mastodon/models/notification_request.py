@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -76,6 +77,7 @@ class NotificationRequest:
         updated_at (datetime.datetime): The timestamp of when the notification request was last updated.
         last_status (Union['Status', None, Unset]): Most recent status associated with a filtered notification from that
             account.
+
     """
 
     account: "Account"
@@ -99,7 +101,7 @@ class NotificationRequest:
 
         updated_at = self.updated_at.isoformat()
 
-        last_status: Union[None, Unset, dict[str, Any]]
+        last_status: None | Unset | dict[str, Any]
         if isinstance(self.last_status, Unset):
             last_status = UNSET
         elif isinstance(self.last_status, Status):
@@ -124,11 +126,11 @@ class NotificationRequest:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.status import Status
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         account = Account.from_dict(d.pop("account"))
 
         created_at = isoparse(d.pop("created_at"))

@@ -1,11 +1,11 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.status_edit_poll_type_0_options_item import \
-        StatusEditPollType0OptionsItem
+    from ..models.status_edit_poll_type_0_options_item import StatusEditPollType0OptionsItem
 
 
 T = TypeVar("T", bound="StatusEditPollType0")
@@ -16,8 +16,9 @@ class StatusEditPollType0:
     """The current state of the poll options at this revision. Note that edits changing the poll options will be collapsed
     together into one edit, since this action resets the poll.
 
-        Attributes:
+    Attributes:
             options (list['StatusEditPollType0OptionsItem']): The poll options at this revision.
+
     """
 
     options: list["StatusEditPollType0OptionsItem"]
@@ -40,11 +41,10 @@ class StatusEditPollType0:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.status_edit_poll_type_0_options_item import \
-            StatusEditPollType0OptionsItem
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.status_edit_poll_type_0_options_item import StatusEditPollType0OptionsItem
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         options = []
         _options = d.pop("options")
         for options_item_data in _options:

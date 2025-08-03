@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -28,16 +29,17 @@ class MediaStatus:
         visibility (Union[Unset, VisibilityEnum]):
         status (Union[Unset, str]): The text content of the status. If `media_ids` is provided, this becomes optional.
             Attaching a `poll` is optional while `status` is provided.
+
     """
 
     media_ids: list[str]
-    in_reply_to_id: Union[Unset, str] = UNSET
-    language: Union[Unset, str] = UNSET
-    scheduled_at: Union[Unset, datetime.datetime] = UNSET
-    sensitive: Union[Unset, bool] = False
-    spoiler_text: Union[Unset, str] = UNSET
-    visibility: Union[Unset, VisibilityEnum] = UNSET
-    status: Union[Unset, str] = UNSET
+    in_reply_to_id: Unset | str = UNSET
+    language: Unset | str = UNSET
+    scheduled_at: Unset | datetime.datetime = UNSET
+    sensitive: Unset | bool = False
+    spoiler_text: Unset | str = UNSET
+    visibility: Unset | VisibilityEnum = UNSET
+    status: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,7 +49,7 @@ class MediaStatus:
 
         language = self.language
 
-        scheduled_at: Union[Unset, str] = UNSET
+        scheduled_at: Unset | str = UNSET
         if not isinstance(self.scheduled_at, Unset):
             scheduled_at = self.scheduled_at.isoformat()
 
@@ -55,7 +57,7 @@ class MediaStatus:
 
         spoiler_text = self.spoiler_text
 
-        visibility: Union[Unset, str] = UNSET
+        visibility: Unset | str = UNSET
         if not isinstance(self.visibility, Unset):
             visibility = self.visibility.value
 
@@ -86,8 +88,8 @@ class MediaStatus:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         media_ids = cast(list[str], d.pop("media_ids"))
 
         in_reply_to_id = d.pop("in_reply_to_id", UNSET)
@@ -95,7 +97,7 @@ class MediaStatus:
         language = d.pop("language", UNSET)
 
         _scheduled_at = d.pop("scheduled_at", UNSET)
-        scheduled_at: Union[Unset, datetime.datetime]
+        scheduled_at: Unset | datetime.datetime
         if isinstance(_scheduled_at, Unset):
             scheduled_at = UNSET
         else:
@@ -106,7 +108,7 @@ class MediaStatus:
         spoiler_text = d.pop("spoiler_text", UNSET)
 
         _visibility = d.pop("visibility", UNSET)
-        visibility: Union[Unset, VisibilityEnum]
+        visibility: Unset | VisibilityEnum
         if isinstance(_visibility, Unset):
             visibility = UNSET
         else:

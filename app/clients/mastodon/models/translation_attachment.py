@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -13,6 +14,7 @@ class TranslationAttachment:
     Attributes:
         description (str): The translated description of the attachment.
         id (str): The id of the attachment.
+
     """
 
     description: str
@@ -36,8 +38,8 @@ class TranslationAttachment:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         description = d.pop("description")
 
         id = d.pop("id")

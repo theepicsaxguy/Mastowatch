@@ -1,5 +1,6 @@
 import datetime
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -36,6 +37,7 @@ class Poll:
             chosen? Contains an array of index values for `options`.
         voted (Union[None, Unset, bool]): When called with a user token, has the authorized user voted?
         voters_count (Union[None, Unset, int]): How many unique accounts have voted on a multiple-choice poll.
+
     """
 
     emojis: list["CustomEmoji"]
@@ -44,10 +46,10 @@ class Poll:
     multiple: bool
     options: list["PollOption"]
     votes_count: int
-    expires_at: Union[None, Unset, datetime.datetime] = UNSET
-    own_votes: Union[None, Unset, list[int]] = UNSET
-    voted: Union[None, Unset, bool] = UNSET
-    voters_count: Union[None, Unset, int] = UNSET
+    expires_at: None | Unset | datetime.datetime = UNSET
+    own_votes: None | Unset | list[int] = UNSET
+    voted: None | Unset | bool = UNSET
+    voters_count: None | Unset | int = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,7 +71,7 @@ class Poll:
 
         votes_count = self.votes_count
 
-        expires_at: Union[None, Unset, str]
+        expires_at: None | Unset | str
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -77,7 +79,7 @@ class Poll:
         else:
             expires_at = self.expires_at
 
-        own_votes: Union[None, Unset, list[int]]
+        own_votes: None | Unset | list[int]
         if isinstance(self.own_votes, Unset):
             own_votes = UNSET
         elif isinstance(self.own_votes, list):
@@ -86,13 +88,13 @@ class Poll:
         else:
             own_votes = self.own_votes
 
-        voted: Union[None, Unset, bool]
+        voted: None | Unset | bool
         if isinstance(self.voted, Unset):
             voted = UNSET
         else:
             voted = self.voted
 
-        voters_count: Union[None, Unset, int]
+        voters_count: None | Unset | int
         if isinstance(self.voters_count, Unset):
             voters_count = UNSET
         else:
@@ -122,11 +124,11 @@ class Poll:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.custom_emoji import CustomEmoji
         from ..models.poll_option import PollOption
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         emojis = []
         _emojis = d.pop("emojis")
         for emojis_item_data in _emojis:
@@ -149,7 +151,7 @@ class Poll:
 
         votes_count = d.pop("votes_count")
 
-        def _parse_expires_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_expires_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -162,11 +164,11 @@ class Poll:
                 return expires_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
-        def _parse_own_votes(data: object) -> Union[None, Unset, list[int]]:
+        def _parse_own_votes(data: object) -> None | Unset | list[int]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -179,25 +181,25 @@ class Poll:
                 return own_votes_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[int]], data)
+            return cast(None | Unset | list[int], data)
 
         own_votes = _parse_own_votes(d.pop("own_votes", UNSET))
 
-        def _parse_voted(data: object) -> Union[None, Unset, bool]:
+        def _parse_voted(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         voted = _parse_voted(d.pop("voted", UNSET))
 
-        def _parse_voters_count(data: object) -> Union[None, Unset, int]:
+        def _parse_voters_count(data: object) -> None | Unset | int:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(None | Unset | int, data)
 
         voters_count = _parse_voters_count(d.pop("voters_count", UNSET))
 

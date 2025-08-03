@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -13,6 +14,7 @@ class StatusTag:
     Attributes:
         name (str): The value of the hashtag after the # sign.
         url (str): A link to the hashtag on the instance.
+
     """
 
     name: str
@@ -36,8 +38,8 @@ class StatusTag:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         name = d.pop("name")
 
         url = d.pop("url")

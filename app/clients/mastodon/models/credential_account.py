@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -64,6 +65,7 @@ class CredentialAccount:
             moved to a new account.
         noindex (Union[None, Unset, bool]): Whether the local user has opted out of being indexed by search engines.
         suspended (Union[None, Unset, bool]): An extra attribute returned only when an account is suspended.
+
     """
 
     acct: str
@@ -88,13 +90,13 @@ class CredentialAccount:
     uri: str
     url: str
     username: str
-    discoverable: Union[None, Unset, bool] = UNSET
-    hide_collections: Union[None, Unset, bool] = UNSET
-    last_status_at: Union[None, Unset, datetime.date] = UNSET
-    limited: Union[None, Unset, bool] = UNSET
+    discoverable: None | Unset | bool = UNSET
+    hide_collections: None | Unset | bool = UNSET
+    last_status_at: None | Unset | datetime.date = UNSET
+    limited: None | Unset | bool = UNSET
     moved: Union["Account", None, Unset] = UNSET
-    noindex: Union[None, Unset, bool] = UNSET
-    suspended: Union[None, Unset, bool] = UNSET
+    noindex: None | Unset | bool = UNSET
+    suspended: None | Unset | bool = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -150,19 +152,19 @@ class CredentialAccount:
 
         username = self.username
 
-        discoverable: Union[None, Unset, bool]
+        discoverable: None | Unset | bool
         if isinstance(self.discoverable, Unset):
             discoverable = UNSET
         else:
             discoverable = self.discoverable
 
-        hide_collections: Union[None, Unset, bool]
+        hide_collections: None | Unset | bool
         if isinstance(self.hide_collections, Unset):
             hide_collections = UNSET
         else:
             hide_collections = self.hide_collections
 
-        last_status_at: Union[None, Unset, str]
+        last_status_at: None | Unset | str
         if isinstance(self.last_status_at, Unset):
             last_status_at = UNSET
         elif isinstance(self.last_status_at, datetime.date):
@@ -170,13 +172,13 @@ class CredentialAccount:
         else:
             last_status_at = self.last_status_at
 
-        limited: Union[None, Unset, bool]
+        limited: None | Unset | bool
         if isinstance(self.limited, Unset):
             limited = UNSET
         else:
             limited = self.limited
 
-        moved: Union[None, Unset, dict[str, Any]]
+        moved: None | Unset | dict[str, Any]
         if isinstance(self.moved, Unset):
             moved = UNSET
         elif isinstance(self.moved, Account):
@@ -184,13 +186,13 @@ class CredentialAccount:
         else:
             moved = self.moved
 
-        noindex: Union[None, Unset, bool]
+        noindex: None | Unset | bool
         if isinstance(self.noindex, Unset):
             noindex = UNSET
         else:
             noindex = self.noindex
 
-        suspended: Union[None, Unset, bool]
+        suspended: None | Unset | bool
         if isinstance(self.suspended, Unset):
             suspended = UNSET
         else:
@@ -242,14 +244,14 @@ class CredentialAccount:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.credential_account_source import CredentialAccountSource
         from ..models.custom_emoji import CustomEmoji
         from ..models.field import Field
         from ..models.role import Role
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         acct = d.pop("acct")
 
         avatar = d.pop("avatar")
@@ -304,25 +306,25 @@ class CredentialAccount:
 
         username = d.pop("username")
 
-        def _parse_discoverable(data: object) -> Union[None, Unset, bool]:
+        def _parse_discoverable(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         discoverable = _parse_discoverable(d.pop("discoverable", UNSET))
 
-        def _parse_hide_collections(data: object) -> Union[None, Unset, bool]:
+        def _parse_hide_collections(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         hide_collections = _parse_hide_collections(d.pop("hide_collections", UNSET))
 
-        def _parse_last_status_at(data: object) -> Union[None, Unset, datetime.date]:
+        def _parse_last_status_at(data: object) -> None | Unset | datetime.date:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -335,16 +337,16 @@ class CredentialAccount:
                 return last_status_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.date], data)
+            return cast(None | Unset | datetime.date, data)
 
         last_status_at = _parse_last_status_at(d.pop("last_status_at", UNSET))
 
-        def _parse_limited(data: object) -> Union[None, Unset, bool]:
+        def _parse_limited(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         limited = _parse_limited(d.pop("limited", UNSET))
 
@@ -365,21 +367,21 @@ class CredentialAccount:
 
         moved = _parse_moved(d.pop("moved", UNSET))
 
-        def _parse_noindex(data: object) -> Union[None, Unset, bool]:
+        def _parse_noindex(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         noindex = _parse_noindex(d.pop("noindex", UNSET))
 
-        def _parse_suspended(data: object) -> Union[None, Unset, bool]:
+        def _parse_suspended(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         suspended = _parse_suspended(d.pop("suspended", UNSET))
 

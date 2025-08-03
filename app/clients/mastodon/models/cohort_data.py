@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -17,6 +18,7 @@ class CohortData:
         rate (float): The percentage rate of users who registered in the specified `period` and were active for the
             given `date` bucket.
         value (str): How many users registered in the specified `period` and were active for the given `date` bucket.
+
     """
 
     date: datetime.datetime
@@ -44,8 +46,8 @@ class CohortData:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         date = isoparse(d.pop("date"))
 
         rate = d.pop("rate")

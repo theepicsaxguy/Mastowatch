@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -6,8 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.media_attachment_meta_focus_type_0 import \
-        MediaAttachmentMetaFocusType0
+    from ..models.media_attachment_meta_focus_type_0 import MediaAttachmentMetaFocusType0
 
 
 T = TypeVar("T", bound="MediaAttachmentMeta")
@@ -21,16 +21,16 @@ class MediaAttachmentMeta:
         focus (Union['MediaAttachmentMetaFocusType0', None, Unset]): Coordinates that may be used for smart thumbnail
             cropping -- see [Focal points for cropped media thumbnails]({{< relref "api/guidelines#focal-points" >}}) for
             more.
+
     """
 
     focus: Union["MediaAttachmentMetaFocusType0", None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.media_attachment_meta_focus_type_0 import \
-            MediaAttachmentMetaFocusType0
+        from ..models.media_attachment_meta_focus_type_0 import MediaAttachmentMetaFocusType0
 
-        focus: Union[None, Unset, dict[str, Any]]
+        focus: None | Unset | dict[str, Any]
         if isinstance(self.focus, Unset):
             focus = UNSET
         elif isinstance(self.focus, MediaAttachmentMetaFocusType0):
@@ -47,15 +47,12 @@ class MediaAttachmentMeta:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.media_attachment_meta_focus_type_0 import \
-            MediaAttachmentMetaFocusType0
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.media_attachment_meta_focus_type_0 import MediaAttachmentMetaFocusType0
 
-        d = src_dict.copy()
+        d = dict(src_dict)
 
-        def _parse_focus(
-            data: object,
-        ) -> Union["MediaAttachmentMetaFocusType0", None, Unset]:
+        def _parse_focus(data: object) -> Union["MediaAttachmentMetaFocusType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -17,6 +18,7 @@ class ValidationError:
     Attributes:
         error (str): The overall validation error message.
         details (ValidationErrorDetails): Detailed validation errors for each field.
+
     """
 
     error: str
@@ -40,10 +42,10 @@ class ValidationError:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.validation_error_details import ValidationErrorDetails
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         error = d.pop("error")
 
         details = ValidationErrorDetails.from_dict(d.pop("details"))

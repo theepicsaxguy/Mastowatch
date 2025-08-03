@@ -1,15 +1,14 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.scheduled_status_params_visibility import \
-    ScheduledStatusParamsVisibility
+from ..models.scheduled_status_params_visibility import ScheduledStatusParamsVisibility
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.scheduled_status_params_poll_type_0 import \
-        ScheduledStatusParamsPollType0
+    from ..models.scheduled_status_params_poll_type_0 import ScheduledStatusParamsPollType0
 
 
 T = TypeVar("T", bound="ScheduledStatusParams")
@@ -35,25 +34,25 @@ class ScheduledStatusParams:
             is only scheduled once.
         sensitive (Union[None, Unset, bool]): Whether the status will be marked as sensitive.
         spoiler_text (Union[None, Unset, str]): The text of the content warning or summary for the status.
+
     """
 
     application_id: int
     text: str
     visibility: ScheduledStatusParamsVisibility
     with_rate_limit: bool
-    idempotency: Union[None, Unset, str] = UNSET
-    in_reply_to_id: Union[None, Unset, int] = UNSET
-    language: Union[None, Unset, str] = UNSET
-    media_ids: Union[None, Unset, list[str]] = UNSET
+    idempotency: None | Unset | str = UNSET
+    in_reply_to_id: None | Unset | int = UNSET
+    language: None | Unset | str = UNSET
+    media_ids: None | Unset | list[str] = UNSET
     poll: Union["ScheduledStatusParamsPollType0", None, Unset] = UNSET
-    scheduled_at: Union[None, Unset, str] = UNSET
-    sensitive: Union[None, Unset, bool] = UNSET
-    spoiler_text: Union[None, Unset, str] = UNSET
+    scheduled_at: None | Unset | str = UNSET
+    sensitive: None | Unset | bool = UNSET
+    spoiler_text: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.scheduled_status_params_poll_type_0 import \
-            ScheduledStatusParamsPollType0
+        from ..models.scheduled_status_params_poll_type_0 import ScheduledStatusParamsPollType0
 
         application_id = self.application_id
 
@@ -63,25 +62,25 @@ class ScheduledStatusParams:
 
         with_rate_limit = self.with_rate_limit
 
-        idempotency: Union[None, Unset, str]
+        idempotency: None | Unset | str
         if isinstance(self.idempotency, Unset):
             idempotency = UNSET
         else:
             idempotency = self.idempotency
 
-        in_reply_to_id: Union[None, Unset, int]
+        in_reply_to_id: None | Unset | int
         if isinstance(self.in_reply_to_id, Unset):
             in_reply_to_id = UNSET
         else:
             in_reply_to_id = self.in_reply_to_id
 
-        language: Union[None, Unset, str]
+        language: None | Unset | str
         if isinstance(self.language, Unset):
             language = UNSET
         else:
             language = self.language
 
-        media_ids: Union[None, Unset, list[str]]
+        media_ids: None | Unset | list[str]
         if isinstance(self.media_ids, Unset):
             media_ids = UNSET
         elif isinstance(self.media_ids, list):
@@ -90,7 +89,7 @@ class ScheduledStatusParams:
         else:
             media_ids = self.media_ids
 
-        poll: Union[None, Unset, dict[str, Any]]
+        poll: None | Unset | dict[str, Any]
         if isinstance(self.poll, Unset):
             poll = UNSET
         elif isinstance(self.poll, ScheduledStatusParamsPollType0):
@@ -98,19 +97,19 @@ class ScheduledStatusParams:
         else:
             poll = self.poll
 
-        scheduled_at: Union[None, Unset, str]
+        scheduled_at: None | Unset | str
         if isinstance(self.scheduled_at, Unset):
             scheduled_at = UNSET
         else:
             scheduled_at = self.scheduled_at
 
-        sensitive: Union[None, Unset, bool]
+        sensitive: None | Unset | bool
         if isinstance(self.sensitive, Unset):
             sensitive = UNSET
         else:
             sensitive = self.sensitive
 
-        spoiler_text: Union[None, Unset, str]
+        spoiler_text: None | Unset | str
         if isinstance(self.spoiler_text, Unset):
             spoiler_text = UNSET
         else:
@@ -146,11 +145,10 @@ class ScheduledStatusParams:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.scheduled_status_params_poll_type_0 import \
-            ScheduledStatusParamsPollType0
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.scheduled_status_params_poll_type_0 import ScheduledStatusParamsPollType0
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         application_id = d.pop("application_id")
 
         text = d.pop("text")
@@ -159,34 +157,34 @@ class ScheduledStatusParams:
 
         with_rate_limit = d.pop("with_rate_limit")
 
-        def _parse_idempotency(data: object) -> Union[None, Unset, str]:
+        def _parse_idempotency(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         idempotency = _parse_idempotency(d.pop("idempotency", UNSET))
 
-        def _parse_in_reply_to_id(data: object) -> Union[None, Unset, int]:
+        def _parse_in_reply_to_id(data: object) -> None | Unset | int:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(None | Unset | int, data)
 
         in_reply_to_id = _parse_in_reply_to_id(d.pop("in_reply_to_id", UNSET))
 
-        def _parse_language(data: object) -> Union[None, Unset, str]:
+        def _parse_language(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         language = _parse_language(d.pop("language", UNSET))
 
-        def _parse_media_ids(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_media_ids(data: object) -> None | Unset | list[str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -199,13 +197,11 @@ class ScheduledStatusParams:
                 return media_ids_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(None | Unset | list[str], data)
 
         media_ids = _parse_media_ids(d.pop("media_ids", UNSET))
 
-        def _parse_poll(
-            data: object,
-        ) -> Union["ScheduledStatusParamsPollType0", None, Unset]:
+        def _parse_poll(data: object) -> Union["ScheduledStatusParamsPollType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -222,30 +218,30 @@ class ScheduledStatusParams:
 
         poll = _parse_poll(d.pop("poll", UNSET))
 
-        def _parse_scheduled_at(data: object) -> Union[None, Unset, str]:
+        def _parse_scheduled_at(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         scheduled_at = _parse_scheduled_at(d.pop("scheduled_at", UNSET))
 
-        def _parse_sensitive(data: object) -> Union[None, Unset, bool]:
+        def _parse_sensitive(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         sensitive = _parse_sensitive(d.pop("sensitive", UNSET))
 
-        def _parse_spoiler_text(data: object) -> Union[None, Unset, str]:
+        def _parse_spoiler_text(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         spoiler_text = _parse_spoiler_text(d.pop("spoiler_text", UNSET))
 

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -70,6 +71,7 @@ class V1Instance:
         version (str): The version of Mastodon installed on the instance.
         contact_account (Union['Account', None, Unset]): A user that can be contacted, as an alternative to `email`.
         thumbnail (Union[None, Unset, str]): Banner image for the website.
+
     """
 
     approval_required: bool
@@ -87,7 +89,7 @@ class V1Instance:
     urls: "V1InstanceUrls"
     version: str
     contact_account: Union["Account", None, Unset] = UNSET
-    thumbnail: Union[None, Unset, str] = UNSET
+    thumbnail: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -124,7 +126,7 @@ class V1Instance:
 
         version = self.version
 
-        contact_account: Union[None, Unset, dict[str, Any]]
+        contact_account: None | Unset | dict[str, Any]
         if isinstance(self.contact_account, Unset):
             contact_account = UNSET
         elif isinstance(self.contact_account, Account):
@@ -132,7 +134,7 @@ class V1Instance:
         else:
             contact_account = self.contact_account
 
-        thumbnail: Union[None, Unset, str]
+        thumbnail: None | Unset | str
         if isinstance(self.thumbnail, Unset):
             thumbnail = UNSET
         else:
@@ -166,14 +168,14 @@ class V1Instance:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.rule import Rule
         from ..models.v1_instance_configuration import V1InstanceConfiguration
         from ..models.v1_instance_stats import V1InstanceStats
         from ..models.v1_instance_urls import V1InstanceUrls
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         approval_required = d.pop("approval_required")
 
         configuration = V1InstanceConfiguration.from_dict(d.pop("configuration"))
@@ -224,12 +226,12 @@ class V1Instance:
 
         contact_account = _parse_contact_account(d.pop("contact_account", UNSET))
 
-        def _parse_thumbnail(data: object) -> Union[None, Unset, str]:
+        def _parse_thumbnail(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         thumbnail = _parse_thumbnail(d.pop("thumbnail", UNSET))
 

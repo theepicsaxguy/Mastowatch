@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -32,6 +33,7 @@ class Rule:
         text (str): The rule to be followed.
         translations (Union['RuleTranslationsType0', None, Unset]): Available translations for this rule's `text` and
             `hint`, as a Hash where keys are locale codes and values are hashes with `text` and `hint` keys.
+
     """
 
     hint: str
@@ -49,7 +51,7 @@ class Rule:
 
         text = self.text
 
-        translations: Union[None, Unset, dict[str, Any]]
+        translations: None | Unset | dict[str, Any]
         if isinstance(self.translations, Unset):
             translations = UNSET
         elif isinstance(self.translations, RuleTranslationsType0):
@@ -72,19 +74,17 @@ class Rule:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.rule_translations_type_0 import RuleTranslationsType0
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         hint = d.pop("hint")
 
         id = d.pop("id")
 
         text = d.pop("text")
 
-        def _parse_translations(
-            data: object,
-        ) -> Union["RuleTranslationsType0", None, Unset]:
+        def _parse_translations(data: object) -> Union["RuleTranslationsType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):

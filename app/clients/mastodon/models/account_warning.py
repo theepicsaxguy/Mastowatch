@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -70,6 +71,7 @@ class AccountWarning:
             is `mark_statuses_as_sensitive` or `delete_statuses`, those are the affected statuses. If the action is
             `delete_statuses` then they have been irrevocably deleted (irrespective of the appeal state), and will be
             inaccessible to the client.
+
     """
 
     action: AccountWarningAction
@@ -78,7 +80,7 @@ class AccountWarning:
     target_account: "Account"
     text: str
     appeal: Union["Appeal", None, Unset] = UNSET
-    status_ids: Union[None, Unset, list[str]] = UNSET
+    status_ids: None | Unset | list[str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -94,7 +96,7 @@ class AccountWarning:
 
         text = self.text
 
-        appeal: Union[None, Unset, dict[str, Any]]
+        appeal: None | Unset | dict[str, Any]
         if isinstance(self.appeal, Unset):
             appeal = UNSET
         elif isinstance(self.appeal, Appeal):
@@ -102,7 +104,7 @@ class AccountWarning:
         else:
             appeal = self.appeal
 
-        status_ids: Union[None, Unset, list[str]]
+        status_ids: None | Unset | list[str]
         if isinstance(self.status_ids, Unset):
             status_ids = UNSET
         elif isinstance(self.status_ids, list):
@@ -130,11 +132,11 @@ class AccountWarning:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.appeal import Appeal
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         action = AccountWarningAction(d.pop("action"))
 
         created_at = isoparse(d.pop("created_at"))
@@ -162,7 +164,7 @@ class AccountWarning:
 
         appeal = _parse_appeal(d.pop("appeal", UNSET))
 
-        def _parse_status_ids(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_status_ids(data: object) -> None | Unset | list[str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -175,7 +177,7 @@ class AccountWarning:
                 return status_ids_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(None | Unset | list[str], data)
 
         status_ids = _parse_status_ids(d.pop("status_ids", UNSET))
 

@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -22,12 +23,13 @@ class TermsOfService:
         effective (bool): Whether these terms of service are currently in effect.
         effective_date (datetime.date): The date these terms of service are coming or have come in effect.
         succeeded_by (Union[None, Unset, datetime.date]): If there are newer terms of service, their effective date.
+
     """
 
     content: str
     effective: bool
     effective_date: datetime.date
-    succeeded_by: Union[None, Unset, datetime.date] = UNSET
+    succeeded_by: None | Unset | datetime.date = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,7 +39,7 @@ class TermsOfService:
 
         effective_date = self.effective_date.isoformat()
 
-        succeeded_by: Union[None, Unset, str]
+        succeeded_by: None | Unset | str
         if isinstance(self.succeeded_by, Unset):
             succeeded_by = UNSET
         elif isinstance(self.succeeded_by, datetime.date):
@@ -60,15 +62,15 @@ class TermsOfService:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         content = d.pop("content")
 
         effective = d.pop("effective")
 
         effective_date = isoparse(d.pop("effective_date")).date()
 
-        def _parse_succeeded_by(data: object) -> Union[None, Unset, datetime.date]:
+        def _parse_succeeded_by(data: object) -> None | Unset | datetime.date:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -81,7 +83,7 @@ class TermsOfService:
                 return succeeded_by_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.date], data)
+            return cast(None | Unset | datetime.date, data)
 
         succeeded_by = _parse_succeeded_by(d.pop("succeeded_by", UNSET))
 

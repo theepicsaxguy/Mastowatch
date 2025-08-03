@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -27,6 +28,7 @@ class Conversation:
         id (str): The ID of the conversation in the database.
         unread (bool): Is the conversation currently marked as unread?
         last_status (Union['Status', None, Unset]): The last status in the conversation.
+
     """
 
     accounts: list["Account"]
@@ -47,7 +49,7 @@ class Conversation:
 
         unread = self.unread
 
-        last_status: Union[None, Unset, dict[str, Any]]
+        last_status: None | Unset | dict[str, Any]
         if isinstance(self.last_status, Unset):
             last_status = UNSET
         elif isinstance(self.last_status, Status):
@@ -70,11 +72,11 @@ class Conversation:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.status import Status
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         accounts = []
         _accounts = d.pop("accounts")
         for accounts_item_data in _accounts:

@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -20,13 +21,14 @@ class UpdateFilterBody:
         irreversible (Union[Unset, bool]): Should the server irreversibly drop matching entities from home and
             notifications? Defaults to false. Default: False.
         whole_word (Union[Unset, bool]): Should the filter consider word boundaries? Defaults to false. Default: False.
+
     """
 
     context: list[FilterContext]
     phrase: str
-    expires_in: Union[Unset, int] = UNSET
-    irreversible: Union[Unset, bool] = False
-    whole_word: Union[Unset, bool] = False
+    expires_in: Unset | int = UNSET
+    irreversible: Unset | bool = False
+    whole_word: Unset | bool = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -61,8 +63,8 @@ class UpdateFilterBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         context = []
         _context = d.pop("context")
         for context_item_data in _context:

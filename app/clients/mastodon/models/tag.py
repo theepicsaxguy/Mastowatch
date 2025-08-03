@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -31,14 +32,15 @@ class Tag:
         featuring (Union[None, Unset, bool]): Whether the current token's authorized user is featuring this tag on their
             profile.
         following (Union[None, Unset, bool]): Whether the current token's authorized user is following this tag.
+
     """
 
     history: list["TagHistory"]
     id: str
     name: str
     url: str
-    featuring: Union[None, Unset, bool] = UNSET
-    following: Union[None, Unset, bool] = UNSET
+    featuring: None | Unset | bool = UNSET
+    following: None | Unset | bool = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -53,13 +55,13 @@ class Tag:
 
         url = self.url
 
-        featuring: Union[None, Unset, bool]
+        featuring: None | Unset | bool
         if isinstance(self.featuring, Unset):
             featuring = UNSET
         else:
             featuring = self.featuring
 
-        following: Union[None, Unset, bool]
+        following: None | Unset | bool
         if isinstance(self.following, Unset):
             following = UNSET
         else:
@@ -83,10 +85,10 @@ class Tag:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.tag_history import TagHistory
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         history = []
         _history = d.pop("history")
         for history_item_data in _history:
@@ -100,21 +102,21 @@ class Tag:
 
         url = d.pop("url")
 
-        def _parse_featuring(data: object) -> Union[None, Unset, bool]:
+        def _parse_featuring(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         featuring = _parse_featuring(d.pop("featuring", UNSET))
 
-        def _parse_following(data: object) -> Union[None, Unset, bool]:
+        def _parse_following(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         following = _parse_following(d.pop("following", UNSET))
 

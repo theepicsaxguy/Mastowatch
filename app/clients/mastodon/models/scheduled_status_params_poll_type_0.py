@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
@@ -15,6 +16,7 @@ class ScheduledStatusParamsPollType0:
         expires_in (int): How many seconds the poll should last before closing.
         multiple (bool): Whether the poll allows multiple choices.
         hide_totals (bool): Whether the poll should hide total votes until after voting has ended.
+
     """
 
     options: list[str]
@@ -46,8 +48,8 @@ class ScheduledStatusParamsPollType0:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         options = cast(list[str], d.pop("options"))
 
         expires_in = d.pop("expires_in")

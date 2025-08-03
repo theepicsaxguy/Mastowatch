@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -13,6 +14,7 @@ class AnnouncementStatus:
     Attributes:
         id (str): The ID of an attached Status in the database.
         url (str): The URL of an attached Status.
+
     """
 
     id: str
@@ -36,8 +38,8 @@ class AnnouncementStatus:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         id = d.pop("id")
 
         url = d.pop("url")

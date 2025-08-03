@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -12,6 +13,7 @@ class ValidationErrorDetailsAdditionalPropertyItem:
     Attributes:
         error (str): The error code (e.g., ERR_BLANK, ERR_INVALID).
         description (str): Human-readable description of the error.
+
     """
 
     error: str
@@ -35,8 +37,8 @@ class ValidationErrorDetailsAdditionalPropertyItem:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         error = d.pop("error")
 
         description = d.pop("description")

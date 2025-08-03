@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -18,13 +19,14 @@ class AdminDimensionData:
         value (str): The value for this data item.
         human_value (Union[Unset, str]): A human-readable formatted value for this data item.
         unit (Union[Unset, str]): The units associated with this data item's value, if applicable.
+
     """
 
     human_key: str
     key: str
     value: str
-    human_value: Union[Unset, str] = UNSET
-    unit: Union[Unset, str] = UNSET
+    human_value: Unset | str = UNSET
+    unit: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -55,8 +57,8 @@ class AdminDimensionData:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         human_key = d.pop("human_key")
 
         key = d.pop("key")

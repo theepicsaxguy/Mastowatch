@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -142,6 +143,7 @@ class Status:
             deleted, so the user may redraft from the source text without the client having to reverse-engineer the original
             text from the HTML content.
         url (Union[None, Unset, str]): A link to the status's HTML representation.
+
     """
 
     account: "Account"
@@ -160,21 +162,21 @@ class Status:
     uri: str
     visibility: VisibilityEnum
     application: Union["StatusApplicationType0", None, Unset] = UNSET
-    bookmarked: Union[None, Unset, bool] = UNSET
+    bookmarked: None | Unset | bool = UNSET
     card: Union["PreviewCard", None, Unset] = UNSET
-    edited_at: Union[None, Unset, datetime.datetime] = UNSET
-    favourited: Union[None, Unset, bool] = UNSET
-    filtered: Union[None, Unset, list["FilterResult"]] = UNSET
-    in_reply_to_account_id: Union[None, Unset, str] = UNSET
-    in_reply_to_id: Union[None, Unset, str] = UNSET
-    language: Union[None, Unset, str] = UNSET
-    muted: Union[None, Unset, bool] = UNSET
-    pinned: Union[None, Unset, bool] = UNSET
+    edited_at: None | Unset | datetime.datetime = UNSET
+    favourited: None | Unset | bool = UNSET
+    filtered: None | Unset | list["FilterResult"] = UNSET
+    in_reply_to_account_id: None | Unset | str = UNSET
+    in_reply_to_id: None | Unset | str = UNSET
+    language: None | Unset | str = UNSET
+    muted: None | Unset | bool = UNSET
+    pinned: None | Unset | bool = UNSET
     poll: Union["Poll", None, Unset] = UNSET
     reblog: Union["Status", None, Unset] = UNSET
-    reblogged: Union[None, Unset, bool] = UNSET
-    text: Union[None, Unset, str] = UNSET
-    url: Union[None, Unset, str] = UNSET
+    reblogged: None | Unset | bool = UNSET
+    text: None | Unset | str = UNSET
+    url: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -224,7 +226,7 @@ class Status:
 
         visibility = self.visibility.value
 
-        application: Union[None, Unset, dict[str, Any]]
+        application: None | Unset | dict[str, Any]
         if isinstance(self.application, Unset):
             application = UNSET
         elif isinstance(self.application, StatusApplicationType0):
@@ -232,13 +234,13 @@ class Status:
         else:
             application = self.application
 
-        bookmarked: Union[None, Unset, bool]
+        bookmarked: None | Unset | bool
         if isinstance(self.bookmarked, Unset):
             bookmarked = UNSET
         else:
             bookmarked = self.bookmarked
 
-        card: Union[None, Unset, dict[str, Any]]
+        card: None | Unset | dict[str, Any]
         if isinstance(self.card, Unset):
             card = UNSET
         elif isinstance(self.card, PreviewCard):
@@ -246,7 +248,7 @@ class Status:
         else:
             card = self.card
 
-        edited_at: Union[None, Unset, str]
+        edited_at: None | Unset | str
         if isinstance(self.edited_at, Unset):
             edited_at = UNSET
         elif isinstance(self.edited_at, datetime.datetime):
@@ -254,13 +256,13 @@ class Status:
         else:
             edited_at = self.edited_at
 
-        favourited: Union[None, Unset, bool]
+        favourited: None | Unset | bool
         if isinstance(self.favourited, Unset):
             favourited = UNSET
         else:
             favourited = self.favourited
 
-        filtered: Union[None, Unset, list[dict[str, Any]]]
+        filtered: None | Unset | list[dict[str, Any]]
         if isinstance(self.filtered, Unset):
             filtered = UNSET
         elif isinstance(self.filtered, list):
@@ -272,37 +274,37 @@ class Status:
         else:
             filtered = self.filtered
 
-        in_reply_to_account_id: Union[None, Unset, str]
+        in_reply_to_account_id: None | Unset | str
         if isinstance(self.in_reply_to_account_id, Unset):
             in_reply_to_account_id = UNSET
         else:
             in_reply_to_account_id = self.in_reply_to_account_id
 
-        in_reply_to_id: Union[None, Unset, str]
+        in_reply_to_id: None | Unset | str
         if isinstance(self.in_reply_to_id, Unset):
             in_reply_to_id = UNSET
         else:
             in_reply_to_id = self.in_reply_to_id
 
-        language: Union[None, Unset, str]
+        language: None | Unset | str
         if isinstance(self.language, Unset):
             language = UNSET
         else:
             language = self.language
 
-        muted: Union[None, Unset, bool]
+        muted: None | Unset | bool
         if isinstance(self.muted, Unset):
             muted = UNSET
         else:
             muted = self.muted
 
-        pinned: Union[None, Unset, bool]
+        pinned: None | Unset | bool
         if isinstance(self.pinned, Unset):
             pinned = UNSET
         else:
             pinned = self.pinned
 
-        poll: Union[None, Unset, dict[str, Any]]
+        poll: None | Unset | dict[str, Any]
         if isinstance(self.poll, Unset):
             poll = UNSET
         elif isinstance(self.poll, Poll):
@@ -310,7 +312,7 @@ class Status:
         else:
             poll = self.poll
 
-        reblog: Union[None, Unset, dict[str, Any]]
+        reblog: None | Unset | dict[str, Any]
         if isinstance(self.reblog, Unset):
             reblog = UNSET
         elif isinstance(self.reblog, Status):
@@ -318,19 +320,19 @@ class Status:
         else:
             reblog = self.reblog
 
-        reblogged: Union[None, Unset, bool]
+        reblogged: None | Unset | bool
         if isinstance(self.reblogged, Unset):
             reblogged = UNSET
         else:
             reblogged = self.reblogged
 
-        text: Union[None, Unset, str]
+        text: None | Unset | str
         if isinstance(self.text, Unset):
             text = UNSET
         else:
             text = self.text
 
-        url: Union[None, Unset, str]
+        url: None | Unset | str
         if isinstance(self.url, Unset):
             url = UNSET
         else:
@@ -393,7 +395,7 @@ class Status:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.custom_emoji import CustomEmoji
         from ..models.filter_result import FilterResult
@@ -404,7 +406,7 @@ class Status:
         from ..models.status_mention import StatusMention
         from ..models.status_tag import StatusTag
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         account = Account.from_dict(d.pop("account"))
 
         content = d.pop("content")
@@ -455,9 +457,7 @@ class Status:
 
         visibility = VisibilityEnum(d.pop("visibility"))
 
-        def _parse_application(
-            data: object,
-        ) -> Union["StatusApplicationType0", None, Unset]:
+        def _parse_application(data: object) -> Union["StatusApplicationType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -474,12 +474,12 @@ class Status:
 
         application = _parse_application(d.pop("application", UNSET))
 
-        def _parse_bookmarked(data: object) -> Union[None, Unset, bool]:
+        def _parse_bookmarked(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         bookmarked = _parse_bookmarked(d.pop("bookmarked", UNSET))
 
@@ -500,7 +500,7 @@ class Status:
 
         card = _parse_card(d.pop("card", UNSET))
 
-        def _parse_edited_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_edited_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -513,20 +513,20 @@ class Status:
                 return edited_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         edited_at = _parse_edited_at(d.pop("edited_at", UNSET))
 
-        def _parse_favourited(data: object) -> Union[None, Unset, bool]:
+        def _parse_favourited(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         favourited = _parse_favourited(d.pop("favourited", UNSET))
 
-        def _parse_filtered(data: object) -> Union[None, Unset, list["FilterResult"]]:
+        def _parse_filtered(data: object) -> None | Unset | list["FilterResult"]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -544,52 +544,52 @@ class Status:
                 return filtered_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list["FilterResult"]], data)
+            return cast(None | Unset | list["FilterResult"], data)
 
         filtered = _parse_filtered(d.pop("filtered", UNSET))
 
-        def _parse_in_reply_to_account_id(data: object) -> Union[None, Unset, str]:
+        def _parse_in_reply_to_account_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         in_reply_to_account_id = _parse_in_reply_to_account_id(d.pop("in_reply_to_account_id", UNSET))
 
-        def _parse_in_reply_to_id(data: object) -> Union[None, Unset, str]:
+        def _parse_in_reply_to_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         in_reply_to_id = _parse_in_reply_to_id(d.pop("in_reply_to_id", UNSET))
 
-        def _parse_language(data: object) -> Union[None, Unset, str]:
+        def _parse_language(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         language = _parse_language(d.pop("language", UNSET))
 
-        def _parse_muted(data: object) -> Union[None, Unset, bool]:
+        def _parse_muted(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         muted = _parse_muted(d.pop("muted", UNSET))
 
-        def _parse_pinned(data: object) -> Union[None, Unset, bool]:
+        def _parse_pinned(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         pinned = _parse_pinned(d.pop("pinned", UNSET))
 
@@ -627,30 +627,30 @@ class Status:
 
         reblog = _parse_reblog(d.pop("reblog", UNSET))
 
-        def _parse_reblogged(data: object) -> Union[None, Unset, bool]:
+        def _parse_reblogged(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         reblogged = _parse_reblogged(d.pop("reblogged", UNSET))
 
-        def _parse_text(data: object) -> Union[None, Unset, str]:
+        def _parse_text(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         text = _parse_text(d.pop("text", UNSET))
 
-        def _parse_url(data: object) -> Union[None, Unset, str]:
+        def _parse_url(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         url = _parse_url(d.pop("url", UNSET))
 

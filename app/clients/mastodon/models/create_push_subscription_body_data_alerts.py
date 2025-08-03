@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -24,18 +25,19 @@ class CreatePushSubscriptionBodyDataAlerts:
             with the appropriate permissions.
         admin_report (Union[Unset, bool]): Receive new report notifications? Defaults to false. Must have a role with
             the appropriate permissions.
+
     """
 
-    mention: Union[Unset, bool] = UNSET
-    status: Union[Unset, bool] = UNSET
-    reblog: Union[Unset, bool] = UNSET
-    follow: Union[Unset, bool] = UNSET
-    follow_request: Union[Unset, bool] = UNSET
-    favourite: Union[Unset, bool] = UNSET
-    poll: Union[Unset, bool] = UNSET
-    update: Union[Unset, bool] = UNSET
-    admin_sign_up: Union[Unset, bool] = UNSET
-    admin_report: Union[Unset, bool] = UNSET
+    mention: Unset | bool = UNSET
+    status: Unset | bool = UNSET
+    reblog: Unset | bool = UNSET
+    follow: Unset | bool = UNSET
+    follow_request: Unset | bool = UNSET
+    favourite: Unset | bool = UNSET
+    poll: Unset | bool = UNSET
+    update: Unset | bool = UNSET
+    admin_sign_up: Unset | bool = UNSET
+    admin_report: Unset | bool = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,8 +88,8 @@ class CreatePushSubscriptionBodyDataAlerts:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         mention = d.pop("mention", UNSET)
 
         status = d.pop("status", UNSET)

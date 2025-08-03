@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -32,6 +33,7 @@ class AdminDomainBlock:
         severity (AdminDomainBlockSeverity): The policy to be applied by this domain block.
         private_comment (Union[None, Unset, str]):
         public_comment (Union[None, Unset, str]):
+
     """
 
     created_at: datetime.datetime
@@ -42,8 +44,8 @@ class AdminDomainBlock:
     reject_media: bool
     reject_reports: bool
     severity: AdminDomainBlockSeverity
-    private_comment: Union[None, Unset, str] = UNSET
-    public_comment: Union[None, Unset, str] = UNSET
+    private_comment: None | Unset | str = UNSET
+    public_comment: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -63,13 +65,13 @@ class AdminDomainBlock:
 
         severity = self.severity.value
 
-        private_comment: Union[None, Unset, str]
+        private_comment: None | Unset | str
         if isinstance(self.private_comment, Unset):
             private_comment = UNSET
         else:
             private_comment = self.private_comment
 
-        public_comment: Union[None, Unset, str]
+        public_comment: None | Unset | str
         if isinstance(self.public_comment, Unset):
             public_comment = UNSET
         else:
@@ -97,8 +99,8 @@ class AdminDomainBlock:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         created_at = isoparse(d.pop("created_at"))
 
         digest = d.pop("digest")
@@ -115,21 +117,21 @@ class AdminDomainBlock:
 
         severity = AdminDomainBlockSeverity(d.pop("severity"))
 
-        def _parse_private_comment(data: object) -> Union[None, Unset, str]:
+        def _parse_private_comment(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         private_comment = _parse_private_comment(d.pop("private_comment", UNSET))
 
-        def _parse_public_comment(data: object) -> Union[None, Unset, str]:
+        def _parse_public_comment(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         public_comment = _parse_public_comment(d.pop("public_comment", UNSET))
 

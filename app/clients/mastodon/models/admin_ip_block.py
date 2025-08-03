@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -26,6 +27,7 @@ class AdminIpBlock:
         ip (str): The IP address range that is not allowed to federate.
         severity (AdminIpBlockSeverity): The associated policy with this IP block.
         expires_at (Union[None, Unset, datetime.datetime]): When the IP block will expire.
+
     """
 
     comment: str
@@ -33,7 +35,7 @@ class AdminIpBlock:
     id: str
     ip: str
     severity: AdminIpBlockSeverity
-    expires_at: Union[None, Unset, datetime.datetime] = UNSET
+    expires_at: None | Unset | datetime.datetime = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,7 +49,7 @@ class AdminIpBlock:
 
         severity = self.severity.value
 
-        expires_at: Union[None, Unset, str]
+        expires_at: None | Unset | str
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -72,8 +74,8 @@ class AdminIpBlock:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         comment = d.pop("comment")
 
         created_at = isoparse(d.pop("created_at"))
@@ -84,7 +86,7 @@ class AdminIpBlock:
 
         severity = AdminIpBlockSeverity(d.pop("severity"))
 
-        def _parse_expires_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_expires_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -97,7 +99,7 @@ class AdminIpBlock:
                 return expires_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 

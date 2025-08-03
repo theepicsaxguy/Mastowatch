@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -20,6 +21,7 @@ class Search:
         accounts (list['Account']): Accounts which match the given query
         hashtags (list['Tag']): Hashtags which match the given query
         statuses (list['Status']): Statuses which match the given query
+
     """
 
     accounts: list["Account"]
@@ -56,12 +58,12 @@ class Search:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.status import Status
         from ..models.tag import Tag
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         accounts = []
         _accounts = d.pop("accounts")
         for accounts_item_data in _accounts:

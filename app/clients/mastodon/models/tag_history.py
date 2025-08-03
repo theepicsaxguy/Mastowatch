@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -14,6 +15,7 @@ class TagHistory:
         accounts (str): The total of accounts using the tag within that day.
         day (str): UNIX timestamp on midnight of the given day.
         uses (str): The counted usage of the tag within that day.
+
     """
 
     accounts: str
@@ -41,8 +43,8 @@ class TagHistory:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         accounts = d.pop("accounts")
 
         day = d.pop("day")

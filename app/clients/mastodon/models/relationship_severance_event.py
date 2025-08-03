@@ -1,12 +1,12 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
-from ..models.relationship_severance_event_type import \
-    RelationshipSeveranceEventType
+from ..models.relationship_severance_event_type import RelationshipSeveranceEventType
 
 T = TypeVar("T", bound="RelationshipSeveranceEvent")
 
@@ -25,6 +25,7 @@ class RelationshipSeveranceEvent:
         target_name (str): Name of the target of the moderation/block event. This is either a domain name or a user
             handle, depending on the event type.
         type_ (RelationshipSeveranceEventType): Type of event.
+
     """
 
     created_at: datetime.datetime
@@ -68,8 +69,8 @@ class RelationshipSeveranceEvent:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         created_at = isoparse(d.pop("created_at"))
 
         followers_count = d.pop("followers_count")

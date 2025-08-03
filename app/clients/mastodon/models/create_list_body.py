@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -16,11 +17,12 @@ class CreateListBody:
         title (str): The title of the list to be created.
         exclusive (Union[Unset, bool]): Whether members of this list need to get removed from the “Home” feed.
         replies_policy (Union[Unset, PolicyEnum]):
+
     """
 
     title: str
-    exclusive: Union[Unset, bool] = UNSET
-    replies_policy: Union[Unset, PolicyEnum] = UNSET
+    exclusive: Unset | bool = UNSET
+    replies_policy: Unset | PolicyEnum = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -28,7 +30,7 @@ class CreateListBody:
 
         exclusive = self.exclusive
 
-        replies_policy: Union[Unset, str] = UNSET
+        replies_policy: Unset | str = UNSET
         if not isinstance(self.replies_policy, Unset):
             replies_policy = self.replies_policy.value
 
@@ -47,14 +49,14 @@ class CreateListBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         title = d.pop("title")
 
         exclusive = d.pop("exclusive", UNSET)
 
         _replies_policy = d.pop("replies_policy", UNSET)
-        replies_policy: Union[Unset, PolicyEnum]
+        replies_policy: Unset | PolicyEnum
         if isinstance(_replies_policy, Unset):
             replies_policy = UNSET
         else:

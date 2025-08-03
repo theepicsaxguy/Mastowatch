@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -19,16 +20,17 @@ class PollStatusPoll:
             cannot be used, and `poll[options]` must be provided.
         multiple (Union[Unset, bool]): Allow multiple choices? Defaults to false.
         hide_totals (Union[Unset, bool]): Hide vote counts until the poll ends? Defaults to false.
+
     """
 
-    options: Union[Unset, list[str]] = UNSET
-    expires_in: Union[Unset, int] = UNSET
-    multiple: Union[Unset, bool] = UNSET
-    hide_totals: Union[Unset, bool] = UNSET
+    options: Unset | list[str] = UNSET
+    expires_in: Unset | int = UNSET
+    multiple: Unset | bool = UNSET
+    hide_totals: Unset | bool = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        options: Union[Unset, list[str]] = UNSET
+        options: Unset | list[str] = UNSET
         if not isinstance(self.options, Unset):
             options = self.options
 
@@ -53,8 +55,8 @@ class PollStatusPoll:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         options = cast(list[str], d.pop("options", UNSET))
 
         expires_in = d.pop("expires_in", UNSET)

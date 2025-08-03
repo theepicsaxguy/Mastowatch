@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -6,8 +7,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 if TYPE_CHECKING:
-    from ..models.admin_email_domain_block_history import \
-        AdminEmailDomainBlockHistory
+    from ..models.admin_email_domain_block_history import AdminEmailDomainBlockHistory
 
 
 T = TypeVar("T", bound="AdminEmailDomainBlock")
@@ -29,6 +29,7 @@ class AdminEmailDomainBlock:
         domain (str): The email domain that is not allowed to be used for signups.
         history (list['AdminEmailDomainBlockHistory']): Usage statistics for given days (typically the past week).
         id (str): The ID of the EmailDomainBlock in the database.
+
     """
 
     created_at: datetime.datetime
@@ -63,11 +64,10 @@ class AdminEmailDomainBlock:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.admin_email_domain_block_history import \
-            AdminEmailDomainBlockHistory
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.admin_email_domain_block_history import AdminEmailDomainBlockHistory
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         created_at = isoparse(d.pop("created_at"))
 
         domain = d.pop("domain")

@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -28,17 +29,18 @@ class FilterResult:
             'whole_word': False}], 'statuses': [{'id': '1', 'status_id': '109031743575371913'}]}.
         keyword_matches (Union[None, Unset, list[str]]): The keyword within the filter that was matched.
         status_matches (Union[None, Unset, list[str]]): The status ID within the filter that was matched.
+
     """
 
     filter_: "Filter"
-    keyword_matches: Union[None, Unset, list[str]] = UNSET
-    status_matches: Union[None, Unset, list[str]] = UNSET
+    keyword_matches: None | Unset | list[str] = UNSET
+    status_matches: None | Unset | list[str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         filter_ = self.filter_.to_dict()
 
-        keyword_matches: Union[None, Unset, list[str]]
+        keyword_matches: None | Unset | list[str]
         if isinstance(self.keyword_matches, Unset):
             keyword_matches = UNSET
         elif isinstance(self.keyword_matches, list):
@@ -47,7 +49,7 @@ class FilterResult:
         else:
             keyword_matches = self.keyword_matches
 
-        status_matches: Union[None, Unset, list[str]]
+        status_matches: None | Unset | list[str]
         if isinstance(self.status_matches, Unset):
             status_matches = UNSET
         elif isinstance(self.status_matches, list):
@@ -71,13 +73,13 @@ class FilterResult:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.filter_ import Filter
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         filter_ = Filter.from_dict(d.pop("filter"))
 
-        def _parse_keyword_matches(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_keyword_matches(data: object) -> None | Unset | list[str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -90,11 +92,11 @@ class FilterResult:
                 return keyword_matches_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(None | Unset | list[str], data)
 
         keyword_matches = _parse_keyword_matches(d.pop("keyword_matches", UNSET))
 
-        def _parse_status_matches(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_status_matches(data: object) -> None | Unset | list[str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -107,7 +109,7 @@ class FilterResult:
                 return status_matches_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(None | Unset | list[str], data)
 
         status_matches = _parse_status_matches(d.pop("status_matches", UNSET))
 

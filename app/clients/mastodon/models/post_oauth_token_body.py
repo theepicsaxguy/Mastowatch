@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -26,6 +27,7 @@ class PostOauthTokenBody:
             separated by spaces (or pluses, if using query parameters). Must be a subset of the scopes requested at the time
             the application was created. If omitted, it defaults to `read`. Has no effect when `grant_type` is
             `authorization_code`. Default: 'read'.
+
     """
 
     client_id: str
@@ -33,8 +35,8 @@ class PostOauthTokenBody:
     code: str
     grant_type: str
     redirect_uri: str
-    code_verifier: Union[Unset, str] = UNSET
-    scope: Union[Unset, str] = "read"
+    code_verifier: Unset | str = UNSET
+    scope: Unset | str = "read"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -71,8 +73,8 @@ class PostOauthTokenBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         client_id = d.pop("client_id")
 
         client_secret = d.pop("client_secret")

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -14,6 +15,7 @@ class V1InstanceStats:
         domain_count (int): Total domains discovered by this instance.
         status_count (int): Total statuses on this instance.
         user_count (int): Total users on this instance.
+
     """
 
     domain_count: int
@@ -41,8 +43,8 @@ class V1InstanceStats:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         domain_count = d.pop("domain_count")
 
         status_count = d.pop("status_count")

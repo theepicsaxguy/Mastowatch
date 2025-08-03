@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,20 +16,21 @@ class InstanceThumbnailVersionsType0:
     Attributes:
         field_1x (Union[None, Unset, str]): The URL for the thumbnail image at 1x resolution.
         field_2x (Union[None, Unset, str]): The URL for the thumbnail image at 2x resolution.
+
     """
 
-    field_1x: Union[None, Unset, str] = UNSET
-    field_2x: Union[None, Unset, str] = UNSET
+    field_1x: None | Unset | str = UNSET
+    field_2x: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        field_1x: Union[None, Unset, str]
+        field_1x: None | Unset | str
         if isinstance(self.field_1x, Unset):
             field_1x = UNSET
         else:
             field_1x = self.field_1x
 
-        field_2x: Union[None, Unset, str]
+        field_2x: None | Unset | str
         if isinstance(self.field_2x, Unset):
             field_2x = UNSET
         else:
@@ -45,24 +47,24 @@ class InstanceThumbnailVersionsType0:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
 
-        def _parse_field_1x(data: object) -> Union[None, Unset, str]:
+        def _parse_field_1x(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         field_1x = _parse_field_1x(d.pop("@1x", UNSET))
 
-        def _parse_field_2x(data: object) -> Union[None, Unset, str]:
+        def _parse_field_2x(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         field_2x = _parse_field_2x(d.pop("@2x", UNSET))
 

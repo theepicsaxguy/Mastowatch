@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -26,12 +27,13 @@ class GroupedNotificationsResults:
         partial_accounts (Union[None, Unset, list['PartialAccountWithAvatar']]): Partial accounts referenced by grouped
             notifications. Those are only returned when requesting grouped notifications with
             `expand_accounts=partial_avatars`.
+
     """
 
     accounts: list["Account"]
     notification_groups: "NotificationGroup"
     statuses: list["Status"]
-    partial_accounts: Union[None, Unset, list["PartialAccountWithAvatar"]] = UNSET
+    partial_accounts: None | Unset | list["PartialAccountWithAvatar"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,7 +49,7 @@ class GroupedNotificationsResults:
             statuses_item = statuses_item_data.to_dict()
             statuses.append(statuses_item)
 
-        partial_accounts: Union[None, Unset, list[dict[str, Any]]]
+        partial_accounts: None | Unset | list[dict[str, Any]]
         if isinstance(self.partial_accounts, Unset):
             partial_accounts = UNSET
         elif isinstance(self.partial_accounts, list):
@@ -74,14 +76,13 @@ class GroupedNotificationsResults:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.notification_group import NotificationGroup
-        from ..models.partial_account_with_avatar import \
-            PartialAccountWithAvatar
+        from ..models.partial_account_with_avatar import PartialAccountWithAvatar
         from ..models.status import Status
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         accounts = []
         _accounts = d.pop("accounts")
         for accounts_item_data in _accounts:
@@ -98,9 +99,7 @@ class GroupedNotificationsResults:
 
             statuses.append(statuses_item)
 
-        def _parse_partial_accounts(
-            data: object,
-        ) -> Union[None, Unset, list["PartialAccountWithAvatar"]]:
+        def _parse_partial_accounts(data: object) -> None | Unset | list["PartialAccountWithAvatar"]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -118,7 +117,7 @@ class GroupedNotificationsResults:
                 return partial_accounts_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list["PartialAccountWithAvatar"]], data)
+            return cast(None | Unset | list["PartialAccountWithAvatar"], data)
 
         partial_accounts = _parse_partial_accounts(d.pop("partial_accounts", UNSET))
 

@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -37,6 +38,7 @@ class PreviewCard:
             algorithm](https://github.com/woltapp/blurhash), for generating colorful preview thumbnails when media has not
             been downloaded yet.
         image (Union[None, Unset, str]): Preview thumbnail.
+
     """
 
     author_name: str
@@ -52,8 +54,8 @@ class PreviewCard:
     type_: PreviewTypeEnum
     url: str
     width: int
-    blurhash: Union[None, Unset, str] = UNSET
-    image: Union[None, Unset, str] = UNSET
+    blurhash: None | Unset | str = UNSET
+    image: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,13 +88,13 @@ class PreviewCard:
 
         width = self.width
 
-        blurhash: Union[None, Unset, str]
+        blurhash: None | Unset | str
         if isinstance(self.blurhash, Unset):
             blurhash = UNSET
         else:
             blurhash = self.blurhash
 
-        image: Union[None, Unset, str]
+        image: None | Unset | str
         if isinstance(self.image, Unset):
             image = UNSET
         else:
@@ -125,10 +127,10 @@ class PreviewCard:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.preview_card_author import PreviewCardAuthor
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         author_name = d.pop("author_name")
 
         author_url = d.pop("author_url")
@@ -160,21 +162,21 @@ class PreviewCard:
 
         width = d.pop("width")
 
-        def _parse_blurhash(data: object) -> Union[None, Unset, str]:
+        def _parse_blurhash(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         blurhash = _parse_blurhash(d.pop("blurhash", UNSET))
 
-        def _parse_image(data: object) -> Union[None, Unset, str]:
+        def _parse_image(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         image = _parse_image(d.pop("image", UNSET))
 

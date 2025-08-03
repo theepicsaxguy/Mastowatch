@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -22,6 +23,7 @@ class PreviewCardAuthor:
         url (str): A link to the author of the original resource. Replaces the deprecated `author_url` attribute of the
             preview card.
         account (Union['Account', None, Unset]): The fediverse account of the author.
+
     """
 
     name: str
@@ -36,7 +38,7 @@ class PreviewCardAuthor:
 
         url = self.url
 
-        account: Union[None, Unset, dict[str, Any]]
+        account: None | Unset | dict[str, Any]
         if isinstance(self.account, Unset):
             account = UNSET
         elif isinstance(self.account, Account):
@@ -58,10 +60,10 @@ class PreviewCardAuthor:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         name = d.pop("name")
 
         url = d.pop("url")

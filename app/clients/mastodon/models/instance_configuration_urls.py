@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -17,12 +18,13 @@ class InstanceConfigurationUrls:
         streaming (str): The Websockets URL for connecting to the streaming API.
         privacy_policy (Union[None, Unset, str]): The URL of the server's privacy policy.
         terms_of_service (Union[None, Unset, str]): The URL of the server's current terms of service, if any.
+
     """
 
     about: str
     streaming: str
-    privacy_policy: Union[None, Unset, str] = UNSET
-    terms_of_service: Union[None, Unset, str] = UNSET
+    privacy_policy: None | Unset | str = UNSET
+    terms_of_service: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -30,13 +32,13 @@ class InstanceConfigurationUrls:
 
         streaming = self.streaming
 
-        privacy_policy: Union[None, Unset, str]
+        privacy_policy: None | Unset | str
         if isinstance(self.privacy_policy, Unset):
             privacy_policy = UNSET
         else:
             privacy_policy = self.privacy_policy
 
-        terms_of_service: Union[None, Unset, str]
+        terms_of_service: None | Unset | str
         if isinstance(self.terms_of_service, Unset):
             terms_of_service = UNSET
         else:
@@ -58,27 +60,27 @@ class InstanceConfigurationUrls:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         about = d.pop("about")
 
         streaming = d.pop("streaming")
 
-        def _parse_privacy_policy(data: object) -> Union[None, Unset, str]:
+        def _parse_privacy_policy(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         privacy_policy = _parse_privacy_policy(d.pop("privacy_policy", UNSET))
 
-        def _parse_terms_of_service(data: object) -> Union[None, Unset, str]:
+        def _parse_terms_of_service(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         terms_of_service = _parse_terms_of_service(d.pop("terms_of_service", UNSET))
 

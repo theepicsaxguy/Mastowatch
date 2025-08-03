@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 from attrs import define as _attrs_define
@@ -7,8 +8,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.create_marker_body_home import CreateMarkerBodyHome
-    from ..models.create_marker_body_notifications import \
-        CreateMarkerBodyNotifications
+    from ..models.create_marker_body_notifications import CreateMarkerBodyNotifications
 
 
 T = TypeVar("T", bound="CreateMarkerBody")
@@ -20,6 +20,7 @@ class CreateMarkerBody:
     Attributes:
         home (Union[Unset, CreateMarkerBodyHome]): Object containing properties
         notifications (Union[Unset, CreateMarkerBodyNotifications]): Object containing properties
+
     """
 
     home: Union[Unset, "CreateMarkerBodyHome"] = UNSET
@@ -27,11 +28,11 @@ class CreateMarkerBody:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        home: Union[Unset, dict[str, Any]] = UNSET
+        home: Unset | dict[str, Any] = UNSET
         if not isinstance(self.home, Unset):
             home = self.home.to_dict()
 
-        notifications: Union[Unset, dict[str, Any]] = UNSET
+        notifications: Unset | dict[str, Any] = UNSET
         if not isinstance(self.notifications, Unset):
             notifications = self.notifications.to_dict()
 
@@ -46,21 +47,20 @@ class CreateMarkerBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.create_marker_body_home import CreateMarkerBodyHome
-        from ..models.create_marker_body_notifications import \
-            CreateMarkerBodyNotifications
+        from ..models.create_marker_body_notifications import CreateMarkerBodyNotifications
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         _home = d.pop("home", UNSET)
-        home: Union[Unset, CreateMarkerBodyHome]
+        home: Unset | CreateMarkerBodyHome
         if isinstance(_home, Unset):
             home = UNSET
         else:
             home = CreateMarkerBodyHome.from_dict(_home)
 
         _notifications = d.pop("notifications", UNSET)
-        notifications: Union[Unset, CreateMarkerBodyNotifications]
+        notifications: Unset | CreateMarkerBodyNotifications
         if isinstance(_notifications, Unset):
             notifications = UNSET
         else:

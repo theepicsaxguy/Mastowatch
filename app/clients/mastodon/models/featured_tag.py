@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -22,6 +23,7 @@ class FeaturedTag:
         name (str): The name of the hashtag being featured.
         statuses_count (str): The number of authored statuses containing this hashtag.
         url (str): A link to all statuses by a user that contain this hashtag.
+
     """
 
     id: str
@@ -57,8 +59,8 @@ class FeaturedTag:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         id = d.pop("id")
 
         last_status_at = isoparse(d.pop("last_status_at")).date()

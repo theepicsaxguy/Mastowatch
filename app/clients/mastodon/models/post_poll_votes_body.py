@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
@@ -11,6 +12,7 @@ class PostPollVotesBody:
     """
     Attributes:
         choices (list[int]): Provide your own votes as an index for each option (starting from 0).
+
     """
 
     choices: list[int]
@@ -30,8 +32,8 @@ class PostPollVotesBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         choices = cast(list[int], d.pop("choices"))
 
         post_poll_votes_body = cls(

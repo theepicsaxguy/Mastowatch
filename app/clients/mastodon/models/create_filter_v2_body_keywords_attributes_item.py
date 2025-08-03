@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -16,12 +17,13 @@ class CreateFilterV2BodyKeywordsAttributesItem:
         whole_word (Union[Unset, bool]): Whether the keyword should consider word boundaries.
         id (Union[Unset, str]): Will cause a 404 error if provided.
         field_destroy (Union[Unset, bool]): Will cause the keyword to not be attached if provided.
+
     """
 
-    keyword: Union[Unset, str] = UNSET
-    whole_word: Union[Unset, bool] = UNSET
-    id: Union[Unset, str] = UNSET
-    field_destroy: Union[Unset, bool] = UNSET
+    keyword: Unset | str = UNSET
+    whole_word: Unset | bool = UNSET
+    id: Unset | str = UNSET
+    field_destroy: Unset | bool = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -48,8 +50,8 @@ class CreateFilterV2BodyKeywordsAttributesItem:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         keyword = d.pop("keyword", UNSET)
 
         whole_word = d.pop("whole_word", UNSET)

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
@@ -84,6 +85,7 @@ class Instance:
         title (str): The title of the website.
         usage (InstanceUsage): Usage data for this instance.
         version (str): The version of Mastodon installed on the instance.
+
     """
 
     api_versions: "InstanceApiVersions"
@@ -161,7 +163,7 @@ class Instance:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.instance_api_versions import InstanceApiVersions
         from ..models.instance_configuration import InstanceConfiguration
         from ..models.instance_contact import InstanceContact
@@ -171,7 +173,7 @@ class Instance:
         from ..models.instance_usage import InstanceUsage
         from ..models.rule import Rule
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         api_versions = InstanceApiVersions.from_dict(d.pop("api_versions"))
 
         configuration = InstanceConfiguration.from_dict(d.pop("configuration"))

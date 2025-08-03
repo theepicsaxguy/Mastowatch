@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -13,6 +14,7 @@ class InstanceIcon:
     Attributes:
         size (str): The size of this icon.
         src (str): The URL of this icon.
+
     """
 
     size: str
@@ -36,8 +38,8 @@ class InstanceIcon:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         size = d.pop("size")
 
         src = d.pop("src")

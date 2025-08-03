@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -14,9 +15,10 @@ class PostAccountNoteBody:
     Attributes:
         comment (Union[Unset, str]): The comment to be set on that user. Provide an empty string or leave out this
             parameter to clear the currently set note.
+
     """
 
-    comment: Union[Unset, str] = UNSET
+    comment: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -31,8 +33,8 @@ class PostAccountNoteBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         comment = d.pop("comment", UNSET)
 
         post_account_note_body = cls(

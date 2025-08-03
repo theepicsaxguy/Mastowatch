@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -20,6 +21,7 @@ class InstanceContact:
         email (str): An email address that can be messaged regarding inquiries or issues.
         account (Union['Account', None, Unset]): An account that can be contacted natively over the network regarding
             inquiries or issues.
+
     """
 
     email: str
@@ -31,7 +33,7 @@ class InstanceContact:
 
         email = self.email
 
-        account: Union[None, Unset, dict[str, Any]]
+        account: None | Unset | dict[str, Any]
         if isinstance(self.account, Unset):
             account = UNSET
         elif isinstance(self.account, Account):
@@ -52,10 +54,10 @@ class InstanceContact:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         email = d.pop("email")
 
         def _parse_account(data: object) -> Union["Account", None, Unset]:

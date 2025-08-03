@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -14,6 +15,7 @@ class AdminTag:
         requires_review (bool): Whether the hashtag has not been reviewed yet to approve or deny its trending.
         trendable (bool): Whether the hashtag has been approved to trend.
         usable (bool): Whether the hashtag has not been disabled from auto-linking.
+
     """
 
     requires_review: bool
@@ -41,8 +43,8 @@ class AdminTag:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         requires_review = d.pop("requires_review")
 
         trendable = d.pop("trendable")

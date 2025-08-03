@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -24,13 +25,14 @@ class CustomEmoji:
         url (str): A link to the custom emoji.
         visible_in_picker (bool): Whether this Emoji should be visible in the picker or unlisted.
         category (Union[None, Unset, str]): Used for sorting custom emoji in the picker.
+
     """
 
     shortcode: str
     static_url: str
     url: str
     visible_in_picker: bool
-    category: Union[None, Unset, str] = UNSET
+    category: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,7 +44,7 @@ class CustomEmoji:
 
         visible_in_picker = self.visible_in_picker
 
-        category: Union[None, Unset, str]
+        category: None | Unset | str
         if isinstance(self.category, Unset):
             category = UNSET
         else:
@@ -64,8 +66,8 @@ class CustomEmoji:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         shortcode = d.pop("shortcode")
 
         static_url = d.pop("static_url")
@@ -74,12 +76,12 @@ class CustomEmoji:
 
         visible_in_picker = d.pop("visible_in_picker")
 
-        def _parse_category(data: object) -> Union[None, Unset, str]:
+        def _parse_category(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         category = _parse_category(d.pop("category", UNSET))
 

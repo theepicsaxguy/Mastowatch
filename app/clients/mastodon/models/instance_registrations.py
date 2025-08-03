@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -19,13 +20,14 @@ class InstanceRegistrations:
         min_age (Union[None, Unset, int]): A minimum age required to register, if configured.
         reason_required (Union[None, Unset, bool]): Whether registrations require the user to provide a reason for
             joining. Only applicable when `registrations[approval_required]` is true.
+
     """
 
     approval_required: bool
     enabled: bool
-    message: Union[None, Unset, str] = UNSET
-    min_age: Union[None, Unset, int] = UNSET
-    reason_required: Union[None, Unset, bool] = UNSET
+    message: None | Unset | str = UNSET
+    min_age: None | Unset | int = UNSET
+    reason_required: None | Unset | bool = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,19 +35,19 @@ class InstanceRegistrations:
 
         enabled = self.enabled
 
-        message: Union[None, Unset, str]
+        message: None | Unset | str
         if isinstance(self.message, Unset):
             message = UNSET
         else:
             message = self.message
 
-        min_age: Union[None, Unset, int]
+        min_age: None | Unset | int
         if isinstance(self.min_age, Unset):
             min_age = UNSET
         else:
             min_age = self.min_age
 
-        reason_required: Union[None, Unset, bool]
+        reason_required: None | Unset | bool
         if isinstance(self.reason_required, Unset):
             reason_required = UNSET
         else:
@@ -69,36 +71,36 @@ class InstanceRegistrations:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         approval_required = d.pop("approval_required")
 
         enabled = d.pop("enabled")
 
-        def _parse_message(data: object) -> Union[None, Unset, str]:
+        def _parse_message(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         message = _parse_message(d.pop("message", UNSET))
 
-        def _parse_min_age(data: object) -> Union[None, Unset, int]:
+        def _parse_min_age(data: object) -> None | Unset | int:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(None | Unset | int, data)
 
         min_age = _parse_min_age(d.pop("min_age", UNSET))
 
-        def _parse_reason_required(data: object) -> Union[None, Unset, bool]:
+        def _parse_reason_required(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         reason_required = _parse_reason_required(d.pop("reason_required", UNSET))
 

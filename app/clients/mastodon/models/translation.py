@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -25,6 +26,7 @@ class Translation:
         provider (str): The service that provided the machine translation.
         spoiler_text (str): The translated spoiler warning of the status.
         poll (Union['TranslationPoll', None, Unset]): The translated poll of the status.
+
     """
 
     content: str
@@ -51,7 +53,7 @@ class Translation:
 
         spoiler_text = self.spoiler_text
 
-        poll: Union[None, Unset, dict[str, Any]]
+        poll: None | Unset | dict[str, Any]
         if isinstance(self.poll, Unset):
             poll = UNSET
         elif isinstance(self.poll, TranslationPoll):
@@ -76,11 +78,11 @@ class Translation:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.translation_attachment import TranslationAttachment
         from ..models.translation_poll import TranslationPoll
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         content = d.pop("content")
 
         detected_source_language = d.pop("detected_source_language")

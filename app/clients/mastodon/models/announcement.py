@@ -1,5 +1,6 @@
 import datetime
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -54,6 +55,7 @@ class Announcement:
         ends_at (Union[None, Unset, datetime.datetime]): When the announcement will end.
         read (Union[None, Unset, bool]): Whether the announcement has been read by the current user.
         starts_at (Union[None, Unset, datetime.datetime]): When the announcement will start.
+
     """
 
     all_day: bool
@@ -66,9 +68,9 @@ class Announcement:
     statuses: list["AnnouncementStatus"]
     tags: list["StatusTag"]
     updated_at: datetime.datetime
-    ends_at: Union[None, Unset, datetime.datetime] = UNSET
-    read: Union[None, Unset, bool] = UNSET
-    starts_at: Union[None, Unset, datetime.datetime] = UNSET
+    ends_at: None | Unset | datetime.datetime = UNSET
+    read: None | Unset | bool = UNSET
+    starts_at: None | Unset | datetime.datetime = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -107,7 +109,7 @@ class Announcement:
 
         updated_at = self.updated_at.isoformat()
 
-        ends_at: Union[None, Unset, str]
+        ends_at: None | Unset | str
         if isinstance(self.ends_at, Unset):
             ends_at = UNSET
         elif isinstance(self.ends_at, datetime.datetime):
@@ -115,13 +117,13 @@ class Announcement:
         else:
             ends_at = self.ends_at
 
-        read: Union[None, Unset, bool]
+        read: None | Unset | bool
         if isinstance(self.read, Unset):
             read = UNSET
         else:
             read = self.read
 
-        starts_at: Union[None, Unset, str]
+        starts_at: None | Unset | str
         if isinstance(self.starts_at, Unset):
             starts_at = UNSET
         elif isinstance(self.starts_at, datetime.datetime):
@@ -155,14 +157,14 @@ class Announcement:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.announcement_account import AnnouncementAccount
         from ..models.announcement_status import AnnouncementStatus
         from ..models.custom_emoji import CustomEmoji
         from ..models.reaction import Reaction
         from ..models.status_tag import StatusTag
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         all_day = d.pop("all_day")
 
         content = d.pop("content")
@@ -208,7 +210,7 @@ class Announcement:
 
         updated_at = isoparse(d.pop("updated_at"))
 
-        def _parse_ends_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_ends_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -221,20 +223,20 @@ class Announcement:
                 return ends_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         ends_at = _parse_ends_at(d.pop("ends_at", UNSET))
 
-        def _parse_read(data: object) -> Union[None, Unset, bool]:
+        def _parse_read(data: object) -> None | Unset | bool:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, bool], data)
+            return cast(None | Unset | bool, data)
 
         read = _parse_read(d.pop("read", UNSET))
 
-        def _parse_starts_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_starts_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -247,7 +249,7 @@ class Announcement:
                 return starts_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         starts_at = _parse_starts_at(d.pop("starts_at", UNSET))
 

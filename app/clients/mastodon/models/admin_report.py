@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -73,6 +74,7 @@ class AdminReport:
         action_taken_by_account (Union['AdminAccount', None, Unset]): The account of the moderator who handled the
             report.
         assigned_account (Union['AdminAccount', None, Unset]): The account of the moderator assigned to this report.
+
     """
 
     account: "AdminAccount"
@@ -86,7 +88,7 @@ class AdminReport:
     statuses: list["Status"]
     target_account: "AdminAccount"
     updated_at: datetime.datetime
-    action_taken_at: Union[None, Unset, datetime.datetime] = UNSET
+    action_taken_at: None | Unset | datetime.datetime = UNSET
     action_taken_by_account: Union["AdminAccount", None, Unset] = UNSET
     assigned_account: Union["AdminAccount", None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -122,7 +124,7 @@ class AdminReport:
 
         updated_at = self.updated_at.isoformat()
 
-        action_taken_at: Union[None, Unset, str]
+        action_taken_at: None | Unset | str
         if isinstance(self.action_taken_at, Unset):
             action_taken_at = UNSET
         elif isinstance(self.action_taken_at, datetime.datetime):
@@ -130,7 +132,7 @@ class AdminReport:
         else:
             action_taken_at = self.action_taken_at
 
-        action_taken_by_account: Union[None, Unset, dict[str, Any]]
+        action_taken_by_account: None | Unset | dict[str, Any]
         if isinstance(self.action_taken_by_account, Unset):
             action_taken_by_account = UNSET
         elif isinstance(self.action_taken_by_account, AdminAccount):
@@ -138,7 +140,7 @@ class AdminReport:
         else:
             action_taken_by_account = self.action_taken_by_account
 
-        assigned_account: Union[None, Unset, dict[str, Any]]
+        assigned_account: None | Unset | dict[str, Any]
         if isinstance(self.assigned_account, Unset):
             assigned_account = UNSET
         elif isinstance(self.assigned_account, AdminAccount):
@@ -173,12 +175,12 @@ class AdminReport:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.admin_account import AdminAccount
         from ..models.rule import Rule
         from ..models.status import Status
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         account = AdminAccount.from_dict(d.pop("account"))
 
         action_taken = d.pop("action_taken")
@@ -211,9 +213,7 @@ class AdminReport:
 
         updated_at = isoparse(d.pop("updated_at"))
 
-        def _parse_action_taken_at(
-            data: object,
-        ) -> Union[None, Unset, datetime.datetime]:
+        def _parse_action_taken_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -226,13 +226,11 @@ class AdminReport:
                 return action_taken_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         action_taken_at = _parse_action_taken_at(d.pop("action_taken_at", UNSET))
 
-        def _parse_action_taken_by_account(
-            data: object,
-        ) -> Union["AdminAccount", None, Unset]:
+        def _parse_action_taken_by_account(data: object) -> Union["AdminAccount", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):

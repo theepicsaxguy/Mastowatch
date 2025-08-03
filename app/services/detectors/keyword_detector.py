@@ -1,13 +1,16 @@
-from typing import List, Dict, Any
+"""Keyword detector for content analysis."""
 
-from app.services.detectors.base import BaseDetector
-from app.schemas import Violation, Evidence
 from app.models import Rule
+from app.schemas import Evidence, Violation
+from app.services.detectors.base import BaseDetector
 
 
 class KeywordDetector(BaseDetector):
-    def evaluate(self, rule: Rule, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
-        violations: List[Violation] = []
+    """Detector for keyword patterns in account and status text."""
+
+    def evaluate(self, rule: Rule, account_data: dict[str, any], statuses: list[dict[str, any]]) -> list[Violation]:
+        """Evaluate account and statuses for keyword matches."""
+        violations: list[Violation] = []
 
         terms = [term.strip() for term in rule.pattern.split(",")]
         u = account_data.get("username") or (account_data.get("acct", "").split("@")[0]) or ""
@@ -18,17 +21,15 @@ class KeywordDetector(BaseDetector):
         for term in terms:
             if term.lower() in u.lower():
                 matched_terms_username.append(term)
-        
+
         if matched_terms_username:
             violations.append(
                 Violation(
                     rule_name=rule.name,
                     score=rule.weight,
                     evidence=Evidence(
-                        matched_terms=matched_terms_username,
-                        matched_status_ids=[],
-                        metrics={"username": u}
-                    )
+                        matched_terms=matched_terms_username, matched_status_ids=[], metrics={"username": u}
+                    ),
                 )
             )
 
@@ -37,17 +38,15 @@ class KeywordDetector(BaseDetector):
         for term in terms:
             if term.lower() in dn.lower():
                 matched_terms_display.append(term)
-        
+
         if matched_terms_display:
             violations.append(
                 Violation(
                     rule_name=rule.name,
                     score=rule.weight,
                     evidence=Evidence(
-                        matched_terms=matched_terms_display,
-                        matched_status_ids=[],
-                        metrics={"display_name": dn}
-                    )
+                        matched_terms=matched_terms_display, matched_status_ids=[], metrics={"display_name": dn}
+                    ),
                 )
             )
 
@@ -58,7 +57,7 @@ class KeywordDetector(BaseDetector):
             for term in terms:
                 if term.lower() in content.lower():
                     matched_terms_content.append(term)
-            
+
             if matched_terms_content:
                 violations.append(
                     Violation(
@@ -67,8 +66,8 @@ class KeywordDetector(BaseDetector):
                         evidence=Evidence(
                             matched_terms=matched_terms_content,
                             matched_status_ids=[s.get("id")],
-                            metrics={"content": content}
-                        )
+                            metrics={"content": content},
+                        ),
                     )
                 )
 

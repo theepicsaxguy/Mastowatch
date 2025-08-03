@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -61,6 +62,7 @@ class Suggestion:
             class="invisible">http://</span><span class="">shork.xyz</span><span class="invisible"></span}', 'verified_at':
             '2019-11-10T10:31:10.744+00:00'}]}.
         sources (list[SuggestionSourcesItem]): A list of reasons this account is being suggested. This replaces `source`
+
     """
 
     account: "Account"
@@ -87,10 +89,10 @@ class Suggestion:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         account = Account.from_dict(d.pop("account"))
 
         sources = []

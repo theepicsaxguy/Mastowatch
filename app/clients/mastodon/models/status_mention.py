@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -16,6 +17,7 @@ class StatusMention:
         id (str): The account ID of the mentioned user.
         url (str): The location of the mentioned user's profile.
         username (str): The username of the mentioned user.
+
     """
 
     acct: str
@@ -47,8 +49,8 @@ class StatusMention:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         acct = d.pop("acct")
 
         id = d.pop("id")

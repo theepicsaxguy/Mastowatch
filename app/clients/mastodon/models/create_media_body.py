@@ -1,10 +1,12 @@
+from collections.abc import Mapping
 from io import BytesIO
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, File, FileJsonType, Unset
+from .. import types
+from ..types import UNSET, File, FileTypes, Unset
 
 T = TypeVar("T", bound="CreateMediaBody")
 
@@ -19,12 +21,13 @@ class CreateMediaBody:
             points for cropping media thumbnails] for more information.
         thumbnail (Union[Unset, File]): The custom thumbnail of the media to be attached, encoded using multipart form
             data.
+
     """
 
     file: File
-    description: Union[Unset, str] = UNSET
-    focus: Union[Unset, str] = UNSET
-    thumbnail: Union[Unset, File] = UNSET
+    description: Unset | str = UNSET
+    focus: Unset | str = UNSET
+    thumbnail: Unset | File = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -34,7 +37,7 @@ class CreateMediaBody:
 
         focus = self.focus
 
-        thumbnail: Union[Unset, FileJsonType] = UNSET
+        thumbnail: Unset | FileTypes = UNSET
         if not isinstance(self.thumbnail, Unset):
             thumbnail = self.thumbnail.to_tuple()
 
@@ -54,40 +57,28 @@ class CreateMediaBody:
 
         return field_dict
 
-    def to_multipart(self) -> dict[str, Any]:
-        file = self.file.to_tuple()
+    def to_multipart(self) -> types.RequestFiles:
+        files: types.RequestFiles = []
 
-        description = (
-            self.description if isinstance(self.description, Unset) else (None, str(self.description).encode(), "text/plain")
-        )
+        files.append(("file", self.file.to_tuple()))
 
-        focus = self.focus if isinstance(self.focus, Unset) else (None, str(self.focus).encode(), "text/plain")
+        if not isinstance(self.description, Unset):
+            files.append(("description", (None, str(self.description).encode(), "text/plain")))
 
-        thumbnail: Union[Unset, FileJsonType] = UNSET
+        if not isinstance(self.focus, Unset):
+            files.append(("focus", (None, str(self.focus).encode(), "text/plain")))
+
         if not isinstance(self.thumbnail, Unset):
-            thumbnail = self.thumbnail.to_tuple()
+            files.append(("thumbnail", self.thumbnail.to_tuple()))
 
-        field_dict: dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
-            field_dict[prop_name] = (None, str(prop).encode(), "text/plain")
+            files.append((prop_name, (None, str(prop).encode(), "text/plain")))
 
-        field_dict.update(
-            {
-                "file": file,
-            }
-        )
-        if description is not UNSET:
-            field_dict["description"] = description
-        if focus is not UNSET:
-            field_dict["focus"] = focus
-        if thumbnail is not UNSET:
-            field_dict["thumbnail"] = thumbnail
-
-        return field_dict
+        return files
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         file = File(payload=BytesIO(d.pop("file")))
 
         description = d.pop("description", UNSET)
@@ -95,7 +86,7 @@ class CreateMediaBody:
         focus = d.pop("focus", UNSET)
 
         _thumbnail = d.pop("thumbnail", UNSET)
-        thumbnail: Union[Unset, File]
+        thumbnail: Unset | File
         if isinstance(_thumbnail, Unset):
             thumbnail = UNSET
         else:

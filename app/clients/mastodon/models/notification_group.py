@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -10,8 +11,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.account_warning import AccountWarning
-    from ..models.relationship_severance_event import \
-        RelationshipSeveranceEvent
+    from ..models.relationship_severance_event import RelationshipSeveranceEvent
     from ..models.report import Report
 
 
@@ -47,6 +47,7 @@ class NotificationGroup:
         status_id (Union[None, Unset, str]): ID of the [Status]({{< relref "entities/Status" >}}) that was the object of
             the notification. Attached when `type` of the notification is `favourite`, `reblog`, `status`, `mention`,
             `poll`, or `update`.
+
     """
 
     group_key: str
@@ -55,18 +56,17 @@ class NotificationGroup:
     sample_account_ids: list[str]
     type_: NotificationTypeEnum
     event: Union["RelationshipSeveranceEvent", None, Unset] = UNSET
-    latest_page_notification_at: Union[None, Unset, datetime.datetime] = UNSET
+    latest_page_notification_at: None | Unset | datetime.datetime = UNSET
     moderation_warning: Union["AccountWarning", None, Unset] = UNSET
-    page_max_id: Union[None, Unset, str] = UNSET
-    page_min_id: Union[None, Unset, str] = UNSET
+    page_max_id: None | Unset | str = UNSET
+    page_min_id: None | Unset | str = UNSET
     report: Union["Report", None, Unset] = UNSET
-    status_id: Union[None, Unset, str] = UNSET
+    status_id: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import \
-            RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import RelationshipSeveranceEvent
         from ..models.report import Report
 
         group_key = self.group_key
@@ -79,7 +79,7 @@ class NotificationGroup:
 
         type_ = self.type_.value
 
-        event: Union[None, Unset, dict[str, Any]]
+        event: None | Unset | dict[str, Any]
         if isinstance(self.event, Unset):
             event = UNSET
         elif isinstance(self.event, RelationshipSeveranceEvent):
@@ -87,7 +87,7 @@ class NotificationGroup:
         else:
             event = self.event
 
-        latest_page_notification_at: Union[None, Unset, str]
+        latest_page_notification_at: None | Unset | str
         if isinstance(self.latest_page_notification_at, Unset):
             latest_page_notification_at = UNSET
         elif isinstance(self.latest_page_notification_at, datetime.datetime):
@@ -95,7 +95,7 @@ class NotificationGroup:
         else:
             latest_page_notification_at = self.latest_page_notification_at
 
-        moderation_warning: Union[None, Unset, dict[str, Any]]
+        moderation_warning: None | Unset | dict[str, Any]
         if isinstance(self.moderation_warning, Unset):
             moderation_warning = UNSET
         elif isinstance(self.moderation_warning, AccountWarning):
@@ -103,19 +103,19 @@ class NotificationGroup:
         else:
             moderation_warning = self.moderation_warning
 
-        page_max_id: Union[None, Unset, str]
+        page_max_id: None | Unset | str
         if isinstance(self.page_max_id, Unset):
             page_max_id = UNSET
         else:
             page_max_id = self.page_max_id
 
-        page_min_id: Union[None, Unset, str]
+        page_min_id: None | Unset | str
         if isinstance(self.page_min_id, Unset):
             page_min_id = UNSET
         else:
             page_min_id = self.page_min_id
 
-        report: Union[None, Unset, dict[str, Any]]
+        report: None | Unset | dict[str, Any]
         if isinstance(self.report, Unset):
             report = UNSET
         elif isinstance(self.report, Report):
@@ -123,7 +123,7 @@ class NotificationGroup:
         else:
             report = self.report
 
-        status_id: Union[None, Unset, str]
+        status_id: None | Unset | str
         if isinstance(self.status_id, Unset):
             status_id = UNSET
         else:
@@ -158,13 +158,12 @@ class NotificationGroup:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import \
-            RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import RelationshipSeveranceEvent
         from ..models.report import Report
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         group_key = d.pop("group_key")
 
         most_recent_notification_id = d.pop("most_recent_notification_id")
@@ -175,9 +174,7 @@ class NotificationGroup:
 
         type_ = NotificationTypeEnum(d.pop("type"))
 
-        def _parse_event(
-            data: object,
-        ) -> Union["RelationshipSeveranceEvent", None, Unset]:
+        def _parse_event(data: object) -> Union["RelationshipSeveranceEvent", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -194,9 +191,7 @@ class NotificationGroup:
 
         event = _parse_event(d.pop("event", UNSET))
 
-        def _parse_latest_page_notification_at(
-            data: object,
-        ) -> Union[None, Unset, datetime.datetime]:
+        def _parse_latest_page_notification_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -209,13 +204,11 @@ class NotificationGroup:
                 return latest_page_notification_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         latest_page_notification_at = _parse_latest_page_notification_at(d.pop("latest_page_notification_at", UNSET))
 
-        def _parse_moderation_warning(
-            data: object,
-        ) -> Union["AccountWarning", None, Unset]:
+        def _parse_moderation_warning(data: object) -> Union["AccountWarning", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -232,21 +225,21 @@ class NotificationGroup:
 
         moderation_warning = _parse_moderation_warning(d.pop("moderation_warning", UNSET))
 
-        def _parse_page_max_id(data: object) -> Union[None, Unset, str]:
+        def _parse_page_max_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         page_max_id = _parse_page_max_id(d.pop("page_max_id", UNSET))
 
-        def _parse_page_min_id(data: object) -> Union[None, Unset, str]:
+        def _parse_page_min_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         page_min_id = _parse_page_min_id(d.pop("page_min_id", UNSET))
 
@@ -267,12 +260,12 @@ class NotificationGroup:
 
         report = _parse_report(d.pop("report", UNSET))
 
-        def _parse_status_id(data: object) -> Union[None, Unset, str]:
+        def _parse_status_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         status_id = _parse_status_id(d.pop("status_id", UNSET))
 

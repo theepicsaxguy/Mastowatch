@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -20,16 +21,17 @@ class ShallowQuote:
         state (StateEnum):
         quoted_status_id (Union[None, Unset, str]): The identifier of the status being quoted, if the quote has been
             accepted. This will be `null`, unless the `state` attribute is `accepted`.
+
     """
 
     state: StateEnum
-    quoted_status_id: Union[None, Unset, str] = UNSET
+    quoted_status_id: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         state = self.state.value
 
-        quoted_status_id: Union[None, Unset, str]
+        quoted_status_id: None | Unset | str
         if isinstance(self.quoted_status_id, Unset):
             quoted_status_id = UNSET
         else:
@@ -48,16 +50,16 @@ class ShallowQuote:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         state = StateEnum(d.pop("state"))
 
-        def _parse_quoted_status_id(data: object) -> Union[None, Unset, str]:
+        def _parse_quoted_status_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         quoted_status_id = _parse_quoted_status_id(d.pop("quoted_status_id", UNSET))
 

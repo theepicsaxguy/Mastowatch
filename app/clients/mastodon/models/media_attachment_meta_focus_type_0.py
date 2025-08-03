@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -11,9 +12,10 @@ class MediaAttachmentMetaFocusType0:
     """Coordinates that may be used for smart thumbnail cropping -- see [Focal points for cropped media thumbnails]({{<
     relref "api/guidelines#focal-points" >}}) for more.
 
-        Attributes:
+    Attributes:
             x (float): Horizontal focal point
             y (float): Vertical focal point
+
     """
 
     x: float
@@ -37,8 +39,8 @@ class MediaAttachmentMetaFocusType0:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         x = d.pop("x")
 
         y = d.pop("y")

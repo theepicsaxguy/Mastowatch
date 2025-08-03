@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -19,6 +20,7 @@ class Token:
         created_at (float): When the token was generated.
         scope (str): The OAuth scopes granted by this token, space-separated.
         token_type (str): The OAuth token type. Mastodon uses `Bearer` tokens.
+
     """
 
     access_token: str
@@ -50,8 +52,8 @@ class Token:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         access_token = d.pop("access_token")
 
         created_at = d.pop("created_at")

@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -23,6 +24,7 @@ class ScheduledStatus:
         params (ScheduledStatusParams): The parameters that were used when scheduling the status, to be used when the
             status is posted.
         scheduled_at (datetime.datetime): The timestamp for when the status will be posted.
+
     """
 
     id: str
@@ -57,11 +59,11 @@ class ScheduledStatus:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.media_attachment import MediaAttachment
         from ..models.scheduled_status_params import ScheduledStatusParams
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         id = d.pop("id")
 
         media_attachments = []

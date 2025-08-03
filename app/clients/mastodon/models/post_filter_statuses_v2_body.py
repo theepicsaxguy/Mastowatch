@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -11,6 +12,7 @@ class PostFilterStatusesV2Body:
     """
     Attributes:
         status_id (str): The status ID to be added to the filter group.
+
     """
 
     status_id: str
@@ -30,8 +32,8 @@ class PostFilterStatusesV2Body:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         status_id = d.pop("status_id")
 
         post_filter_statuses_v2_body = cls(

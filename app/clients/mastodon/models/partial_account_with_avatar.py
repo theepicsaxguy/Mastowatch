@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -12,7 +13,7 @@ class PartialAccountWithAvatar:
     to display a list of avatars, as well as a few other useful properties. The aim is to cut back on expensive server-
     side serialization and reduce the network payload size of notification groups.
 
-        Attributes:
+    Attributes:
             acct (str): The Webfinger account URI. Equal to `username` for local users, or `username@domain` for remote
                 users.
             avatar (str): An image icon that is shown next to statuses and in the profile.
@@ -23,6 +24,7 @@ class PartialAccountWithAvatar:
             id (str): The account id.
             locked (bool): Whether the account manually approves follow requests.
             url (str): The location of the user's profile page.
+
     """
 
     acct: str
@@ -66,8 +68,8 @@ class PartialAccountWithAvatar:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         acct = d.pop("acct")
 
         avatar = d.pop("avatar")

@@ -1,5 +1,6 @@
 import datetime
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -36,15 +37,16 @@ class Filter:
             of a [FilterResult]({{< relref "entities/FilterResult" >}}).
         statuses (Union[None, Unset, list['FilterStatus']]): The statuses grouped under this filter. Omitted when part
             of a [FilterResult]({{< relref "entities/FilterResult" >}}).
+
     """
 
     context: list[FilterContext]
     filter_action: FilterFilterAction
     id: str
     title: str
-    expires_at: Union[None, Unset, datetime.datetime] = UNSET
-    keywords: Union[None, Unset, list["FilterKeyword"]] = UNSET
-    statuses: Union[None, Unset, list["FilterStatus"]] = UNSET
+    expires_at: None | Unset | datetime.datetime = UNSET
+    keywords: None | Unset | list["FilterKeyword"] = UNSET
+    statuses: None | Unset | list["FilterStatus"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -59,7 +61,7 @@ class Filter:
 
         title = self.title
 
-        expires_at: Union[None, Unset, str]
+        expires_at: None | Unset | str
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -67,7 +69,7 @@ class Filter:
         else:
             expires_at = self.expires_at
 
-        keywords: Union[None, Unset, list[dict[str, Any]]]
+        keywords: None | Unset | list[dict[str, Any]]
         if isinstance(self.keywords, Unset):
             keywords = UNSET
         elif isinstance(self.keywords, list):
@@ -79,7 +81,7 @@ class Filter:
         else:
             keywords = self.keywords
 
-        statuses: Union[None, Unset, list[dict[str, Any]]]
+        statuses: None | Unset | list[dict[str, Any]]
         if isinstance(self.statuses, Unset):
             statuses = UNSET
         elif isinstance(self.statuses, list):
@@ -111,11 +113,11 @@ class Filter:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.filter_keyword import FilterKeyword
         from ..models.filter_status import FilterStatus
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         context = []
         _context = d.pop("context")
         for context_item_data in _context:
@@ -129,7 +131,7 @@ class Filter:
 
         title = d.pop("title")
 
-        def _parse_expires_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_expires_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -142,11 +144,11 @@ class Filter:
                 return expires_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
-        def _parse_keywords(data: object) -> Union[None, Unset, list["FilterKeyword"]]:
+        def _parse_keywords(data: object) -> None | Unset | list["FilterKeyword"]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -164,11 +166,11 @@ class Filter:
                 return keywords_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list["FilterKeyword"]], data)
+            return cast(None | Unset | list["FilterKeyword"], data)
 
         keywords = _parse_keywords(d.pop("keywords", UNSET))
 
-        def _parse_statuses(data: object) -> Union[None, Unset, list["FilterStatus"]]:
+        def _parse_statuses(data: object) -> None | Unset | list["FilterStatus"]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -186,7 +188,7 @@ class Filter:
                 return statuses_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list["FilterStatus"]], data)
+            return cast(None | Unset | list["FilterStatus"], data)
 
         statuses = _parse_statuses(d.pop("statuses", UNSET))
 

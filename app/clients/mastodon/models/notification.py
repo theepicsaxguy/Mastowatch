@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -11,8 +12,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.account import Account
     from ..models.account_warning import AccountWarning
-    from ..models.relationship_severance_event import \
-        RelationshipSeveranceEvent
+    from ..models.relationship_severance_event import RelationshipSeveranceEvent
     from ..models.report import Report
     from ..models.status import Status
 
@@ -79,6 +79,7 @@ class Notification:
             the notification is `admin.report`.
         status (Union['Status', None, Unset]): Status that was the object of the notification. Attached when `type` of
             the notification is `favourite`, `reblog`, `status`, `mention`, `poll`, or `update`.
+
     """
 
     account: "Account"
@@ -94,8 +95,7 @@ class Notification:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import \
-            RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import RelationshipSeveranceEvent
         from ..models.report import Report
         from ..models.status import Status
 
@@ -109,7 +109,7 @@ class Notification:
 
         type_ = self.type_.value
 
-        event: Union[None, Unset, dict[str, Any]]
+        event: None | Unset | dict[str, Any]
         if isinstance(self.event, Unset):
             event = UNSET
         elif isinstance(self.event, RelationshipSeveranceEvent):
@@ -117,7 +117,7 @@ class Notification:
         else:
             event = self.event
 
-        moderation_warning: Union[None, Unset, dict[str, Any]]
+        moderation_warning: None | Unset | dict[str, Any]
         if isinstance(self.moderation_warning, Unset):
             moderation_warning = UNSET
         elif isinstance(self.moderation_warning, AccountWarning):
@@ -125,7 +125,7 @@ class Notification:
         else:
             moderation_warning = self.moderation_warning
 
-        report: Union[None, Unset, dict[str, Any]]
+        report: None | Unset | dict[str, Any]
         if isinstance(self.report, Unset):
             report = UNSET
         elif isinstance(self.report, Report):
@@ -133,7 +133,7 @@ class Notification:
         else:
             report = self.report
 
-        status: Union[None, Unset, dict[str, Any]]
+        status: None | Unset | dict[str, Any]
         if isinstance(self.status, Unset):
             status = UNSET
         elif isinstance(self.status, Status):
@@ -164,15 +164,14 @@ class Notification:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.account_warning import AccountWarning
-        from ..models.relationship_severance_event import \
-            RelationshipSeveranceEvent
+        from ..models.relationship_severance_event import RelationshipSeveranceEvent
         from ..models.report import Report
         from ..models.status import Status
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         account = Account.from_dict(d.pop("account"))
 
         created_at = isoparse(d.pop("created_at"))
@@ -183,9 +182,7 @@ class Notification:
 
         type_ = NotificationTypeEnum(d.pop("type"))
 
-        def _parse_event(
-            data: object,
-        ) -> Union["RelationshipSeveranceEvent", None, Unset]:
+        def _parse_event(data: object) -> Union["RelationshipSeveranceEvent", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -202,9 +199,7 @@ class Notification:
 
         event = _parse_event(d.pop("event", UNSET))
 
-        def _parse_moderation_warning(
-            data: object,
-        ) -> Union["AccountWarning", None, Unset]:
+        def _parse_moderation_warning(data: object) -> Union["AccountWarning", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):

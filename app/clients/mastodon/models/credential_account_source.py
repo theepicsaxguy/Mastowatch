@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.credential_account_source_privacy import \
-    CredentialAccountSourcePrivacy
+from ..models.credential_account_source_privacy import CredentialAccountSourcePrivacy
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class CredentialAccountSource:
     "methods/accounts#verify_credentials" >}}) and [update credentials]({{< relref "methods/accounts#update_credentials"
     >}}).
 
-        Attributes:
+    Attributes:
             attribution_domains (list[str]): Domains of websites allowed to credit the account.
             fields (list['Field']): Metadata about the account.
             follow_requests_count (int): The number of pending follow requests.
@@ -28,6 +28,7 @@ class CredentialAccountSource:
             privacy (CredentialAccountSourcePrivacy): The default post privacy to be used for new statuses.
             sensitive (bool): Whether new statuses should be marked sensitive by default.
             language (Union[None, Unset, str]): The default posting language for new statuses.
+
     """
 
     attribution_domains: list[str]
@@ -36,7 +37,7 @@ class CredentialAccountSource:
     note: str
     privacy: CredentialAccountSourcePrivacy
     sensitive: bool
-    language: Union[None, Unset, str] = UNSET
+    language: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -55,7 +56,7 @@ class CredentialAccountSource:
 
         sensitive = self.sensitive
 
-        language: Union[None, Unset, str]
+        language: None | Unset | str
         if isinstance(self.language, Unset):
             language = UNSET
         else:
@@ -79,10 +80,10 @@ class CredentialAccountSource:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.field import Field
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         attribution_domains = cast(list[str], d.pop("attribution_domains"))
 
         fields = []
@@ -100,12 +101,12 @@ class CredentialAccountSource:
 
         sensitive = d.pop("sensitive")
 
-        def _parse_language(data: object) -> Union[None, Unset, str]:
+        def _parse_language(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         language = _parse_language(d.pop("language", UNSET))
 

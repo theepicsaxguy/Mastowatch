@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,16 +16,17 @@ class StatusApplicationType0:
     Attributes:
         name (str): The name of the application that posted this status.
         website (Union[None, Unset, str]): The website associated with the application that posted this status.
+
     """
 
     name: str
-    website: Union[None, Unset, str] = UNSET
+    website: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        website: Union[None, Unset, str]
+        website: None | Unset | str
         if isinstance(self.website, Unset):
             website = UNSET
         else:
@@ -43,16 +45,16 @@ class StatusApplicationType0:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_website(data: object) -> Union[None, Unset, str]:
+        def _parse_website(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         website = _parse_website(d.pop("website", UNSET))
 

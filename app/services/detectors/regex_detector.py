@@ -1,15 +1,19 @@
-import re
-from typing import List, Dict, Any
+"""Regex detector for pattern matching in content."""
 
-from app.services.detectors.base import BaseDetector
-from app.schemas import Violation, Evidence
+import re
+
 from app.models import Rule
+from app.schemas import Evidence, Violation
+from app.services.detectors.base import BaseDetector
 
 
 class RegexDetector(BaseDetector):
-    def evaluate(self, rule: Rule, account_data: Dict[str, Any], statuses: List[Dict[str, Any]]) -> List[Violation]:
-        violations: List[Violation] = []
-        
+    """Detector for regex patterns in account and status text."""
+
+    def evaluate(self, rule: Rule, account_data: dict[str, any], statuses: list[dict[str, any]]) -> list[Violation]:
+        """Evaluate account and statuses for regex pattern matches."""
+        violations: list[Violation] = []
+
         u = account_data.get("username") or (account_data.get("acct", "").split("@")[0]) or ""
         dn = account_data.get("display_name") or ""
 
@@ -19,11 +23,7 @@ class RegexDetector(BaseDetector):
                 Violation(
                     rule_name=rule.name,
                     score=rule.weight,
-                    evidence=Evidence(
-                        matched_terms=[u],
-                        matched_status_ids=[],
-                        metrics={"username": u}
-                    )
+                    evidence=Evidence(matched_terms=[u], matched_status_ids=[], metrics={"username": u}),
                 )
             )
 
@@ -33,14 +33,10 @@ class RegexDetector(BaseDetector):
                 Violation(
                     rule_name=rule.name,
                     score=rule.weight,
-                    evidence=Evidence(
-                        matched_terms=[dn],
-                        matched_status_ids=[],
-                        metrics={"display_name": dn}
-                    )
+                    evidence=Evidence(matched_terms=[dn], matched_status_ids=[], metrics={"display_name": dn}),
                 )
             )
-        
+
         # Apply regex to status content
         for s in statuses or []:
             content = s.get("content", "")
@@ -50,10 +46,8 @@ class RegexDetector(BaseDetector):
                         rule_name=rule.name,
                         score=rule.weight,
                         evidence=Evidence(
-                            matched_terms=[content],
-                            matched_status_ids=[s.get("id")],
-                            metrics={"content": content}
-                        )
+                            matched_terms=[content], matched_status_ids=[s.get("id")], metrics={"content": content}
+                        ),
                     )
                 )
 

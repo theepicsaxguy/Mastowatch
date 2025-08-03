@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -15,6 +16,7 @@ class AdminMeasureData:
     Attributes:
         date (datetime.datetime): The requested day or midnight on the requested day in the time period.
         value (str): The numeric value for the requested measure.
+
     """
 
     date: datetime.datetime
@@ -38,8 +40,8 @@ class AdminMeasureData:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         date = isoparse(d.pop("date"))
 
         value = d.pop("value")

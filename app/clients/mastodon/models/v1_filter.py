@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -16,11 +17,11 @@ class V1Filter:
     """Represents a user-defined filter for determining which statuses should not be shown to the user. Contains a single
     keyword or phrase.
 
-        Example:
+    Example:
             {'id': '8449', 'phrase': 'test', 'context': ['home', 'notifications', 'public', 'thread'], 'whole_word': False,
                 'expires_at': '2019-11-26T09:08:06.254Z', 'irreversible': True}
 
-        Attributes:
+    Attributes:
             context (list[FilterContext]): The contexts in which the filter should be applied.
             id (str): The ID of the filter in the database.
             irreversible (bool): Should matching entities in home and notifications be dropped by the server? See
@@ -29,6 +30,7 @@ class V1Filter:
             whole_word (bool): Should the filter consider word boundaries? See [implementation guidelines for filters]({{<
                 relref "api/guidelines#filters" >}}).
             expires_at (Union[None, Unset, datetime.datetime]): When the filter should no longer be applied.
+
     """
 
     context: list[FilterContext]
@@ -36,7 +38,7 @@ class V1Filter:
     irreversible: bool
     phrase: str
     whole_word: bool
-    expires_at: Union[None, Unset, datetime.datetime] = UNSET
+    expires_at: None | Unset | datetime.datetime = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -53,7 +55,7 @@ class V1Filter:
 
         whole_word = self.whole_word
 
-        expires_at: Union[None, Unset, str]
+        expires_at: None | Unset | str
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -78,8 +80,8 @@ class V1Filter:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         context = []
         _context = d.pop("context")
         for context_item_data in _context:
@@ -95,7 +97,7 @@ class V1Filter:
 
         whole_word = d.pop("whole_word")
 
-        def _parse_expires_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_expires_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -108,7 +110,7 @@ class V1Filter:
                 return expires_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 

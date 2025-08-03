@@ -1,10 +1,12 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.patch_accounts_update_credentials_body_source_privacy import \
-    PatchAccountsUpdateCredentialsBodySourcePrivacy
+from ..models.patch_accounts_update_credentials_body_source_privacy import (
+    PatchAccountsUpdateCredentialsBodySourcePrivacy,
+)
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="PatchAccountsUpdateCredentialsBodySource")
@@ -19,15 +21,16 @@ class PatchAccountsUpdateCredentialsBodySource:
             statuses. Can be `public`, `unlisted`, or `private`.
         sensitive (Union[Unset, bool]): Whether to mark authored statuses as sensitive by default.
         language (Union[Unset, str]): Default language to use for authored statuses (ISO 639-1)
+
     """
 
-    privacy: Union[Unset, PatchAccountsUpdateCredentialsBodySourcePrivacy] = UNSET
-    sensitive: Union[Unset, bool] = UNSET
-    language: Union[Unset, str] = UNSET
+    privacy: Unset | PatchAccountsUpdateCredentialsBodySourcePrivacy = UNSET
+    sensitive: Unset | bool = UNSET
+    language: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        privacy: Union[Unset, str] = UNSET
+        privacy: Unset | str = UNSET
         if not isinstance(self.privacy, Unset):
             privacy = self.privacy.value
 
@@ -48,10 +51,10 @@ class PatchAccountsUpdateCredentialsBodySource:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         _privacy = d.pop("privacy", UNSET)
-        privacy: Union[Unset, PatchAccountsUpdateCredentialsBodySourcePrivacy]
+        privacy: Unset | PatchAccountsUpdateCredentialsBodySourcePrivacy
         if isinstance(_privacy, Unset):
             privacy = UNSET
         else:

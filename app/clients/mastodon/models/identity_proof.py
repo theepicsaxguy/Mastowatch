@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -18,6 +19,7 @@ class IdentityProof:
         provider (str): The name of the identity provider.
         provider_username (str): The account owner's username on the identity provider's service.
         updated_at (datetime.datetime): When the identity proof was last updated.
+
     """
 
     profile_url: str
@@ -53,8 +55,8 @@ class IdentityProof:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         profile_url = d.pop("profile_url")
 
         proof_url = d.pop("proof_url")

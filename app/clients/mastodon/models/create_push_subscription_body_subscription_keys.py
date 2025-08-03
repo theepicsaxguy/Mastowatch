@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,10 +16,11 @@ class CreatePushSubscriptionBodySubscriptionKeys:
         p256dh (Union[Unset, str]): User agent public key. Base64 encoded string of a public key from a ECDH keypair
             using the `prime256v1` curve.
         auth (Union[Unset, str]): Auth secret. Base64 encoded string of 16 bytes of random data.
+
     """
 
-    p256dh: Union[Unset, str] = UNSET
-    auth: Union[Unset, str] = UNSET
+    p256dh: Unset | str = UNSET
+    auth: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,8 +39,8 @@ class CreatePushSubscriptionBodySubscriptionKeys:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         p256dh = d.pop("p256dh", UNSET)
 
         auth = d.pop("auth", UNSET)

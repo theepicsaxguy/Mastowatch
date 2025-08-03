@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -18,6 +19,7 @@ class AdminIp:
     Attributes:
         ip (str): The IP address.
         used_at (datetime.datetime): The timestamp of when the IP address was last used for this account.
+
     """
 
     ip: str
@@ -41,8 +43,8 @@ class AdminIp:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         ip = d.pop("ip")
 
         used_at = isoparse(d.pop("used_at"))

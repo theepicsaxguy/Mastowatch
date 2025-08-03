@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -16,13 +17,14 @@ class UpdateScheduledStatusBody:
     Attributes:
         scheduled_at (Union[Unset, datetime.datetime]): [Datetime] at which the status will be published. Must be at
             least 5 minutes into the future.
+
     """
 
-    scheduled_at: Union[Unset, datetime.datetime] = UNSET
+    scheduled_at: Unset | datetime.datetime = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        scheduled_at: Union[Unset, str] = UNSET
+        scheduled_at: Unset | str = UNSET
         if not isinstance(self.scheduled_at, Unset):
             scheduled_at = self.scheduled_at.isoformat()
 
@@ -35,10 +37,10 @@ class UpdateScheduledStatusBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         _scheduled_at = d.pop("scheduled_at", UNSET)
-        scheduled_at: Union[Unset, datetime.datetime]
+        scheduled_at: Unset | datetime.datetime
         if isinstance(_scheduled_at, Unset):
             scheduled_at = UNSET
         else:

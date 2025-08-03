@@ -1,3 +1,5 @@
+"""Test cases for rule evaluation functionality."""
+
 import os
 import unittest
 
@@ -5,7 +7,10 @@ from app.services.rule_service import rule_service
 
 
 class TestRules(unittest.TestCase):
+    """Test class for rule evaluation."""
+
     def test_eval_account(self):
+        """Test account evaluation against rules."""
         # Skip if running in CI or without rules setup
         if os.environ.get("SKIP_STARTUP_VALIDATION"):
             self.skipTest("Skipping rules test in testing environment")

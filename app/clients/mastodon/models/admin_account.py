@@ -1,5 +1,6 @@
 import datetime
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -97,6 +98,7 @@ class AdminAccount:
         invited_by_account_id (Union[None, Unset, str]): The ID of the [Account]({{< relref "entities/account" >}}) that
             invited this user, if applicable.
         ip (Union[None, Unset, str]): The IP address last used to login to this account.
+
     """
 
     account: "Account"
@@ -112,11 +114,11 @@ class AdminAccount:
     silenced: bool
     suspended: bool
     username: str
-    created_by_application_id: Union[None, Unset, str] = UNSET
-    domain: Union[None, Unset, str] = UNSET
-    invite_request: Union[None, Unset, str] = UNSET
-    invited_by_account_id: Union[None, Unset, str] = UNSET
-    ip: Union[None, Unset, str] = UNSET
+    created_by_application_id: None | Unset | str = UNSET
+    domain: None | Unset | str = UNSET
+    invite_request: None | Unset | str = UNSET
+    invited_by_account_id: None | Unset | str = UNSET
+    ip: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -149,31 +151,31 @@ class AdminAccount:
 
         username = self.username
 
-        created_by_application_id: Union[None, Unset, str]
+        created_by_application_id: None | Unset | str
         if isinstance(self.created_by_application_id, Unset):
             created_by_application_id = UNSET
         else:
             created_by_application_id = self.created_by_application_id
 
-        domain: Union[None, Unset, str]
+        domain: None | Unset | str
         if isinstance(self.domain, Unset):
             domain = UNSET
         else:
             domain = self.domain
 
-        invite_request: Union[None, Unset, str]
+        invite_request: None | Unset | str
         if isinstance(self.invite_request, Unset):
             invite_request = UNSET
         else:
             invite_request = self.invite_request
 
-        invited_by_account_id: Union[None, Unset, str]
+        invited_by_account_id: None | Unset | str
         if isinstance(self.invited_by_account_id, Unset):
             invited_by_account_id = UNSET
         else:
             invited_by_account_id = self.invited_by_account_id
 
-        ip: Union[None, Unset, str]
+        ip: None | Unset | str
         if isinstance(self.ip, Unset):
             ip = UNSET
         else:
@@ -212,12 +214,12 @@ class AdminAccount:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.admin_ip import AdminIp
         from ..models.role import Role
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         account = Account.from_dict(d.pop("account"))
 
         approved = d.pop("approved")
@@ -249,48 +251,48 @@ class AdminAccount:
 
         username = d.pop("username")
 
-        def _parse_created_by_application_id(data: object) -> Union[None, Unset, str]:
+        def _parse_created_by_application_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         created_by_application_id = _parse_created_by_application_id(d.pop("created_by_application_id", UNSET))
 
-        def _parse_domain(data: object) -> Union[None, Unset, str]:
+        def _parse_domain(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         domain = _parse_domain(d.pop("domain", UNSET))
 
-        def _parse_invite_request(data: object) -> Union[None, Unset, str]:
+        def _parse_invite_request(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         invite_request = _parse_invite_request(d.pop("invite_request", UNSET))
 
-        def _parse_invited_by_account_id(data: object) -> Union[None, Unset, str]:
+        def _parse_invited_by_account_id(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         invited_by_account_id = _parse_invited_by_account_id(d.pop("invited_by_account_id", UNSET))
 
-        def _parse_ip(data: object) -> Union[None, Unset, str]:
+        def _parse_ip(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         ip = _parse_ip(d.pop("ip", UNSET))
 

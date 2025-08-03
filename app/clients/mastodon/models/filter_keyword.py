@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -18,6 +19,7 @@ class FilterKeyword:
         keyword (str): The phrase to be matched against.
         whole_word (bool): Should the filter consider word boundaries? See [implementation guidelines for filters]({{<
             relref "api/guidelines#filters" >}}).
+
     """
 
     id: str
@@ -45,8 +47,8 @@ class FilterKeyword:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         id = d.pop("id")
 
         keyword = d.pop("keyword")

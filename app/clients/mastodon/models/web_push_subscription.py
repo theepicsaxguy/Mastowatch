@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -26,6 +27,7 @@ class WebPushSubscription:
         server_key (str): The streaming server's VAPID key.
         standard (bool): If the push messages follow the standardized specifications (RFC8030+RFC8291+RFC8292). Else
             they follow a legacy version of the specifications (4th draft of RFC8291 and 1st draft of RFC8292).
+
     """
 
     alerts: "WebPushSubscriptionAlerts"
@@ -61,11 +63,10 @@ class WebPushSubscription:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.web_push_subscription_alerts import \
-            WebPushSubscriptionAlerts
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.web_push_subscription_alerts import WebPushSubscriptionAlerts
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         alerts = WebPushSubscriptionAlerts.from_dict(d.pop("alerts"))
 
         endpoint = d.pop("endpoint")

@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -23,6 +24,7 @@ class CreateAccountBody:
         date_of_birth (Union[Unset, datetime.date]): String ([Date]), required if the server has a minimum age
             requirement.
         reason (Union[Unset, str]): If registrations require manual approval, this text will be reviewed by moderators.
+
     """
 
     agreement: bool
@@ -30,8 +32,8 @@ class CreateAccountBody:
     locale: str
     password: str
     username: str
-    date_of_birth: Union[Unset, datetime.date] = UNSET
-    reason: Union[Unset, str] = UNSET
+    date_of_birth: Unset | datetime.date = UNSET
+    reason: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,7 +47,7 @@ class CreateAccountBody:
 
         username = self.username
 
-        date_of_birth: Union[Unset, str] = UNSET
+        date_of_birth: Unset | str = UNSET
         if not isinstance(self.date_of_birth, Unset):
             date_of_birth = self.date_of_birth.isoformat()
 
@@ -70,8 +72,8 @@ class CreateAccountBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         agreement = d.pop("agreement")
 
         email = d.pop("email")
@@ -83,7 +85,7 @@ class CreateAccountBody:
         username = d.pop("username")
 
         _date_of_birth = d.pop("date_of_birth", UNSET)
-        date_of_birth: Union[Unset, datetime.date]
+        date_of_birth: Unset | datetime.date
         if isinstance(_date_of_birth, Unset):
             date_of_birth = UNSET
         else:

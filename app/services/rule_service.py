@@ -262,6 +262,37 @@ class RuleService:
             logger.info(f"Bulk toggled {len(updated_rules)} rules to enabled={enabled}")
             return updated_rules
 
+    def get_rule_by_id(self, rule_id: int) -> Rule | None:
+        """Get a rule by its ID.
+
+        Args:
+            rule_id: ID of the rule to retrieve
+
+        Returns:
+            Rule object or None if not found
+
+        """
+        with SessionLocal() as session:
+            return session.query(Rule).filter(Rule.id == rule_id).first()
+
+    def get_rule_statistics(self) -> dict[str, Any]:
+        """Get statistics about rules usage and performance.
+
+        Returns:
+            Dictionary containing rule statistics
+
+        """
+        with SessionLocal() as session:
+            total_rules = session.query(Rule).count()
+            enabled_rules = session.query(Rule).filter(Rule.enabled.is_(True)).count()
+
+            return {
+                "total_rules": total_rules,
+                "enabled_rules": enabled_rules,
+                "disabled_rules": total_rules - enabled_rules,
+                "cache_status": self.get_cache_status(),
+            }
+
     def eval_account(
         self, account_data: dict[str, Any], statuses: list[dict[str, Any]]
     ) -> tuple[float, list[tuple[str, float, dict]]]:

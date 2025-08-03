@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -18,12 +19,13 @@ class CreateAppBody:
         scopes (Union[Unset, str]): Space separated list of scopes. If none is provided, defaults to `read`. See [OAuth
             Scopes] for a list of possible scopes. Default: 'read'.
         website (Union[Unset, str]): A URL to the homepage of your app
+
     """
 
     client_name: str
     redirect_uris: list[str]
-    scopes: Union[Unset, str] = "read"
-    website: Union[Unset, str] = UNSET
+    scopes: Unset | str = "read"
+    website: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,8 +53,8 @@ class CreateAppBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         client_name = d.pop("client_name")
 
         redirect_uris = cast(list[str], d.pop("redirect_uris"))

@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -19,11 +20,12 @@ class Field:
         value (str): The value associated with the `name` key.
         verified_at (Union[None, Unset, datetime.datetime]): Timestamp of when the server verified a URL value for a
             rel="me" link.
+
     """
 
     name: str
     value: str
-    verified_at: Union[None, Unset, datetime.datetime] = UNSET
+    verified_at: None | Unset | datetime.datetime = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -31,7 +33,7 @@ class Field:
 
         value = self.value
 
-        verified_at: Union[None, Unset, str]
+        verified_at: None | Unset | str
         if isinstance(self.verified_at, Unset):
             verified_at = UNSET
         elif isinstance(self.verified_at, datetime.datetime):
@@ -53,13 +55,13 @@ class Field:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         name = d.pop("name")
 
         value = d.pop("value")
 
-        def _parse_verified_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_verified_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -72,7 +74,7 @@ class Field:
                 return verified_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         verified_at = _parse_verified_at(d.pop("verified_at", UNSET))
 

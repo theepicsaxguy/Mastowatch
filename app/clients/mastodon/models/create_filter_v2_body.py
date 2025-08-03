@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -7,8 +8,7 @@ from ..models.filter_context import FilterContext
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.create_filter_v2_body_keywords_attributes_item import \
-        CreateFilterV2BodyKeywordsAttributesItem
+    from ..models.create_filter_v2_body_keywords_attributes_item import CreateFilterV2BodyKeywordsAttributesItem
 
 
 T = TypeVar("T", bound="CreateFilterV2Body")
@@ -26,13 +26,14 @@ class CreateFilterV2Body:
             or `blur`.
         keywords_attributes (Union[Unset, list['CreateFilterV2BodyKeywordsAttributesItem']]): Array of objects with
             properties: keyword, whole_word, id, _destroy
+
     """
 
     context: list[FilterContext]
     title: str
-    expires_in: Union[Unset, int] = UNSET
-    filter_action: Union[Unset, str] = UNSET
-    keywords_attributes: Union[Unset, list["CreateFilterV2BodyKeywordsAttributesItem"]] = UNSET
+    expires_in: Unset | int = UNSET
+    filter_action: Unset | str = UNSET
+    keywords_attributes: Unset | list["CreateFilterV2BodyKeywordsAttributesItem"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,7 +48,7 @@ class CreateFilterV2Body:
 
         filter_action = self.filter_action
 
-        keywords_attributes: Union[Unset, list[dict[str, Any]]] = UNSET
+        keywords_attributes: Unset | list[dict[str, Any]] = UNSET
         if not isinstance(self.keywords_attributes, Unset):
             keywords_attributes = []
             for keywords_attributes_item_data in self.keywords_attributes:
@@ -72,11 +73,10 @@ class CreateFilterV2Body:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.create_filter_v2_body_keywords_attributes_item import \
-            CreateFilterV2BodyKeywordsAttributesItem
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.create_filter_v2_body_keywords_attributes_item import CreateFilterV2BodyKeywordsAttributesItem
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         context = []
         _context = d.pop("context")
         for context_item_data in _context:

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -14,6 +15,7 @@ class V1NotificationPolicySummary:
         pending_notifications_count (int): Number of total non-dismissed filtered notifications. May be inaccurate.
         pending_requests_count (int): Number of different accounts from which the user has non-dismissed filtered
             notifications. Capped at 100.
+
     """
 
     pending_notifications_count: int
@@ -37,8 +39,8 @@ class V1NotificationPolicySummary:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         pending_notifications_count = d.pop("pending_notifications_count")
 
         pending_requests_count = d.pop("pending_requests_count")

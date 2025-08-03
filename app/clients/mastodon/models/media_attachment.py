@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -29,16 +30,17 @@ class MediaAttachment:
             for the visually impaired or when media attachments do not load.
         preview_url (Union[None, Unset, str]): The location of a scaled-down preview of the attachment.
         remote_url (Union[None, Unset, str]): The location of the full-size original attachment on the remote website.
+
     """
 
     id: str
     meta: "MediaAttachmentMeta"
     type_: MediaAttachmentType
     url: str
-    blurhash: Union[None, Unset, str] = UNSET
-    description: Union[None, Unset, str] = UNSET
-    preview_url: Union[None, Unset, str] = UNSET
-    remote_url: Union[None, Unset, str] = UNSET
+    blurhash: None | Unset | str = UNSET
+    description: None | Unset | str = UNSET
+    preview_url: None | Unset | str = UNSET
+    remote_url: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,25 +52,25 @@ class MediaAttachment:
 
         url = self.url
 
-        blurhash: Union[None, Unset, str]
+        blurhash: None | Unset | str
         if isinstance(self.blurhash, Unset):
             blurhash = UNSET
         else:
             blurhash = self.blurhash
 
-        description: Union[None, Unset, str]
+        description: None | Unset | str
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        preview_url: Union[None, Unset, str]
+        preview_url: None | Unset | str
         if isinstance(self.preview_url, Unset):
             preview_url = UNSET
         else:
             preview_url = self.preview_url
 
-        remote_url: Union[None, Unset, str]
+        remote_url: None | Unset | str
         if isinstance(self.remote_url, Unset):
             remote_url = UNSET
         else:
@@ -96,10 +98,10 @@ class MediaAttachment:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.media_attachment_meta import MediaAttachmentMeta
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         id = d.pop("id")
 
         meta = MediaAttachmentMeta.from_dict(d.pop("meta"))
@@ -108,39 +110,39 @@ class MediaAttachment:
 
         url = d.pop("url")
 
-        def _parse_blurhash(data: object) -> Union[None, Unset, str]:
+        def _parse_blurhash(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         blurhash = _parse_blurhash(d.pop("blurhash", UNSET))
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_preview_url(data: object) -> Union[None, Unset, str]:
+        def _parse_preview_url(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         preview_url = _parse_preview_url(d.pop("preview_url", UNSET))
 
-        def _parse_remote_url(data: object) -> Union[None, Unset, str]:
+        def _parse_remote_url(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         remote_url = _parse_remote_url(d.pop("remote_url", UNSET))
 

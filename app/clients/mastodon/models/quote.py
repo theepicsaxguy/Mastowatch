@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -44,6 +45,7 @@ class Quote:
         state (StateEnum):
         quoted_status (Union['Status', None, Unset]): The status being quoted, if the quote has been accepted. This will
             be `null`, unless the `state` attribute is `accepted`.
+
     """
 
     state: StateEnum
@@ -55,7 +57,7 @@ class Quote:
 
         state = self.state.value
 
-        quoted_status: Union[None, Unset, dict[str, Any]]
+        quoted_status: None | Unset | dict[str, Any]
         if isinstance(self.quoted_status, Unset):
             quoted_status = UNSET
         elif isinstance(self.quoted_status, Status):
@@ -76,10 +78,10 @@ class Quote:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.status import Status
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         state = StateEnum(d.pop("state"))
 
         def _parse_quoted_status(data: object) -> Union["Status", None, Unset]:

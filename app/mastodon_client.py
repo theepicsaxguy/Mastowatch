@@ -4,7 +4,7 @@ This provides the best of both worlds: type safety where available, flexibility 
 """
 
 import hashlib
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -131,8 +131,6 @@ class MastoClient:
         response.raise_for_status()
         return response
 
-    from app.clients.mastodon.api.admin import get_admin_accounts as api_get_admin_accounts
-
     def get_admin_accounts(
         self,
         origin: Optional[str] = None,
@@ -140,38 +138,24 @@ class MastoClient:
         limit: int = 50,
         max_id: Optional[str] = None,
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-        """Get admin accounts using the generated client, with pagination."""
-        throttle_if_needed(self._bucket_key)
-        with api_call_seconds.labels(endpoint="/api/v1/admin/accounts").time():
-            response = api_get_admin_accounts.sync_detailed(
-                client=self._api_client,
-                origin=origin,
-                status=status,
-                limit=limit,
-                max_id=max_id,
-            )
-        update_from_headers(self._bucket_key, response.headers)
-        if response.status_code >= 400:
-            http_errors.labels(endpoint="/api/v1/admin/accounts", code=str(response.status_code)).inc()
-        response.raise_for_status()
+        """Get admin accounts using direct HTTP calls (admin endpoints not in OpenAPI spec)."""
+        params = {"limit": limit}
+        if origin:
+            params["origin"] = origin
+        if status:
+            params["status"] = status
+        if max_id:
+            params["max_id"] = max_id
 
-        accounts = [a.to_dict() for a in response.parsed]
+        response = self._make_request("GET", "/api/v1/admin/accounts", params=params)
+        accounts = response.json()
         next_max_id = self._parse_next_cursor(response.headers.get("Link"))
         return accounts, next_max_id
 
-    from app.clients.mastodon.api.instance import get_instance_rules as api_get_instance_rules
-
-    def get_instance_rules(self) -> List[Dict[str, Any]]:
-        """Get instance rules using the generated client."""
-        throttle_if_needed(self._bucket_key)
-        path = "/api/v1/instance/rules"
-        with api_call_seconds.labels(endpoint=path).time():
-            response = api_get_instance_rules.sync_detailed(client=self._api_client)
-        update_from_headers(self._bucket_key, response.headers)
-        if response.status_code >= 400:
-            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
-        response.raise_for_status()
-        return [r.to_dict() for r in response.parsed]
+    def get_instance_rules(self) -> list[dict[str, Any]]:
+        """Get instance rules using direct HTTP calls."""
+        response = self._make_request("GET", "/api/v1/instance/rules")
+        return response.json()
 
     
 

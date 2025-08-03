@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -11,9 +12,10 @@ class InstanceApiVersions:
     """Information about which version of the API is implemented by this server. It contains at least a `mastodon`
     attribute, and other implementations may have their own additional attributes.
 
-        Attributes:
+    Attributes:
             mastodon (int): API version number that this server implements. Starting from Mastodon v4.3.0, API changes will
                 come with a version number, which clients can check against this value.
+
     """
 
     mastodon: int
@@ -33,8 +35,8 @@ class InstanceApiVersions:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         mastodon = d.pop("mastodon")
 
         instance_api_versions = cls(

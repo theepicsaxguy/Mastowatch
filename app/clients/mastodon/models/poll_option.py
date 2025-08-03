@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,16 +16,17 @@ class PollOption:
     Attributes:
         title (str): The text value of the poll option.
         votes_count (Union[None, Unset, int]): The total number of received votes for this option.
+
     """
 
     title: str
-    votes_count: Union[None, Unset, int] = UNSET
+    votes_count: None | Unset | int = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         title = self.title
 
-        votes_count: Union[None, Unset, int]
+        votes_count: None | Unset | int
         if isinstance(self.votes_count, Unset):
             votes_count = UNSET
         else:
@@ -43,16 +45,16 @@ class PollOption:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         title = d.pop("title")
 
-        def _parse_votes_count(data: object) -> Union[None, Unset, int]:
+        def _parse_votes_count(data: object) -> None | Unset | int:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(None | Unset | int, data)
 
         votes_count = _parse_votes_count(d.pop("votes_count", UNSET))
 

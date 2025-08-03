@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -32,6 +33,7 @@ class OEmbedResponse:
         version (str): version field
         width (int): width field
         height (Union[None, Unset, str]): height field
+
     """
 
     author_name: str
@@ -44,7 +46,7 @@ class OEmbedResponse:
     type_: str
     version: str
     width: int
-    height: Union[None, Unset, str] = UNSET
+    height: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -68,7 +70,7 @@ class OEmbedResponse:
 
         width = self.width
 
-        height: Union[None, Unset, str]
+        height: None | Unset | str
         if isinstance(self.height, Unset):
             height = UNSET
         else:
@@ -96,8 +98,8 @@ class OEmbedResponse:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         author_name = d.pop("author_name")
 
         author_url = d.pop("author_url")
@@ -118,12 +120,12 @@ class OEmbedResponse:
 
         width = d.pop("width")
 
-        def _parse_height(data: object) -> Union[None, Unset, str]:
+        def _parse_height(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         height = _parse_height(d.pop("height", UNSET))
 

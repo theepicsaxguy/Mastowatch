@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -7,8 +8,7 @@ from ..models.filter_context import FilterContext
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.update_filter_v2_body_keywords_attributes_item import \
-        UpdateFilterV2BodyKeywordsAttributesItem
+    from ..models.update_filter_v2_body_keywords_attributes_item import UpdateFilterV2BodyKeywordsAttributesItem
 
 
 T = TypeVar("T", bound="UpdateFilterV2Body")
@@ -26,17 +26,18 @@ class UpdateFilterV2Body:
         keywords_attributes (Union[Unset, list['UpdateFilterV2BodyKeywordsAttributesItem']]): Array of objects with
             properties: keyword, whole_word, id, _destroy
         title (Union[Unset, str]): The name of the filter group.
+
     """
 
-    context: Union[Unset, list[FilterContext]] = UNSET
-    expires_in: Union[Unset, int] = UNSET
-    filter_action: Union[Unset, str] = UNSET
-    keywords_attributes: Union[Unset, list["UpdateFilterV2BodyKeywordsAttributesItem"]] = UNSET
-    title: Union[Unset, str] = UNSET
+    context: Unset | list[FilterContext] = UNSET
+    expires_in: Unset | int = UNSET
+    filter_action: Unset | str = UNSET
+    keywords_attributes: Unset | list["UpdateFilterV2BodyKeywordsAttributesItem"] = UNSET
+    title: Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        context: Union[Unset, list[str]] = UNSET
+        context: Unset | list[str] = UNSET
         if not isinstance(self.context, Unset):
             context = []
             for context_item_data in self.context:
@@ -47,7 +48,7 @@ class UpdateFilterV2Body:
 
         filter_action = self.filter_action
 
-        keywords_attributes: Union[Unset, list[dict[str, Any]]] = UNSET
+        keywords_attributes: Unset | list[dict[str, Any]] = UNSET
         if not isinstance(self.keywords_attributes, Unset):
             keywords_attributes = []
             for keywords_attributes_item_data in self.keywords_attributes:
@@ -73,11 +74,10 @@ class UpdateFilterV2Body:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.update_filter_v2_body_keywords_attributes_item import \
-            UpdateFilterV2BodyKeywordsAttributesItem
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.update_filter_v2_body_keywords_attributes_item import UpdateFilterV2BodyKeywordsAttributesItem
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         context = []
         _context = d.pop("context", UNSET)
         for context_item_data in _context or []:

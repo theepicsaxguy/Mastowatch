@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union
+from collections.abc import Mapping
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -14,10 +15,11 @@ class PostAccountMuteBody:
     Attributes:
         duration (Union[Unset, int]): How long the mute should last, in seconds. Defaults to 0 (indefinite). Default: 0.
         notifications (Union[Unset, bool]): Mute notifications in addition to statuses? Defaults to true. Default: True.
+
     """
 
-    duration: Union[Unset, int] = 0
-    notifications: Union[Unset, bool] = True
+    duration: Unset | int = 0
+    notifications: Unset | bool = True
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -36,8 +38,8 @@ class PostAccountMuteBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         duration = d.pop("duration", UNSET)
 
         notifications = d.pop("notifications", UNSET)

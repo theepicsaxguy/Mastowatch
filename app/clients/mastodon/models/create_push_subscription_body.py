@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 from attrs import define as _attrs_define
@@ -6,10 +7,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.create_push_subscription_body_data import \
-        CreatePushSubscriptionBodyData
-    from ..models.create_push_subscription_body_subscription import \
-        CreatePushSubscriptionBodySubscription
+    from ..models.create_push_subscription_body_data import CreatePushSubscriptionBodyData
+    from ..models.create_push_subscription_body_subscription import CreatePushSubscriptionBodySubscription
 
 
 T = TypeVar("T", bound="CreatePushSubscriptionBody")
@@ -21,6 +20,7 @@ class CreatePushSubscriptionBody:
     Attributes:
         subscription (CreatePushSubscriptionBodySubscription): Object containing properties
         data (Union[Unset, CreatePushSubscriptionBodyData]): Object containing properties
+
     """
 
     subscription: "CreatePushSubscriptionBodySubscription"
@@ -30,7 +30,7 @@ class CreatePushSubscriptionBody:
     def to_dict(self) -> dict[str, Any]:
         subscription = self.subscription.to_dict()
 
-        data: Union[Unset, dict[str, Any]] = UNSET
+        data: Unset | dict[str, Any] = UNSET
         if not isinstance(self.data, Unset):
             data = self.data.to_dict()
 
@@ -47,17 +47,15 @@ class CreatePushSubscriptionBody:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.create_push_subscription_body_data import \
-            CreatePushSubscriptionBodyData
-        from ..models.create_push_subscription_body_subscription import \
-            CreatePushSubscriptionBodySubscription
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.create_push_subscription_body_data import CreatePushSubscriptionBodyData
+        from ..models.create_push_subscription_body_subscription import CreatePushSubscriptionBodySubscription
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         subscription = CreatePushSubscriptionBodySubscription.from_dict(d.pop("subscription"))
 
         _data = d.pop("data", UNSET)
-        data: Union[Unset, CreatePushSubscriptionBodyData]
+        data: Unset | CreatePushSubscriptionBodyData
         if isinstance(_data, Unset):
             data = UNSET
         else:

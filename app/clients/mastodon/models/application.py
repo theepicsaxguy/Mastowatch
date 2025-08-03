@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -14,12 +15,12 @@ class Application:
     r"""Represents an application that interfaces with the REST API, for example to access account information or post
     statuses.
 
-        Example:
+    Example:
             {'id': '12348', 'name': 'Test Application', 'website': 'https://app.example', 'scopes': ['read', 'write',
                 'push'], 'redirect_uri': 'https://app.example/callback\nhttps://app.example/register', 'redirect_uris':
                 ['https://app.example/callback', 'https://app.example/register']}
 
-        Attributes:
+    Attributes:
             id (str): The numeric ID of the application.
             name (str): The name of the application.
             redirect_uri (str): The registered redirection URI(s) for the application.
@@ -29,6 +30,7 @@ class Application:
                 >}}). Equivalent to [WebPushSubscription#server_key]({{< relref "entities/WebPushSubscription#server_key" >}})
                 and [Instance#vapid_public_key]({{< relref "entities/Instance#vapid_public_key" >}})
             website (Union[None, Unset, str]): The website associated with the application.
+
     """
 
     id: str
@@ -37,7 +39,7 @@ class Application:
     redirect_uris: list[str]
     scopes: list[OAuthScope]
     vapid_key: str
-    website: Union[None, Unset, str] = UNSET
+    website: None | Unset | str = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,7 +58,7 @@ class Application:
 
         vapid_key = self.vapid_key
 
-        website: Union[None, Unset, str]
+        website: None | Unset | str
         if isinstance(self.website, Unset):
             website = UNSET
         else:
@@ -80,8 +82,8 @@ class Application:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         id = d.pop("id")
 
         name = d.pop("name")
@@ -99,12 +101,12 @@ class Application:
 
         vapid_key = d.pop("vapid_key")
 
-        def _parse_website(data: object) -> Union[None, Unset, str]:
+        def _parse_website(data: object) -> None | Unset | str:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | Unset | str, data)
 
         website = _parse_website(d.pop("website", UNSET))
 

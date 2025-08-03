@@ -1,4 +1,5 @@
-from typing import Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -33,6 +34,7 @@ class Relationship:
         requested_by (bool): Has this user requested to follow you?
         showing_reblogs (bool): Are you receiving this user's boosts in your home timeline?
         languages (Union[None, Unset, list[str]]): Which languages are you following from this user?
+
     """
 
     blocked_by: bool
@@ -49,7 +51,7 @@ class Relationship:
     requested: bool
     requested_by: bool
     showing_reblogs: bool
-    languages: Union[None, Unset, list[str]] = UNSET
+    languages: None | Unset | list[str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -81,7 +83,7 @@ class Relationship:
 
         showing_reblogs = self.showing_reblogs
 
-        languages: Union[None, Unset, list[str]]
+        languages: None | Unset | list[str]
         if isinstance(self.languages, Unset):
             languages = UNSET
         elif isinstance(self.languages, list):
@@ -116,8 +118,8 @@ class Relationship:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         blocked_by = d.pop("blocked_by")
 
         blocking = d.pop("blocking")
@@ -146,7 +148,7 @@ class Relationship:
 
         showing_reblogs = d.pop("showing_reblogs")
 
-        def _parse_languages(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_languages(data: object) -> None | Unset | list[str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -159,7 +161,7 @@ class Relationship:
                 return languages_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(None | Unset | list[str], data)
 
         languages = _parse_languages(d.pop("languages", UNSET))
 

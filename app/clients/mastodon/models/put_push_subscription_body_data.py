@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 from attrs import define as _attrs_define
@@ -6,8 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.put_push_subscription_body_data_alerts import \
-        PutPushSubscriptionBodyDataAlerts
+    from ..models.put_push_subscription_body_data_alerts import PutPushSubscriptionBodyDataAlerts
 
 
 T = TypeVar("T", bound="PutPushSubscriptionBodyData")
@@ -19,13 +19,14 @@ class PutPushSubscriptionBodyData:
 
     Attributes:
         alerts (Union[Unset, PutPushSubscriptionBodyDataAlerts]):
+
     """
 
     alerts: Union[Unset, "PutPushSubscriptionBodyDataAlerts"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        alerts: Union[Unset, dict[str, Any]] = UNSET
+        alerts: Unset | dict[str, Any] = UNSET
         if not isinstance(self.alerts, Unset):
             alerts = self.alerts.to_dict()
 
@@ -38,13 +39,12 @@ class PutPushSubscriptionBodyData:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.put_push_subscription_body_data_alerts import \
-            PutPushSubscriptionBodyDataAlerts
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.put_push_subscription_body_data_alerts import PutPushSubscriptionBodyDataAlerts
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         _alerts = d.pop("alerts", UNSET)
-        alerts: Union[Unset, PutPushSubscriptionBodyDataAlerts]
+        alerts: Unset | PutPushSubscriptionBodyDataAlerts
         if isinstance(_alerts, Unset):
             alerts = UNSET
         else:

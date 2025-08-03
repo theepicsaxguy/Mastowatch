@@ -1,5 +1,6 @@
 import datetime
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -88,6 +89,7 @@ class Report:
         rule_ids (Union[None, Unset, list[str]]): IDs of the rules that have been cited as a violation by this report.
         status_ids (Union[None, Unset, list[str]]): IDs of statuses that have been attached to this report for
             additional context.
+
     """
 
     action_taken: bool
@@ -97,9 +99,9 @@ class Report:
     forwarded: bool
     id: str
     target_account: "Account"
-    action_taken_at: Union[None, Unset, datetime.datetime] = UNSET
-    rule_ids: Union[None, Unset, list[str]] = UNSET
-    status_ids: Union[None, Unset, list[str]] = UNSET
+    action_taken_at: None | Unset | datetime.datetime = UNSET
+    rule_ids: None | Unset | list[str] = UNSET
+    status_ids: None | Unset | list[str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -117,7 +119,7 @@ class Report:
 
         target_account = self.target_account.to_dict()
 
-        action_taken_at: Union[None, Unset, str]
+        action_taken_at: None | Unset | str
         if isinstance(self.action_taken_at, Unset):
             action_taken_at = UNSET
         elif isinstance(self.action_taken_at, datetime.datetime):
@@ -125,7 +127,7 @@ class Report:
         else:
             action_taken_at = self.action_taken_at
 
-        rule_ids: Union[None, Unset, list[str]]
+        rule_ids: None | Unset | list[str]
         if isinstance(self.rule_ids, Unset):
             rule_ids = UNSET
         elif isinstance(self.rule_ids, list):
@@ -134,7 +136,7 @@ class Report:
         else:
             rule_ids = self.rule_ids
 
-        status_ids: Union[None, Unset, list[str]]
+        status_ids: None | Unset | list[str]
         if isinstance(self.status_ids, Unset):
             status_ids = UNSET
         elif isinstance(self.status_ids, list):
@@ -166,10 +168,10 @@ class Report:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         action_taken = d.pop("action_taken")
 
         category = CategoryEnum(d.pop("category"))
@@ -184,9 +186,7 @@ class Report:
 
         target_account = Account.from_dict(d.pop("target_account"))
 
-        def _parse_action_taken_at(
-            data: object,
-        ) -> Union[None, Unset, datetime.datetime]:
+        def _parse_action_taken_at(data: object) -> None | Unset | datetime.datetime:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -199,11 +199,11 @@ class Report:
                 return action_taken_at_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(None | Unset | datetime.datetime, data)
 
         action_taken_at = _parse_action_taken_at(d.pop("action_taken_at", UNSET))
 
-        def _parse_rule_ids(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_rule_ids(data: object) -> None | Unset | list[str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -216,11 +216,11 @@ class Report:
                 return rule_ids_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(None | Unset | list[str], data)
 
         rule_ids = _parse_rule_ids(d.pop("rule_ids", UNSET))
 
-        def _parse_status_ids(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_status_ids(data: object) -> None | Unset | list[str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -233,7 +233,7 @@ class Report:
                 return status_ids_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(None | Unset | list[str], data)
 
         status_ids = _parse_status_ids(d.pop("status_ids", UNSET))
 

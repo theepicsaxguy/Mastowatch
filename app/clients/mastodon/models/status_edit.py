@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
@@ -78,6 +79,7 @@ class StatusEdit:
         poll (Union['StatusEditPollType0', None, Unset]): The current state of the poll options at this revision. Note
             that edits changing the poll options will be collapsed together into one edit, since this action resets the
             poll.
+
     """
 
     account: "Account"
@@ -113,7 +115,7 @@ class StatusEdit:
 
         spoiler_text = self.spoiler_text
 
-        poll: Union[None, Unset, dict[str, Any]]
+        poll: None | Unset | dict[str, Any]
         if isinstance(self.poll, Unset):
             poll = UNSET
         elif isinstance(self.poll, StatusEditPollType0):
@@ -140,13 +142,13 @@ class StatusEdit:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.account import Account
         from ..models.custom_emoji import CustomEmoji
         from ..models.media_attachment import MediaAttachment
         from ..models.status_edit_poll_type_0 import StatusEditPollType0
 
-        d = src_dict.copy()
+        d = dict(src_dict)
         account = Account.from_dict(d.pop("account"))
 
         content = d.pop("content")

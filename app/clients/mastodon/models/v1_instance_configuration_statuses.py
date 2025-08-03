@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -14,6 +15,7 @@ class V1InstanceConfigurationStatuses:
         characters_reserved_per_url (int): Each URL in a status will be assumed to be exactly this many characters.
         max_characters (int): The maximum number of allowed characters per status.
         max_media_attachments (int): The maximum number of media attachments that can be added to a status.
+
     """
 
     characters_reserved_per_url: int
@@ -41,8 +43,8 @@ class V1InstanceConfigurationStatuses:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         characters_reserved_per_url = d.pop("characters_reserved_per_url")
 
         max_characters = d.pop("max_characters")

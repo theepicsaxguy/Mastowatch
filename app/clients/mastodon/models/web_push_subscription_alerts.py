@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
@@ -21,6 +22,7 @@ class WebPushSubscriptionAlerts:
         reblog (bool): Receive a push notification when a status you created has been boosted by someone else?
         status (bool): Receive a push notification when a subscribed account posts a status?
         update (bool): Receive a push notification when a status you interacted with has been edited?
+
     """
 
     admin_report: bool
@@ -76,8 +78,8 @@ class WebPushSubscriptionAlerts:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        d = src_dict.copy()
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
         admin_report = d.pop("admin.report")
 
         admin_sign_up = d.pop("admin.sign_up")
