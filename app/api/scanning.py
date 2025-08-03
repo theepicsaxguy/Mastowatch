@@ -5,17 +5,16 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 
-from app.auth import get_api_key
+from app.auth import require_api_key
 from app.db import SessionLocal
 from app.enhanced_scanning import EnhancedScanningSystem
-from app.models import ContentScan
-from app.schemas import DomainAlert, ScanSession
+from app.models import ContentScan, DomainAlert, ScanSession
 
 router = APIRouter()
 
 
-@router.post("/scan/start", response_model=ScanSession)
-async def start_scan_session(session_type: str, api_key: str = Depends(get_api_key)):
+@router.post("/scan/start")
+async def start_scan_session(session_type: str, api_key_valid: bool = Depends(require_api_key)):
     """Start a new scan session."""
     if session_type not in ["remote", "local", "federated"]:
         raise HTTPException(status_code=400, detail="Invalid session type")
@@ -25,7 +24,7 @@ async def start_scan_session(session_type: str, api_key: str = Depends(get_api_k
 
 
 @router.post("/scan/{session_id}/complete")
-async def complete_scan_session(session_id: str, api_key: str = Depends(get_api_key)):
+async def complete_scan_session(session_id: str, api_key_valid: bool = Depends(require_api_key)):
     """Complete a scan session."""
     scanner = EnhancedScanningSystem()
     scanner.complete_scan_session(session_id)
@@ -34,7 +33,7 @@ async def complete_scan_session(session_id: str, api_key: str = Depends(get_api_
 
 @router.get("/scan/accounts", response_model=list[dict[str, Any]])
 async def get_next_accounts_to_scan(
-    session_type: str, limit: int = 50, cursor: str | None = None, api_key: str = Depends(get_api_key)
+    session_type: str, limit: int = 50, cursor: str | None = None, api_key_valid: bool = Depends(require_api_key)
 ):
     """Get the next batch of accounts to scan."""
     scanner = EnhancedScanningSystem()
@@ -43,7 +42,7 @@ async def get_next_accounts_to_scan(
 
 
 @router.post("/scan/account", response_model=dict[str, Any])
-async def scan_account_efficiently(account_data: dict[str, Any], session_id: str, api_key: str = Depends(get_api_key)):
+async def scan_account_efficiently(account_data: dict[str, Any], session_id: str, api_key_valid: bool = Depends(require_api_key)):
     """Scan a single account efficiently."""
     scanner = EnhancedScanningSystem()
     result = scanner.scan_account_efficiently(account_data, session_id)
@@ -51,7 +50,7 @@ async def scan_account_efficiently(account_data: dict[str, Any], session_id: str
 
 
 @router.get("/scan/federated", response_model=list[dict[str, Any]])
-async def scan_federated_content(target_domains: list[str] | None = None, api_key: str = Depends(get_api_key)):
+async def scan_federated_content(target_domains: list[str] | None = None, api_key_valid: bool = Depends(require_api_key)):
     """Scan federated content."""
     scanner = EnhancedScanningSystem()
     results = scanner.scan_federated_content(target_domains)
@@ -59,7 +58,7 @@ async def scan_federated_content(target_domains: list[str] | None = None, api_ke
 
 
 @router.get("/domains/alerts", response_model=list[DomainAlert])
-async def get_domain_alerts(limit: int = 100, api_key: str = Depends(get_api_key)):
+async def get_domain_alerts(limit: int = 100, api_key_valid: bool = Depends(require_api_key)):
     """Get domain alerts."""
     scanner = EnhancedScanningSystem()
     alerts = scanner.get_domain_alerts(limit)
@@ -67,7 +66,7 @@ async def get_domain_alerts(limit: int = 100, api_key: str = Depends(get_api_key
 
 
 @router.post("/scanning/federated", tags=["scanning"])
-def trigger_federated_scan(target_domains: list[str] | None = None, api_key: str = Depends(get_api_key)):
+def trigger_federated_scan(target_domains: list[str] | None = None, api_key_valid: bool = Depends(require_api_key)):
     """Trigger federated content scanning."""
     try:
         from app.tasks.jobs import scan_federated_content
@@ -81,7 +80,7 @@ def trigger_federated_scan(target_domains: list[str] | None = None, api_key: str
 
 
 @router.post("/scanning/domain-check", tags=["scanning"])
-def trigger_domain_check(api_key: str = Depends(get_api_key)):
+def trigger_domain_check(api_key_valid: bool = Depends(require_api_key)):
     """Trigger domain violation checking."""
     try:
         from app.tasks.jobs import check_domain_violations
@@ -95,7 +94,7 @@ def trigger_domain_check(api_key: str = Depends(get_api_key)):
 
 
 @router.post("/scanning/invalidate-cache", tags=["scanning"])
-def invalidate_content_cache(rule_changes: bool = False, time_based: bool = False, api_key: str = Depends(get_api_key)):
+def invalidate_content_cache(rule_changes: bool = False, time_based: bool = False, api_key_valid: bool = Depends(require_api_key)):
     """Invalidate content scan cache."""
     try:
         scanner = EnhancedScanningSystem()
@@ -109,7 +108,7 @@ def invalidate_content_cache(rule_changes: bool = False, time_based: bool = Fals
 
 
 @router.get("/scanning/cache-status", tags=["scanning"])
-def get_cache_status(api_key: str = Depends(get_api_key)):
+def get_cache_status(api_key_valid: bool = Depends(require_api_key)):
     """Get content cache status and statistics."""
     try:
         with SessionLocal() as db:

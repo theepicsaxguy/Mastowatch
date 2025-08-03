@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
 from sqlalchemy import text
 
-from app.auth import get_api_key
+from app.auth import require_api_key
 from app.config import get_settings
 from app.db import SessionLocal
 from app.oauth import User, require_admin_hybrid
@@ -10,7 +10,7 @@ from app.oauth import User, require_admin_hybrid
 router = APIRouter()
 
 @router.get("/config", response_model=Dict[str, Any])
-async def get_app_config(api_key: str = Depends(get_api_key)):
+async def get_app_config(api_key_valid: bool = Depends(require_api_key)):
     """Get current application configuration."""
     settings = get_settings()
     return settings.dict()

@@ -8,3 +8,4 @@ redis>=5.0.0
 requests>=2.31.0
 factory-boy>=3.3.0
 faker>=20.0.0
+freezegun>=1.2.0
