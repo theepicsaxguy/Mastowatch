@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Dict, Any, Optional
 import re
+import logging
 from datetime import datetime
 
 from app.auth import require_api_key, get_api_key
@@ -12,6 +13,7 @@ from app.enhanced_scanning import EnhancedScanningSystem
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/rules/current", tags=["rules"])
@@ -155,7 +157,7 @@ def get_rule_creation_help():
             },
             "keyword": {
                 "description": "Matches against text content for specific keywords.",
-                "fields": ["pattern" (comma-separated keywords), "weight", "action_type", "trigger_threshold", "target_field" (username, display_name, content), "description"],
+                "fields": ["pattern (comma-separated keywords)", "weight", "action_type", "trigger_threshold", "target_field (username, display_name, content)", "description"],
                 "examples": [
                     {
                         "name": "Crypto Keywords",
@@ -171,7 +173,7 @@ def get_rule_creation_help():
             },
             "behavioral": {
                 "description": "Matches against account behavior metrics.",
-                "fields": ["pattern" (behavior type, e.g., 'rapid_posting'), "weight", "action_type", "trigger_threshold", "description"],
+                "fields": ["pattern (behavior type, e.g., 'rapid_posting')", "weight", "action_type", "trigger_threshold", "description"],
                 "examples": [
                     {
                         "name": "Rapid Posting Behavior",

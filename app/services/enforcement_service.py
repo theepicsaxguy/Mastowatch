@@ -3,10 +3,9 @@ import time
 from typing import List, Optional
 from datetime import datetime, timedelta
 
-
 from app.db import SessionLocal
 from app.models import ScheduledAction, AuditLog
-from app.clients.mastodon.client import MastodonClient  # Assuming this is the generated client
+from app.mastodon_client import MastoClient as MastodonClient
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +33,6 @@ class EnforcementService:
         
         self._api_call_timestamps.append(time.time())
 
-    from app.clients.mastodon.api.admin import perform_action as api_perform_action
-
     def perform_account_action(
         self,
         account_id: str,
@@ -53,17 +50,38 @@ class EnforcementService:
         """
         self._check_rate_limit()
         try:
-            api_response = api_perform_action.sync_detailed(
-                client=self.mastodon_client._api_client,
-                id=account_id,
-                type=action_type,
-                report_id=report_id,
-                warning_text=warning_text,
-                preset_id=preset_id,
-                duration=duration,
-                text=comment,
-                status_ids=status_ids,
-            )
+            # For now, make a direct HTTP call since the generated API imports are not working
+            import httpx
+            
+            # Prepare the request data
+            data = {
+                "type": action_type,
+            }
+            if report_id:
+                data["report_id"] = report_id
+            if warning_text:
+                data["warning_text"] = warning_text
+            if preset_id:
+                data["preset_id"] = preset_id
+            if duration:
+                data["duration"] = duration
+            if comment:
+                data["text"] = comment
+            if status_ids:
+                data["status_ids"] = status_ids
+
+            # Make HTTP request to admin API
+            headers = {
+                "Authorization": f"Bearer {self.mastodon_client._token}",
+                "Content-Type": "application/json"
+            }
+            
+            url = f"{self.mastodon_client._base_url}/api/v1/admin/accounts/{account_id}/action"
+            
+            with httpx.Client() as client:
+                response = client.post(url, json=data, headers=headers, timeout=30.0)
+                response.raise_for_status()
+                api_response_data = response.json()
 
             with SessionLocal() as session:
                 # Log the action to the audit_log table
@@ -72,7 +90,7 @@ class EnforcementService:
                     target_account_id=account_id,
                     timestamp=datetime.utcnow(),
                     evidence={"report_id": report_id, "warning_text": warning_text, "preset_id": preset_id, "duration": duration, "comment": comment, "status_ids": status_ids},
-                    api_response=api_response.parsed.to_dict() if api_response.parsed else None, # Assuming pydantic model
+                    api_response=api_response_data,
                 )
                 session.add(audit_entry)
 
@@ -81,19 +99,19 @@ class EnforcementService:
                     expires_at = datetime.utcnow() + timedelta(seconds=duration)
                     scheduled_action = ScheduledAction(
                         mastodon_account_id=account_id,
-                        action_to_reverse=action_type,  # Store the action to reverse
+                        action_to_reverse=action_type,
                         expires_at=expires_at,
                     )
                     session.add(scheduled_action)
                 session.commit()
 
-            logger.info(f"Performed {action_type} on account {account_id}. Response: {api_response}")
+            logger.info(f"Performed {action_type} on account {account_id}. Response: {response.status_code}")
 
             # After a successful action, resolve the report if report_id is provided
             if report_id:
                 self.resolve_report(report_id)
 
-            return api_response
+            return api_response_data
 
         except Exception as e:
             logger.error(f"Failed to perform {action_type} on account {account_id}: {e}")
@@ -101,19 +119,17 @@ class EnforcementService:
 
     def unsilence_account(self, account_id: str):
         """
-        Reverses a silence action on an account.
+        Reverses a silence action on an account by setting action_type to 'none'.
         """
-        logger.info(f"Unsliencing account {account_id}")
-        return self.perform_account_action(account_id, "unsilence")
+        logger.info(f"Unsilencing account {account_id}")
+        return self.perform_account_action(account_id, "none")
 
     def unsuspend_account(self, account_id: str):
         """
-        Reverses a suspend action on an account.
+        Reverses a suspend action on an account by setting action_type to 'none'.
         """
         logger.info(f"Unsuspending account {account_id}")
-        return self.perform_account_action(account_id, "unsuspend")
-
-    from app.clients.mastodon.api.admin import create_domain_block as api_create_domain_block
+        return self.perform_account_action(account_id, "none")
 
     def block_domain(self, domain: str, severity: str, public_comment: Optional[str] = None, private_comment: Optional[str] = None):
         """
@@ -121,30 +137,44 @@ class EnforcementService:
         """
         self._check_rate_limit()
         try:
-            api_response = api_create_domain_block.sync_detailed(
-                client=self.mastodon_client._api_client,
-                domain=domain,
-                severity=severity,
-                public_comment=public_comment,
-                private_comment=private_comment
-            )
+            import httpx
+            
+            data = {
+                "domain": domain,
+                "severity": severity,
+            }
+            if public_comment:
+                data["public_comment"] = public_comment
+            if private_comment:
+                data["private_comment"] = private_comment
+
+            headers = {
+                "Authorization": f"Bearer {self.mastodon_client._token}",
+                "Content-Type": "application/json"
+            }
+            
+            url = f"{self.mastodon_client._base_url}/api/v1/admin/domain_blocks"
+            
+            with httpx.Client() as client:
+                response = client.post(url, json=data, headers=headers, timeout=30.0)
+                response.raise_for_status()
+                api_response_data = response.json()
+
             with SessionLocal() as session:
                 audit_entry = AuditLog(
                     action_type="domain_block",
-                    target_account_id=domain, # Using domain as target_account_id for consistency
+                    target_account_id=domain,  # Using domain as target_account_id for consistency
                     timestamp=datetime.utcnow(),
                     evidence={"severity": severity, "public_comment": public_comment, "private_comment": private_comment},
-                    api_response=api_response.parsed.to_dict() if api_response.parsed else None,
+                    api_response=api_response_data,
                 )
                 session.add(audit_entry)
                 session.commit()
-            logger.info(f"Blocked domain {domain} with severity {severity}. Response: {api_response}")
-            return api_response
+            logger.info(f"Blocked domain {domain} with severity {severity}. Response: {response.status_code}")
+            return api_response_data
         except Exception as e:
             logger.error(f"Failed to block domain {domain}: {e}")
             raise
-
-    from app.clients.mastodon.api.admin import resolve_report as api_resolve_report
 
     def resolve_report(self, report_id: str):
         """
@@ -152,9 +182,22 @@ class EnforcementService:
         """
         self._check_rate_limit()
         try:
-            api_response = api_resolve_report.sync_detailed(client=self.mastodon_client._api_client, id=report_id)
-            logger.info(f"Resolved report {report_id}. Response: {api_response}")
-            return api_response
+            import httpx
+            
+            headers = {
+                "Authorization": f"Bearer {self.mastodon_client._token}",
+                "Content-Type": "application/json"
+            }
+            
+            url = f"{self.mastodon_client._base_url}/api/v1/admin/reports/{report_id}/resolve"
+            
+            with httpx.Client() as client:
+                response = client.post(url, headers=headers, timeout=30.0)
+                response.raise_for_status()
+                api_response_data = response.json()
+
+            logger.info(f"Resolved report {report_id}. Response: {response.status_code}")
+            return api_response_data
         except Exception as e:
             logger.error(f"Failed to resolve report {report_id}: {e}")
             raise

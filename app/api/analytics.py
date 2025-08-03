@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Dict, Any, List
+import logging
 from datetime import datetime, timedelta
 
-from app.auth import require_api_key, get_api_key
-from app.db import SessionLocal
-from app.models import Account, Analysis, Report, ContentScan
-from app.oauth import User, require_admin_hybrid
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import desc, func
 
+from app.db import SessionLocal
+from app.models import Account, Analysis, ContentScan, Report
+from app.oauth import User, require_admin_hybrid
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/analytics/overview", tags=["analytics"])
@@ -245,3 +246,148 @@ def get_account_analyses(account_id: str, limit: int = 50, offset: int = 0, _: U
         return {
             "analyses": all_analyses[:limit]
         }
+
+
+@router.get("/analytics/scanning", tags=["analytics"])
+def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
+    """Get real-time scanning analytics and job tracking"""
+    try:
+        import redis
+
+        from app.config import get_settings
+        from app.enhanced_scanning import EnhancedScanningSystem
+        from app.models import ScanSession
+        
+        enhanced_scanner = EnhancedScanningSystem()
+        settings = get_settings()
+        
+        # Get active jobs from Redis/Celery
+        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        
+        # Get Celery queue length
+        queue_length = r.llen("celery")
+
+        with SessionLocal() as db:
+            # Get active scan sessions
+            active_sessions = db.query(ScanSession).filter(ScanSession.status == 'active').all()
+            
+            # Get recent completed sessions
+            recent_sessions = (
+                db.query(ScanSession)
+                .filter(ScanSession.completed_at.isnot(None))
+                .order_by(desc(ScanSession.completed_at))
+                .limit(5)
+                .all()
+            )
+
+            # Get last federated scan and domain check times
+            last_federated_scan_record = (
+                db.query(ScanSession.completed_at)
+                .filter(ScanSession.session_type == 'federated', ScanSession.status == 'completed')
+                .order_by(desc(ScanSession.completed_at))
+                .first()
+            )
+            
+            last_domain_check_record = (
+                db.query(ScanSession.completed_at)
+                .filter(ScanSession.session_type == 'domain_check', ScanSession.status == 'completed')
+                .order_by(desc(ScanSession.completed_at))
+                .first()
+            )
+            
+            # Get content scan statistics
+            content_scan_stats = db.query(
+                func.count(ContentScan.id).label('total_scans'),
+                func.count(ContentScan.id).filter(ContentScan.needs_rescan == True).label('needs_rescan'),
+                func.max(ContentScan.last_scanned_at).label('last_scan')
+            ).first()
+            
+            return {
+                "active_jobs": [],  # Placeholder for actual active Celery jobs if needed
+                "scan_sessions": [
+                    {
+                        "id": session.id,
+                        "session_type": session.session_type,
+                        "accounts_processed": session.accounts_processed,
+                        "total_accounts": session.total_accounts,
+                        "started_at": session.started_at.isoformat(),
+                        "status": session.status
+                    }
+                    for session in active_sessions
+                ],
+                "recent_completed_sessions": [
+                    {
+                        "id": session.id,
+                        "session_type": session.session_type,
+                        "accounts_processed": session.accounts_processed,
+                        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+                    }
+                    for session in recent_sessions
+                ],
+                "queue_length": queue_length,
+                "last_federated_scan": last_federated_scan_record[0].isoformat() if last_federated_scan_record else None,
+                "last_domain_check": last_domain_check_record[0].isoformat() if last_domain_check_record else None,
+                "content_scans": {
+                    "total": content_scan_stats.total_scans or 0,
+                    "needs_rescan": content_scan_stats.needs_rescan or 0,
+                    "last_scan": content_scan_stats.last_scan.isoformat() if content_scan_stats.last_scan else None
+                }
+            }
+            
+    except Exception as e:
+        logger.error("Failed to fetch scanning analytics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch scanning analytics")
+
+
+@router.get("/analytics/domains", tags=["analytics"])
+def get_domain_analytics(_: User = Depends(require_admin_hybrid)):
+    """Get domain analytics and federated scanning results"""
+    try:
+        from app.models import DomainAlert
+        
+        with SessionLocal() as db:
+            # Get domain alerts
+            domain_alerts = (
+                db.query(DomainAlert)
+                .order_by(desc(DomainAlert.violation_count))
+                .limit(50)
+                .all()
+            )
+            
+            # Get domain statistics from accounts
+            domain_stats = (
+                db.query(
+                    Account.domain,
+                    func.count(Account.id).label("account_count"),
+                    func.count(Analysis.id).label("analysis_count")
+                )
+                .outerjoin(Analysis, Account.mastodon_account_id == Analysis.mastodon_account_id)
+                .group_by(Account.domain)
+                .order_by(desc("analysis_count"))
+                .limit(20)
+                .all()
+            )
+            
+            return {
+                "domain_alerts": [
+                    {
+                        "domain": alert.domain,
+                        "violation_count": alert.violation_count,
+                        "last_violation_at": alert.last_violation_at.isoformat() if alert.last_violation_at else None,
+                        "is_defederated": alert.is_defederated,
+                        "defederated_at": alert.defederated_at.isoformat() if alert.defederated_at else None,
+                    }
+                    for alert in domain_alerts
+                ],
+                "domain_stats": [
+                    {
+                        "domain": stat.domain,
+                        "account_count": stat.account_count,
+                        "analysis_count": stat.analysis_count or 0
+                    }
+                    for stat in domain_stats
+                ]
+            }
+    except Exception as e:
+        logger.error("Failed to fetch domain analytics", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch domain analytics")

@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Dict, Any
+from sqlalchemy import func
 
 from app.auth import get_api_key
+from app.db import SessionLocal
 from app.enhanced_scanning import EnhancedScanningSystem
 from app.schemas import ScanSession, DomainAlert
+from app.models import ContentScan
 
 router = APIRouter()
 
@@ -50,3 +53,77 @@ async def get_domain_alerts(limit: int = 100, api_key: str = Depends(get_api_key
     scanner = EnhancedScanningSystem()
     alerts = scanner.get_domain_alerts(limit)
     return alerts
+
+
+@router.post("/scanning/federated", tags=["scanning"])
+def trigger_federated_scan(target_domains: List[str] = None, _: str = Depends(get_api_key)):
+    """Trigger federated content scanning"""
+    try:
+        from app.tasks.jobs import scan_federated_content
+        
+        # Start the task
+        task = scan_federated_content.delay(target_domains)
+        
+        return {
+            "message": "Federated scan initiated",
+            "task_id": task.id,
+            "target_domains": target_domains or "all"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start federated scan: {str(e)}")
+
+
+@router.post("/scanning/domain-check", tags=["scanning"])
+def trigger_domain_check(_: str = Depends(get_api_key)):
+    """Trigger domain violation checking"""
+    try:
+        from app.tasks.jobs import check_domain_violations
+        
+        # Start the task
+        task = check_domain_violations.delay()
+        
+        return {
+            "message": "Domain check initiated",
+            "task_id": task.id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start domain check: {str(e)}")
+
+
+@router.post("/scanning/invalidate-cache", tags=["scanning"])
+def invalidate_content_cache(rule_changes: bool = False, time_based: bool = False, _: str = Depends(get_api_key)):
+    """Invalidate content scan cache"""
+    try:
+        scanner = EnhancedScanningSystem()
+        
+        # Invalidate cache based on parameters
+        scanner.invalidate_content_scans(rule_changes=rule_changes, time_based=time_based)
+        
+        return {
+            "message": "Content cache invalidated",
+            "rule_changes": rule_changes,
+            "time_based": time_based
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to invalidate cache: {str(e)}")
+
+
+@router.get("/scanning/cache-status", tags=["scanning"])
+def get_cache_status(_: str = Depends(get_api_key)):
+    """Get content cache status and statistics"""
+    try:
+        from app.models import ContentScan
+        
+        with SessionLocal() as db:
+            total_scans = db.query(func.count(ContentScan.id)).scalar() or 0
+            needs_rescan = db.query(func.count(ContentScan.id)).filter(ContentScan.needs_rescan == True).scalar() or 0
+            last_scan = db.query(func.max(ContentScan.last_scanned_at)).scalar()
+            
+            return {
+                "total_cached_scans": total_scans,
+                "needs_rescan": needs_rescan,
+                "cache_hit_rate": (total_scans - needs_rescan) / total_scans if total_scans > 0 else 0,
+                "last_scan": last_scan.isoformat() if last_scan else None
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get cache status: {str(e)}")

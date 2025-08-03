@@ -10,6 +10,7 @@ from sqlalchemy.sql import func
 from app.config import get_settings
 from app.db import SessionLocal
 from app.clients.mastodon.client import Client
+from app.mastodon_client import MastoClient
 from app.metrics import (accounts_scanned, analyses_flagged, analysis_latency,
                          cursor_lag_pages, queue_backlog, report_latency,
                          reports_submitted)
@@ -30,12 +31,12 @@ CURSOR_NAME_LOCAL = "admin_accounts_local"
 
 def _get_admin_client():
     """Get a fresh admin client instance."""
-    return Client(base_url=str(settings.INSTANCE_BASE), token=settings.ADMIN_TOKEN)
+    return MastoClient(settings.ADMIN_TOKEN)
 
 
 def _get_bot_client():
     """Get a fresh bot client instance."""
-    return Client(base_url=str(settings.INSTANCE_BASE), token=settings.BOT_TOKEN)
+    return MastoClient(settings.BOT_TOKEN)
 
 
 
@@ -103,6 +104,9 @@ def poll_admin_accounts():
                 cursor=next_max
             )
             
+            # CRITICAL FIX: Update cursor immediately to avoid infinite loop
+            next_max = new_next
+            
             if not accounts:
                 break
             
@@ -146,7 +150,6 @@ def poll_admin_accounts():
             if not new_next:
                 break
             
-            next_max = new_next
             pages += 1
         
         enhanced_scanner.complete_scan_session(session_id)
@@ -189,6 +192,9 @@ def poll_admin_accounts_local():
                 limit=settings.BATCH_SIZE, 
                 cursor=next_max
             )
+            
+            # CRITICAL FIX: Update cursor immediately to avoid infinite loop
+            next_max = new_next
             
             if not accounts:
                 break
@@ -233,7 +239,6 @@ def poll_admin_accounts_local():
             if not new_next:
                 break
             
-            next_max = new_next
             pages += 1
         
         enhanced_scanner.complete_scan_session(session_id)
@@ -596,6 +601,9 @@ def process_new_status(status_payload: dict):
         if not account_data.get("id"):
             logging.warning("Status payload missing account ID, skipping processing.")
             return
+
+        admin_client = _get_admin_client()
+        enforcement_service = EnforcementService(mastodon_client=admin_client)
 
         # Evaluate the account and the new status against rules
         violations = rule_service.evaluate_account(account_data, [status_data])
