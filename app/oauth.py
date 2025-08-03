@@ -200,6 +200,23 @@ def require_authenticated(current_user: Optional[User] = Depends(get_current_use
     return current_user
 
 
+def require_admin_hybrid(current_user: User | None = Depends(get_current_user)) -> User:
+    """Dependency that requires an authenticated admin user (hybrid OAuth/API key)."""
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
+    return current_user
+
+
 def create_session_cookie(response: Response, user: User, settings) -> None:
     """Create and set session cookie"""
     oauth_config = get_oauth_config()
