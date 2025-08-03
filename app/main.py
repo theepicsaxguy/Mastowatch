@@ -1,31 +1,30 @@
-import redis
 import hashlib
 import hmac
-import json
 import logging
 import time
 from datetime import datetime
 
+import redis
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
-
-from app.config import get_settings
-from app.db import SessionLocal
-from app.logging_conf import setup_logging
-from app.startup_validation import run_all_startup_validations
-from app.services.rule_service import rule_service
-from app.tasks.jobs import process_new_report, process_new_status
+from starlette.middleware.sessions import SessionMiddleware
 
 # Import API routers
 from app.api.analytics import router as analytics_router
-from app.api.rules import router as rules_router
-from app.api.config import router as config_router
-from app.api.scanning import router as scanning_router
 from app.api.auth import router as auth_router
+from app.api.config import router as config_router
+from app.api.rules import router as rules_router
+from app.api.scanning import router as scanning_router
+from app.config import get_settings
+from app.db import SessionLocal
+from app.logging_conf import setup_logging
+from app.services.rule_service import rule_service
+from app.startup_validation import run_all_startup_validations
+from app.tasks.jobs import process_new_report, process_new_status
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -35,6 +34,10 @@ run_all_startup_validations()
 
 app = FastAPI(title="MastoWatch", version="1.0.0")
 settings = get_settings()
+
+# Add session middleware for OAuth2 flow (uses SESSION_SECRET_KEY from settings)
+if settings.SESSION_SECRET_KEY:
+    app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 
 # Register API routers
 app.include_router(analytics_router)
@@ -123,7 +126,8 @@ def healthz():
             },
         )
         raise HTTPException(
-            status_code=500, detail={"error": "health_check_failed", "message": "Health check endpoint encountered an error"}
+            status_code=500,
+            detail={"error": "health_check_failed", "message": "Health check endpoint encountered an error"},
         )
 
 
@@ -230,7 +234,11 @@ async def webhook_mastodon_events(request: Request):
             )
             raise HTTPException(
                 status_code=400,
-                detail={"error": "invalid_json_payload", "message": "Failed to parse JSON payload", "request_id": request_id},
+                detail={
+                    "error": "invalid_json_payload",
+                    "message": "Failed to parse JSON payload",
+                    "request_id": request_id,
+                },
             )
 
         # Route events to appropriate Celery tasks
@@ -239,7 +247,7 @@ async def webhook_mastodon_events(request: Request):
         r = redis.from_url(settings.REDIS_URL)
         event_dedupe_key = f"webhook_dedupe:{event_type}:{payload.get('id', hashlib.sha256(body).hexdigest())}"
         if r.setnx(event_dedupe_key, "1"):
-            r.expire(event_dedupe_key, 60) # Deduplicate for 60 seconds
+            r.expire(event_dedupe_key, 60)  # Deduplicate for 60 seconds
         else:
             logger.info(f"Duplicate webhook event received: {event_type}", extra={"request_id": request_id})
             return {"ok": True, "message": f"Duplicate event: {event_type}", "request_id": request_id}
@@ -300,4 +308,5 @@ async def webhook_mastodon_events(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

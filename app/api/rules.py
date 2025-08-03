@@ -445,14 +445,3 @@ def reload_rules(user: User = Depends(require_admin_hybrid)):
         raise HTTPException(
             status_code=500, detail={"error": "rules_reload_failed", "message": f"Failed to reload rules: {str(e)}"}
         ) from e
-
-
-@router.get("/analytics/rules/statistics", tags=["analytics"])
-def get_rule_statistics(user: User = Depends(require_admin_hybrid)):
-    """Get comprehensive rule statistics and performance metrics."""
-    try:
-        rule_stats = rule_service.get_rule_statistics()
-        return rule_stats
-    except Exception as e:
-        logger.error("Failed to fetch rule statistics", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Failed to fetch rule statistics") from e

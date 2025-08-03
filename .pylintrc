@@ -1,6 +1,5 @@
 [MAIN]
 py-version = 3.12
-load-plugins = pylint_restricted_imports
 
 [FORMAT]
 max-module-lines = 500
