@@ -1,3 +1,24 @@
+x-backend: &backend
+  build: .
+  env_file:
+    - .env
+
+x-backend-env: &backend-env
+  INSTANCE_BASE: "${INSTANCE_BASE}"
+  ADMIN_TOKEN: "${ADMIN_TOKEN}"
+  BOT_TOKEN: "${BOT_TOKEN}"
+  DATABASE_URL: "postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch"
+  REDIS_URL: "redis://redis:6379/0"
+  DRY_RUN: "true"
+  MAX_PAGES_PER_POLL: "3"
+  MAX_STATUSES_TO_FETCH: "100"
+  REPORT_CATEGORY_DEFAULT: "spam"
+  FORWARD_REMOTE_REPORTS: "false"
+  POLICY_VERSION: "v1"
+  API_KEY: "${API_KEY}"
+  WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
+  CORS_ORIGINS: '["http://localhost:5173"]'
+
 services:
   db:
     image: postgres:17
@@ -16,9 +37,7 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
 
   api:
-    build: .
-    env_file:
-      - .env
+    <<: *backend
     depends_on:
       db:
         condition: service_healthy
@@ -27,20 +46,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      INSTANCE_BASE: "${INSTANCE_BASE}"
-      ADMIN_TOKEN: "${ADMIN_TOKEN}"
-      BOT_TOKEN: "${BOT_TOKEN}"
-      DATABASE_URL: "postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch"
-      REDIS_URL: "redis://redis:6379/0"
-      DRY_RUN: "true"
-      MAX_PAGES_PER_POLL: "3"
-      MAX_STATUSES_TO_FETCH: "100"
-      REPORT_CATEGORY_DEFAULT: "spam"
-      FORWARD_REMOTE_REPORTS: "false"
-      POLICY_VERSION: "v1"
-      API_KEY: "${API_KEY}"
-      WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
-      CORS_ORIGINS: '["http://localhost:5173"]'
+      <<: *backend-env
     ports: ["8080:8080"]
     restart: on-failure
     healthcheck:
@@ -51,9 +57,7 @@ services:
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 
   migrate:
-    build: .
-    env_file:
-      - .env
+    <<: *backend
     depends_on:
       db:
         condition: service_healthy
@@ -62,50 +66,20 @@ services:
     command: ["alembic", "upgrade", "head"]
 
   worker:
-    build: .
-    env_file:
-      - .env
+    <<: *backend
     depends_on:
       - api
       - redis
     environment:
-      INSTANCE_BASE: "${INSTANCE_BASE}"
-      ADMIN_TOKEN: "${ADMIN_TOKEN}"
-      BOT_TOKEN: "${BOT_TOKEN}"
-      DATABASE_URL: "postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch"
-      REDIS_URL: "redis://redis:6379/0"
-      DRY_RUN: "true"
-      MAX_PAGES_PER_POLL: "3"
-      MAX_STATUSES_TO_FETCH: "100"
-      REPORT_CATEGORY_DEFAULT: "spam"
-      FORWARD_REMOTE_REPORTS: "false"
-      POLICY_VERSION: "v1"
-      API_KEY: "${API_KEY}"
-      WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
-      CORS_ORIGINS: '["http://localhost:5173"]'
+      <<: *backend-env
     restart: on-failure
     command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
 
   beat:
-    build: .
-    env_file:
-      - .env
+    <<: *backend
     depends_on:
       - worker
     environment:
-      INSTANCE_BASE: "${INSTANCE_BASE}"
-      ADMIN_TOKEN: "${ADMIN_TOKEN}"
-      BOT_TOKEN: "${BOT_TOKEN}"
-      DATABASE_URL: "postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch"
-      REDIS_URL: "redis://redis:6379/0"
-      DRY_RUN: "true"
-      MAX_PAGES_PER_POLL: "3"
-      MAX_STATUSES_TO_FETCH: "100"
-      REPORT_CATEGORY_DEFAULT: "spam"
-      FORWARD_REMOTE_REPORTS: "false"
-      POLICY_VERSION: "v1"
-      API_KEY: "${API_KEY}"
-      WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
-      CORS_ORIGINS: '["http://localhost:5173"]'
+      <<: *backend-env
     restart: on-failure
     command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
