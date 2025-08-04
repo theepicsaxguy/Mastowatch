@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint."""
+
 import hashlib
 import hmac
 import logging
@@ -13,7 +15,6 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
-# Import API routers
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
 from app.api.config import router as config_router
@@ -28,18 +29,13 @@ from app.tasks.jobs import process_new_report, process_new_status
 
 setup_logging()
 logger = logging.getLogger(__name__)
-
-# Run startup validations before anything else
 run_all_startup_validations()
-
-app = FastAPI(title="MastoWatch", version="1.0.0")
 settings = get_settings()
+app = FastAPI(title="MastoWatch", version=settings.VERSION)
 
-# Add session middleware for OAuth2 flow (uses SESSION_SECRET_KEY from settings)
 if settings.SESSION_SECRET_KEY:
     app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 
-# Register API routers
 app.include_router(analytics_router)
 app.include_router(rules_router)
 app.include_router(config_router)
@@ -55,7 +51,6 @@ if settings.CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-# Mount dashboard if present (built by the frontend build step)
 try:
     app.mount("/dashboard", StaticFiles(directory="static/dashboard", html=True), name="dashboard")
 except Exception:
@@ -64,7 +59,7 @@ except Exception:
 
 @app.get("/healthz", tags=["ops"])
 def healthz():
-    """Health check endpoint with comprehensive system status"""
+    """Health check endpoint with comprehensive system status."""
     start_time = time.time()
     health_data = {
         "ok": True,
@@ -78,7 +73,6 @@ def healthz():
     }
 
     try:
-        # Test database connection
         try:
             with SessionLocal() as db:
                 db.execute(text("SELECT 1"))
@@ -88,7 +82,6 @@ def healthz():
             logger.error("Database health check failed", extra={"error": str(e), "error_type": type(e).__name__})
             health_data["db_ok"] = False
 
-        # Test Redis connection
         try:
             r = redis.from_url(settings.REDIS_URL)
             health_data["redis_ok"] = r.ping()
@@ -109,7 +102,6 @@ def healthz():
                     "response_time_ms": health_data["response_time_ms"],
                 },
             )
-            # Return 503 for failed health checks
             raise HTTPException(status_code=503, detail=health_data)
 
         return health_data
@@ -128,25 +120,30 @@ def healthz():
         raise HTTPException(
             status_code=500,
             detail={"error": "health_check_failed", "message": "Health check endpoint encountered an error"},
-        )
+        ) from e
 
 
 @app.get("/metrics", response_class=PlainTextResponse, tags=["ops"])
 def metrics():
+    """Expose Prometheus metrics."""
     return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/dryrun/evaluate", tags=["ops"])
 async def dryrun_evaluate(payload: dict):
+    """Run rule evaluation without filing reports."""
     acct = payload.get("account") or {}
     statuses = payload.get("statuses") or []
     score, hits = rule_service.eval_account(acct, statuses)
     return {"score": score, "hits": hits}
 
 
+SIGNATURE_PREVIEW_LENGTH = 20
+
+
 @app.post("/webhooks/mastodon_events", tags=["webhooks"])
 async def webhook_mastodon_events(request: Request):
-    """Handle incoming Mastodon event webhooks with signature validation and event routing"""
+    """Handle Mastodon webhooks with signature verification."""
     start_time = time.time()
     request_id = f"webhook_{int(start_time * 1000)}"
 
@@ -166,7 +163,6 @@ async def webhook_mastodon_events(request: Request):
             },
         )
 
-        # Validate webhook is configured
         if not settings.WEBHOOK_SECRET:
             logger.warning("Webhook received but WEBHOOK_SECRET not configured", extra={"request_id": request_id})
             raise HTTPException(
@@ -178,7 +174,6 @@ async def webhook_mastodon_events(request: Request):
                 },
             )
 
-        # Validate signature
         sig_hdr = settings.WEBHOOK_SIG_HEADER
         provided = request.headers.get(sig_hdr, "")
         if not provided.startswith("sha256="):
@@ -187,7 +182,11 @@ async def webhook_mastodon_events(request: Request):
                 extra={
                     "request_id": request_id,
                     "signature_header": sig_hdr,
-                    "provided_prefix": provided[:20] + "..." if len(provided) > 20 else provided,
+                    "provided_prefix": (
+                        provided[:SIGNATURE_PREVIEW_LENGTH] + "..."
+                        if len(provided) > SIGNATURE_PREVIEW_LENGTH
+                        else provided
+                    ),
                 },
             )
             raise HTTPException(
@@ -220,7 +219,6 @@ async def webhook_mastodon_events(request: Request):
                 },
             )
 
-        # Parse payload
         try:
             payload = await request.json()
         except Exception as e:
@@ -239,11 +237,9 @@ async def webhook_mastodon_events(request: Request):
                     "message": "Failed to parse JSON payload",
                     "request_id": request_id,
                 },
-            )
+            ) from e
 
-        # Route events to appropriate Celery tasks
         task_id = None
-        # Deduplication using Redis SETNX
         r = redis.from_url(settings.REDIS_URL)
         event_dedupe_key = f"webhook_dedupe:{event_type}:{payload.get('id', hashlib.sha256(body).hexdigest())}"
         if r.setnx(event_dedupe_key, "1"):
@@ -303,7 +299,7 @@ async def webhook_mastodon_events(request: Request):
         raise HTTPException(
             status_code=500,
             detail={"error": "internal_server_error", "message": "Webhook processing failed", "request_id": request_id},
-        )
+        ) from e
 
 
 if __name__ == "__main__":

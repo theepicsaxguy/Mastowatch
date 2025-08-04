@@ -45,6 +45,7 @@ Set these in `.env` (copied from `.env.example`):
 * `SESSION_SECRET_KEY`: Random secret for session cookies
 
 ### Optional Settings
+* `VERSION`: version string shown in `/healthz` and the OpenAPI schema (default: `0.1.0`)
 * `DRY_RUN`: `true` to log without sending reports (default: `false`)
 * `PANIC_STOP`: `true` to halt all processing (default: `false`)
 * `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
