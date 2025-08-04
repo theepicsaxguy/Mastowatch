@@ -148,7 +148,7 @@ Endpoints:
 * `GET /api/v1/me` - Get current user information
 
 #### Testing & Validation  
-* `POST /dryrun/evaluate` - Test rule evaluation (body: `{"account": {...}, "statuses": [...]})`)
+* `POST /dryrun/evaluate` - Test rule evaluation (body: `{"account": {...}, "statuses": [...]}`) returns `{"score": float, "hits": [[rule, weight, evidence], ...]}`
 
 #### Webhooks
 * `POST /webhooks/status` - Webhook endpoint for Mastodon status updates (requires signature validation)
