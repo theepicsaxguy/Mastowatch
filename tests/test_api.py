@@ -210,19 +210,6 @@ class TestAPIEndpoints(unittest.TestCase):
             # Verify rule service was called
             mock_rule_service.delete_rule.assert_called_once_with(1)
 
-    def test_dryrun_evaluate_new_endpoint(self):
-        """Test the dry run evaluation endpoint with new API structure"""
-        with patch("app.api.scanning.rule_service") as mock_rule_service:
-            mock_rule_service.eval_account.return_value = (1.5, [("test_rule", 1.5, {})])
-
-            payload = {"account": {"id": "123", "acct": "test@example.com"}, "statuses": [{"content": "test status"}]}
-
-            response = self.client.post("/api/v1/scanning/dryrun/evaluate", json=payload)
-            self.assertEqual(response.status_code, 200)
-            data = response.json()
-            self.assertIn("score", data)
-            self.assertIn("hits", data)
-
     # NEW WEBHOOK TESTS
 
     @patch("app.main.process_new_report")

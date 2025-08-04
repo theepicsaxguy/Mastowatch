@@ -336,14 +336,14 @@ def analyze_and_maybe_report(payload: dict):
         # Check if we already have a cached scan result
         cached_result = payload.get("scan_result")
         if cached_result:
-            # Use cached scan result
             score = cached_result.get("score", 0)
             hits = [(hit["rule"], hit["weight"], hit["evidence"]) for hit in cached_result.get("rule_hits", [])]
         else:
-            # Perform fresh analysis using the new rule service
             admin = _get_admin_client()
             statuses = admin.get_account_statuses(account_id=acct_id, limit=settings.MAX_STATUSES_TO_FETCH)
-            score, hits = rule_service.eval_account(acct, statuses)
+            violations = rule_service.evaluate_account(acct, statuses)
+            score = sum(v.score for v in violations)
+            hits = [(f"{v.rule_type}/{v.rule_name}", v.score, v.evidence or {}) for v in violations]
 
         accounts_scanned.inc()
         analysis_latency.observe(max(0.0, time.time() - started))

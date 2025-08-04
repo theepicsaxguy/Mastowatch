@@ -31,6 +31,8 @@ os.environ.update(
 # Add the app directory to the path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.schemas import Violation
+
 
 class TestEnhancedScanningSystem(unittest.TestCase):
     """Test enhanced scanning system functionality"""
@@ -52,14 +54,10 @@ class TestEnhancedScanningSystem(unittest.TestCase):
         self.mock_client_instance = MagicMock()
         self.mock_masto_client.return_value = self.mock_client_instance
 
-        # Mock Rules
-        self.rules_patcher = patch("app.scanning.Rules")
-        self.mock_rules = self.rules_patcher.start()
-        self.mock_rules_instance = MagicMock()
-        self.mock_rules.from_yaml.return_value = self.mock_rules_instance
-        self.mock_rules_instance.ruleset_sha256 = "test_sha256"
-        self.mock_rules_instance.cfg = {"report_threshold": 1.0}
-        self.mock_rules_instance.eval_account.return_value = (0.5, [])
+        self.rule_service_patcher = patch("app.scanning.rule_service")
+        self.mock_rule_service = self.rule_service_patcher.start()
+        self.mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha256")
+        self.mock_rule_service.evaluate_account.return_value = []
 
         from app.scanning import EnhancedScanningSystem
 
@@ -68,7 +66,7 @@ class TestEnhancedScanningSystem(unittest.TestCase):
     def tearDown(self):
         self.db_patcher.stop()
         self.client_patcher.stop()
-        self.rules_patcher.stop()
+        self.rule_service_patcher.stop()
 
     def test_content_hash_calculation(self):
         """Test content hash calculation for deduplication"""
@@ -268,17 +266,16 @@ class TestEnhancedScanningSystem(unittest.TestCase):
 
         # Mock should_scan_account to return True
         with patch.object(self.scanning_system, "should_scan_account", return_value=True):
-            # Mock API response for statuses
             mock_response = MagicMock()
             mock_response.json.return_value = [{"id": "status1", "content": "Test status"}]
             self.mock_client_instance.get.return_value = mock_response
 
-            # Mock rule evaluation
-            self.mock_rules_instance.eval_account.return_value = (0.8, [("test_rule", 0.8, {})])
+            self.mock_rule_service.evaluate_account.return_value = [
+                Violation(rule_name="test_rule", rule_type="t", score=0.8, evidence={})
+            ]
 
             result = self.scanning_system.scan_account_efficiently(account_data, 1)
 
-            # Verify scan result
             self.assertIsNotNone(result)
             self.assertIn("score", result)
             self.assertIn("hits", result)
@@ -405,12 +402,10 @@ class TestEnhancedScanningSystem(unittest.TestCase):
 
     def test_rules_snapshot_generation(self):
         """Test generating rules snapshot for session tracking"""
-        # Mock rules data
-        self.mock_rules_instance.get_all_rules.return_value = {"test": ["rule1", "rule2"]}
+        self.mock_rule_service.get_active_rules.return_value = ([1, 2], {"report_threshold": 1.0}, "test_sha256")
 
         snapshot = self.scanning_system._get_current_rules_snapshot()
 
-        # Verify snapshot contents
         self.assertIn("rules_version", snapshot)
         self.assertIn("report_threshold", snapshot)
         self.assertIn("rule_count", snapshot)
@@ -427,10 +422,10 @@ class TestEnhancedScanningSystem(unittest.TestCase):
         }
 
         with patch.object(self.scanning_system, "should_scan_account", return_value=True):
-            # Mock high violation score
-            self.mock_rules_instance.eval_account.return_value = (1.5, [("spam_rule", 1.5, {})])
+            self.mock_rule_service.evaluate_account.return_value = [
+                Violation(rule_name="spam_rule", rule_type="t", score=1.5, evidence={})
+            ]
 
-            # Mock API response
             mock_response = MagicMock()
             mock_response.json.return_value = [{"content": "spam content"}]
             self.mock_client_instance.get.return_value = mock_response
@@ -438,7 +433,6 @@ class TestEnhancedScanningSystem(unittest.TestCase):
             with patch.object(self.scanning_system, "_track_domain_violation") as mock_track:
                 result = self.scanning_system.scan_account_efficiently(account_data, 1)
 
-                # Verify violation was tracked
                 mock_track.assert_called_once_with("bad.example")
 
 

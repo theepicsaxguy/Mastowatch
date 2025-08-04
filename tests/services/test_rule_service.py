@@ -10,7 +10,6 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import Base
 from app.models import Rule
-from app.schemas import Violation
 from app.services.rule_service import RuleService
 
 
@@ -108,64 +107,6 @@ class TestRuleService(unittest.TestCase):
         # Verify SHA is generated
         self.assertIsInstance(ruleset_sha, str)
         self.assertEqual(len(ruleset_sha), 64)  # SHA256 length
-
-    def test_eval_account_legacy_interface(self):
-        """Test account evaluation using legacy eval_account interface."""
-        account = {
-            "acct": "crypto_trader@example.com",
-            "username": "crypto_trader",
-            "note": "This account discusses casino games and adult content.",
-            "display_name": "Crypto Trader",
-            "statuses_count": 10,
-            "followers_count": 5,
-            "following_count": 20,
-            "created_at": "2023-01-01T00:00:00.000Z",
-        }
-
-        statuses = [
-            {"content": "Check out these casino deals!", "id": "1"},
-            {"content": "Regular content here", "id": "2"},
-        ]
-
-        # Mock the detectors to return predictable violations
-        with patch.object(self.rule_service.detectors["regex"], "evaluate") as mock_regex:
-            with patch.object(self.rule_service.detectors["keyword"], "evaluate") as mock_keyword:
-                # Mock regex detector to return violation for crypto rule
-                mock_regex.return_value = [
-                    Violation(
-                        rule_name="crypto_username_test",
-                        rule_type="regex",
-                        score=1.5,
-                        evidence={"matched_pattern": "crypto", "field": "username"},
-                    )
-                ]
-
-                # Mock keyword detector to return violation for spam rule
-                mock_keyword.return_value = [
-                    Violation(
-                        rule_name="spam_keywords_test",
-                        rule_type="keyword",
-                        score=2.0,
-                        evidence={"matched_keywords": ["casino"], "field": "content"},
-                    )
-                ]
-
-                score, hits = self.rule_service.eval_account(account, statuses)
-
-                # Should get combined score from both violations
-                self.assertEqual(score, 3.5)  # 1.5 + 2.0
-
-                # Should have 2 hits in legacy format
-                self.assertEqual(len(hits), 2)
-
-                # Check hit format: (rule_key, weight, evidence)
-                rule_keys = [hit[0] for hit in hits]
-                weights = [hit[1] for hit in hits]
-
-                self.assertIn("regex/crypto_username_test", rule_keys)
-                self.assertIn("keyword/spam_keywords_test", rule_keys)
-                self.assertIn(1.5, weights)
-                self.assertIn(2.0, weights)
 
     def test_evaluate_account_new_interface(self):
         """Test account evaluation using new evaluate_account interface."""
