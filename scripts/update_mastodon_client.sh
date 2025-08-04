@@ -157,21 +157,22 @@ regenerate_client() {
     # Generate new client
     cd "$PROJECT_ROOT"
     
+    # Create config file to skip post-generation checks
+    cat > openapi-python-client.yaml << EOF
+post_gen_checks: false
+EOF
+    
     log_info "Generating new client (this may take a moment)..."
-    if openapi-python-client generate --path "$SCHEMA_DEST" --meta none 2>&1 | tee /tmp/openapi-generate.log; then
-        # Move generated client to correct location
-        if [ -d "mastodon_api_client" ]; then
-            mkdir -p "$(dirname "$CLIENT_DIR")"
-            mv "mastodon_api_client" "$CLIENT_DIR"
-            log_success "Client generated successfully at: $CLIENT_DIR"
-        else
-            log_error "Generated client directory not found"
-            exit 1
-        fi
+    if # Generate new Mastodon API client directly into the correct location
+openapi-python-client generate --path specs/openapi.json --meta none --overwrite --output-path "$(dirname "$0")/../app/clients/mastodon" 2>&1 | tee /tmp/openapi-generate.log; then
+        log_success "Client generated successfully at: $CLIENT_DIR"
     else
         log_error "Failed to generate client. Check /tmp/openapi-generate.log for details"
         exit 1
     fi
+    
+    # Clean up config file
+    rm -f openapi-python-client.yaml
     
     # Show generation warnings/info
     if grep -q "WARNING" /tmp/openapi-generate.log; then
