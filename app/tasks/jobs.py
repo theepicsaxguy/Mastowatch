@@ -9,7 +9,6 @@ from sqlalchemy.sql import func
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.enhanced_scanning import EnhancedScanningSystem
 from app.mastodon_client import MastoClient
 from app.metrics import (
     accounts_scanned,
@@ -21,6 +20,7 @@ from app.metrics import (
     reports_submitted,
 )
 from app.models import Account, Analysis, Cursor, Report, ScheduledAction
+from app.scanning import EnhancedScanningSystem
 from app.services.enforcement_service import EnforcementService
 from app.services.rule_service import rule_service
 from app.util import make_dedupe_key

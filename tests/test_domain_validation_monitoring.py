@@ -1,5 +1,4 @@
-"""
-Test suite for domain validation, monitoring, and federated scanning functionality:
+"""Test suite for domain validation, monitoring, and federated scanning functionality:
 - Domain validation connection errors and hostname issues
 - Federated scanning 422 error handling
 - Domain monitoring metrics and alerts
@@ -16,17 +15,19 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Set test environment before any imports
-os.environ.update({
-    "SKIP_STARTUP_VALIDATION": "1",
-    "INSTANCE_BASE": "https://test.mastodon.social",
-    "ADMIN_TOKEN": "test_admin_token_123456789",
-    "BOT_TOKEN": "test_bot_token_123456789",
-    "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5433/mastowatch_test",
-    "REDIS_URL": "redis://localhost:6380/1",
-    "DEFEDERATION_THRESHOLD": "10",
-    "CONTENT_CACHE_TTL": "24",
-    "FEDERATED_SCAN_ENABLED": "true"
-})
+os.environ.update(
+    {
+        "SKIP_STARTUP_VALIDATION": "1",
+        "INSTANCE_BASE": "https://test.mastodon.social",
+        "ADMIN_TOKEN": "test_admin_token_123456789",
+        "BOT_TOKEN": "test_bot_token_123456789",
+        "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5433/mastowatch_test",
+        "REDIS_URL": "redis://localhost:6380/1",
+        "DEFEDERATION_THRESHOLD": "10",
+        "CONTENT_CACHE_TTL": "24",
+        "FEDERATED_SCAN_ENABLED": "true",
+    }
+)
 
 # Add the app directory to the path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -70,6 +71,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         self.mock_scanning_system.return_value = self.mock_scanning_instance
 
         from app.main import app
+
         self.app = app
         self.client = TestClient(app)
 
@@ -83,13 +85,14 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def create_mock_admin_user(self):
         """Create mock admin user for testing"""
         from app.oauth import User
+
         return User(
             id="admin_123",
             username="testadmin",
             acct="testadmin@test.example",
             display_name="Test Admin",
             is_admin=True,
-            avatar=None
+            avatar=None,
         )
 
     # ========== DOMAIN VALIDATION ERROR HANDLING TESTS ==========
@@ -98,13 +101,13 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_validation_connection_refused_localhost(self, mock_auth):
         """Test domain validation handling connection refused to localhost error"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Simulate connection refused error
         self.mock_domain_check.delay.side_effect = Exception("Connection refused to localhost:8080")
-        
+
         response = self.client.post("/scanning/domain-check")
         self.assertEqual(response.status_code, 500)
-        
+
         data = response.json()
         self.assertIn("detail", data)
 
@@ -112,10 +115,10 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_validation_hostname_defaulting_error(self, mock_auth):
         """Test handling of hostname defaulting to 'localhost' error"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Simulate hostname error
         self.mock_domain_check.delay.side_effect = Exception("hostname defaulting to 'localhost'")
-        
+
         response = self.client.post("/scanning/domain-check")
         self.assertEqual(response.status_code, 500)
 
@@ -123,10 +126,10 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_validation_500_internal_server_error(self, mock_auth):
         """Test handling of 500 Internal Server Error during domain validation"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Simulate 500 error
         self.mock_scanning_instance.get_domain_alerts.side_effect = Exception("500 Internal Server Error")
-        
+
         response = self.client.post("/scanning/domain-check")
         self.assertEqual(response.status_code, 500)
 
@@ -134,11 +137,10 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_validation_network_timeout(self, mock_auth):
         """Test handling of network timeouts during domain validation"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Simulate network timeout
-        import socket
-        self.mock_domain_check.delay.side_effect = socket.timeout("Domain validation timeout")
-        
+        self.mock_domain_check.delay.side_effect = TimeoutError("Domain validation timeout")
+
         response = self.client.post("/scanning/domain-check")
         self.assertEqual(response.status_code, 500)
 
@@ -148,16 +150,16 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_federated_scan_422_unprocessable_content(self, mock_auth):
         """Test federated scanning handles 422 Unprocessable Content error"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock 422 error from federated scan
         class FederatedScan422Error(Exception):
             def __init__(self):
                 self.status_code = 422
                 self.message = "Unprocessable Content"
                 super().__init__("422 Unprocessable Content")
-        
+
         self.mock_federated_scan.delay.side_effect = FederatedScan422Error()
-        
+
         response = self.client.post("/scanning/federated")
         self.assertEqual(response.status_code, 500)
 
@@ -165,10 +167,10 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_federated_scan_processing_data_issues(self, mock_auth):
         """Test federated scanning with data processing issues"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Simulate data processing error
         self.mock_federated_scan.delay.side_effect = Exception("Error processing received data")
-        
+
         response = self.client.post("/scanning/federated")
         self.assertEqual(response.status_code, 500)
 
@@ -176,12 +178,12 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_federated_scan_domain_specific_errors(self, mock_auth):
         """Test federated scanning with domain-specific errors"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Test with specific domains that cause errors
         target_domains = ["problematic.domain", "error.example"]
-        
+
         response = self.client.post("/scanning/federated", json={"domains": target_domains})
-        
+
         # Should still return success even if task enqueueing fails
         self.assertIn(response.status_code, [200, 500])
 
@@ -189,13 +191,13 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_federated_scan_api_client_integration(self, mock_auth):
         """Test federated scanning using auto-generated API client"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock successful federated scan
         self.mock_federated_scan.delay.return_value = self.mock_federated_task
-        
+
         response = self.client.post("/scanning/federated")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertIn("task_id", data)
         self.assertEqual(data["task_id"], "federated_task_123")
@@ -206,13 +208,13 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_monitoring_zero_metrics(self, mock_auth):
         """Test domain monitoring provides zero metrics when no data available"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock empty domain alerts
         self.mock_scanning_instance.get_domain_alerts.return_value = []
-        
+
         response = self.client.get("/analytics/domains")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertIn("domain_alerts", data)
         self.assertEqual(len(data["domain_alerts"]), 0)
@@ -221,7 +223,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_monitoring_comprehensive_metrics(self, mock_auth):
         """Test domain monitoring provides monitored, high-risk, and defederated domain metrics"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock comprehensive domain data
         mock_domain_alerts = [
             {
@@ -229,14 +231,14 @@ class TestDomainValidationMonitoring(unittest.TestCase):
                 "violation_count": 3,
                 "defederation_threshold": 10,
                 "is_defederated": False,
-                "last_violation_at": datetime.utcnow().isoformat()
+                "last_violation_at": datetime.utcnow().isoformat(),
             },
             {
-                "domain": "highrisk.example", 
+                "domain": "highrisk.example",
                 "violation_count": 8,
                 "defederation_threshold": 10,
                 "is_defederated": False,
-                "last_violation_at": datetime.utcnow().isoformat()
+                "last_violation_at": datetime.utcnow().isoformat(),
             },
             {
                 "domain": "defederated.example",
@@ -244,26 +246,30 @@ class TestDomainValidationMonitoring(unittest.TestCase):
                 "defederation_threshold": 10,
                 "is_defederated": True,
                 "defederated_at": datetime.utcnow().isoformat(),
-                "defederated_by": "automated_system"
-            }
+                "defederated_by": "automated_system",
+            },
         ]
-        
+
         self.mock_scanning_instance.get_domain_alerts.return_value = mock_domain_alerts
-        
+
         response = self.client.get("/analytics/domains")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertIn("domain_alerts", data)
         self.assertEqual(len(data["domain_alerts"]), 3)
-        
+
         # Verify metrics calculation
         monitored_count = len([d for d in mock_domain_alerts if not d["is_defederated"]])
-        high_risk_count = len([d for d in mock_domain_alerts 
-                              if d["violation_count"] >= d["defederation_threshold"] * 0.8 
-                              and not d["is_defederated"]])
+        high_risk_count = len(
+            [
+                d
+                for d in mock_domain_alerts
+                if d["violation_count"] >= d["defederation_threshold"] * 0.8 and not d["is_defederated"]
+            ]
+        )
         defederated_count = len([d for d in mock_domain_alerts if d["is_defederated"]])
-        
+
         self.assertEqual(monitored_count, 2)
         self.assertEqual(high_risk_count, 1)  # highrisk.example (8/10 >= 80%)
         self.assertEqual(defederated_count, 1)
@@ -272,29 +278,29 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_monitoring_federated_api_loading(self, mock_auth):
         """Test domain monitoring loads federated domains from client API"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock federated domains from API
         mock_federated_domains = [
             {"domain": "federated1.social", "violation_count": 2},
-            {"domain": "federated2.network", "violation_count": 5}
+            {"domain": "federated2.network", "violation_count": 5},
         ]
-        
+
         self.mock_scanning_instance.get_domain_alerts.return_value = mock_federated_domains
-        
+
         response = self.client.get("/analytics/domains")
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify API was called to get domain data
         self.mock_scanning_instance.get_domain_alerts.assert_called_once()
 
-    @patch("app.main.require_admin_hybrid") 
+    @patch("app.main.require_admin_hybrid")
     def test_domain_monitoring_api_failure_handling(self, mock_auth):
         """Test domain monitoring handles API failures gracefully"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Simulate API failure
         self.mock_scanning_instance.get_domain_alerts.side_effect = Exception("API connection failed")
-        
+
         response = self.client.get("/analytics/domains")
         self.assertEqual(response.status_code, 500)
 
@@ -304,7 +310,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_real_time_job_tracking_15_second_refresh(self, mock_auth):
         """Test real-time job tracking with 15-second refresh capability"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock job tracking data with timestamps
         mock_job_data = {
             "active_jobs": [
@@ -314,21 +320,21 @@ class TestDomainValidationMonitoring(unittest.TestCase):
                     "status": "running",
                     "progress": 45,
                     "started_at": datetime.utcnow().isoformat(),
-                    "eta_seconds": 900
+                    "eta_seconds": 900,
                 }
             ],
             "completed_jobs": 5,
             "failed_jobs": 1,
             "last_updated": datetime.utcnow().isoformat(),
-            "refresh_interval": 15
+            "refresh_interval": 15,
         }
-        
+
         # Mock scanning analytics
         self.mock_scanning_instance.get_scanning_analytics.return_value = mock_job_data
-        
+
         response = self.client.get("/analytics/scanning")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertIn("active_jobs", data)
         self.assertIn("last_updated", data)
@@ -338,7 +344,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_job_tracking_progress_monitoring(self, mock_auth):
         """Test job tracking provides detailed progress monitoring"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock detailed job progress
         mock_progress_data = {
             "session_progress": [
@@ -350,21 +356,17 @@ class TestDomainValidationMonitoring(unittest.TestCase):
                     "progress_percentage": 50.0,
                     "current_domain": "example.com",
                     "domains_remaining": 5,
-                    "estimated_completion": (datetime.utcnow() + timedelta(minutes=30)).isoformat()
+                    "estimated_completion": (datetime.utcnow() + timedelta(minutes=30)).isoformat(),
                 }
             ],
-            "system_load": {
-                "cpu_usage": 45.2,
-                "memory_usage": 62.1,
-                "queue_length": 3
-            }
+            "system_load": {"cpu_usage": 45.2, "memory_usage": 62.1, "queue_length": 3},
         }
-        
+
         self.mock_scanning_instance.get_scanning_analytics.return_value = mock_progress_data
-        
+
         response = self.client.get("/analytics/scanning")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertIn("session_progress", data)
         self.assertIn("system_load", data)
@@ -373,23 +375,19 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_job_tracking_overview_integration(self, mock_auth):
         """Test job tracking integration in overview dashboard"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock overview data with job tracking
         mock_overview = {
             "totals": {"accounts": 1000, "reports": 50},
             "recent_24h": {"new_accounts": 25, "new_reports": 3},
-            "active_jobs": {
-                "federated_scans": 1,
-                "domain_checks": 0,
-                "total_active": 1
-            },
-            "system_status": "healthy"
+            "active_jobs": {"federated_scans": 1, "domain_checks": 0, "total_active": 1},
+            "system_status": "healthy",
         }
-        
+
         # Mock database queries for overview
         self.mock_db_session.query.return_value.scalar.return_value = 50
         self.mock_db_session.execute.return_value.fetchall.return_value = []
-        
+
         response = self.client.get("/analytics/overview")
         self.assertEqual(response.status_code, 200)
 
@@ -399,13 +397,13 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_cache_invalidation_marks_content_for_rescan(self, mock_auth):
         """Test cache invalidation effectively marks content for re-scanning"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": True})
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify invalidation was triggered
         self.mock_scanning_instance.invalidate_content_scans.assert_called_once_with(rule_changes=True)
-        
+
         data = response.json()
         self.assertIn("message", data)
         self.assertIn("rule_changes", data)
@@ -415,37 +413,37 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_cache_invalidation_without_rule_changes(self, mock_auth):
         """Test cache invalidation for general cache refresh"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": False})
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify time-based invalidation
         self.mock_scanning_instance.invalidate_content_scans.assert_called_once_with(rule_changes=False)
-        
+
         data = response.json()
         self.assertFalse(data["rule_changes"])
 
-    @patch("app.main.require_admin_hybrid") 
+    @patch("app.main.require_admin_hybrid")
     def test_frontend_update_coordination(self, mock_auth):
         """Test coordination between cache invalidation and frontend updates"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Test cache invalidation triggers frontend refresh indicators
         response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": True})
         self.assertEqual(response.status_code, 200)
-        
+
         # Test subsequent analytics call shows updated data
         mock_updated_analytics = {
             "cache_invalidated_at": datetime.utcnow().isoformat(),
             "cache_status": "invalidated",
-            "rescan_triggered": True
+            "rescan_triggered": True,
         }
-        
+
         self.mock_scanning_instance.get_scanning_analytics.return_value = mock_updated_analytics
-        
+
         response = self.client.get("/analytics/scanning")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertIn("cache_status", data)
 
@@ -453,23 +451,18 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_dynamic_frontend_updates_websocket_ready(self, mock_auth):
         """Test that system supports dynamic frontend updates (WebSocket readiness)"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Test real-time data endpoints that would support WebSocket updates
-        real_time_endpoints = [
-            "/analytics/scanning",
-            "/analytics/domains", 
-            "/analytics/overview"
-        ]
-        
+        real_time_endpoints = ["/analytics/scanning", "/analytics/domains", "/analytics/overview"]
+
         for endpoint in real_time_endpoints:
             response = self.client.get(endpoint)
             self.assertEqual(response.status_code, 200)
-            
+
             data = response.json()
             # Should include timestamp for real-time updates
             self.assertTrue(
-                any(key.endswith("_at") or key.endswith("updated") for key in data.keys())
-                or "timestamp" in str(data)
+                any(key.endswith("_at") or key.endswith("updated") for key in data.keys()) or "timestamp" in str(data)
             )
 
     # ========== SCANNING DATA SYNC TESTS ==========
@@ -478,20 +471,20 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_scanning_data_frontend_lag_detection(self, mock_auth):
         """Test detection of scanning data lag on frontend"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Mock scanning data with lag indicators
         mock_scanning_data = {
             "last_scan_completed": (datetime.utcnow() - timedelta(minutes=30)).isoformat(),
             "last_frontend_update": (datetime.utcnow() - timedelta(minutes=45)).isoformat(),
             "data_lag_seconds": 900,
-            "sync_status": "lagging"
+            "sync_status": "lagging",
         }
-        
+
         self.mock_scanning_instance.get_scanning_analytics.return_value = mock_scanning_data
-        
+
         response = self.client.get("/analytics/scanning")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertIn("data_lag_seconds", data)
         self.assertIn("sync_status", data)
@@ -500,24 +493,24 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_scanning_data_sync_improvement(self, mock_auth):
         """Test scanning data synchronization improvements"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Test cache invalidation improves sync
         response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": False})
         self.assertEqual(response.status_code, 200)
-        
+
         # Mock improved sync after invalidation
         mock_improved_data = {
             "last_scan_completed": datetime.utcnow().isoformat(),
             "last_frontend_update": datetime.utcnow().isoformat(),
             "data_lag_seconds": 5,
-            "sync_status": "synchronized"
+            "sync_status": "synchronized",
         }
-        
+
         self.mock_scanning_instance.get_scanning_analytics.return_value = mock_improved_data
-        
+
         response = self.client.get("/analytics/scanning")
         self.assertEqual(response.status_code, 200)
-        
+
         data = response.json()
         self.assertEqual(data["sync_status"], "synchronized")
 
@@ -527,18 +520,18 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_mastodon_client_api_usage(self, mock_auth):
         """Test that all Mastodon communication uses auto-generated client API"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Verify federated scan uses generated client
-        with patch("app.enhanced_scanning.MastoClient") as mock_client:
+        with patch("app.scanning.MastoClient") as mock_client:
             mock_client_instance = MagicMock()
             mock_client.return_value = mock_client_instance
-            
+
             # Mock response from generated client
             mock_response = MagicMock()
             mock_response.json.return_value = []
             mock_response.headers = {}
             mock_client_instance.get.return_value = mock_response
-            
+
             # Trigger federated scan
             response = self.client.post("/scanning/federated")
             self.assertEqual(response.status_code, 200)
@@ -546,21 +539,21 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_generated_client_error_handling(self):
         """Test error handling with auto-generated client"""
         # Test various client errors that might occur
-        with patch("app.enhanced_scanning.MastoClient") as mock_client:
+        with patch("app.scanning.MastoClient") as mock_client:
             mock_client_instance = MagicMock()
             mock_client.return_value = mock_client_instance
-            
+
             # Test 422 error handling
             mock_response = MagicMock()
             mock_response.status_code = 422
             mock_response.json.return_value = {"error": "Unprocessable Content"}
             mock_client_instance.get.return_value = mock_response
-            
-            from app.enhanced_scanning import EnhancedScanningSystem
-            
-            with patch("app.enhanced_scanning.SessionLocal"):
+
+            from app.scanning import EnhancedScanningSystem
+
+            with patch("app.scanning.SessionLocal"):
                 scanner = EnhancedScanningSystem()
-                
+
                 # Should handle 422 gracefully
                 try:
                     result = scanner._scan_domain_content("test.example", 1)
@@ -573,32 +566,28 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_api_client_admin_endpoints_usage(self, mock_auth):
         """Test usage of admin endpoints through generated client"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Test that admin account fetching uses generated client
-        with patch("app.enhanced_scanning.MastoClient") as mock_admin_client:
+        with patch("app.scanning.MastoClient") as mock_admin_client:
             mock_admin_instance = MagicMock()
             mock_admin_client.return_value = mock_admin_instance
-            
+
             # Mock admin accounts response
             mock_response = MagicMock()
-            mock_response.json.return_value = [
-                {"id": "1", "username": "admin1"},
-                {"id": "2", "username": "admin2"}
-            ]
+            mock_response.json.return_value = [{"id": "1", "username": "admin1"}, {"id": "2", "username": "admin2"}]
             mock_response.headers = {"link": ""}
             mock_admin_instance.get.return_value = mock_response
-            
+
             # Verify admin endpoint usage
-            from app.enhanced_scanning import EnhancedScanningSystem
-            
-            with patch("app.enhanced_scanning.SessionLocal"):
+            from app.scanning import EnhancedScanningSystem
+
+            with patch("app.scanning.SessionLocal"):
                 scanner = EnhancedScanningSystem()
                 accounts, cursor = scanner.get_next_accounts_to_scan("local", limit=10)
-                
+
                 # Should use admin API endpoint
                 mock_admin_instance.get.assert_called_with(
-                    "/api/v1/admin/accounts",
-                    params={"origin": "local", "status": "active", "limit": 10}
+                    "/api/v1/admin/accounts", params={"origin": "local", "status": "active", "limit": 10}
                 )
 
     # ========== ERROR RESILIENCE TESTS ==========
@@ -607,35 +596,35 @@ class TestDomainValidationMonitoring(unittest.TestCase):
     def test_domain_monitoring_resilience(self, mock_auth):
         """Test domain monitoring resilience to various failures"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Test database connection failure
         self.mock_db_session.query.side_effect = Exception("Database connection lost")
-        
+
         response = self.client.get("/analytics/domains")
         self.assertEqual(response.status_code, 500)
-        
+
         # Reset mock
         self.mock_db_session.query.side_effect = None
-        
+
         # Test partial data retrieval
         self.mock_scanning_instance.get_domain_alerts.return_value = [
             {"domain": "partial.example", "violation_count": 1, "is_defederated": False}
         ]
-        
+
         response = self.client.get("/analytics/domains")
         self.assertEqual(response.status_code, 200)
 
-    @patch("app.main.require_admin_hybrid") 
+    @patch("app.main.require_admin_hybrid")
     def test_scanning_system_failover(self, mock_auth):
         """Test scanning system failover mechanisms"""
         mock_auth.return_value = self.create_mock_admin_user()
-        
+
         # Test primary scanning failure with fallback
         self.mock_federated_scan.delay.side_effect = Exception("Primary scanning system failed")
-        
+
         response = self.client.post("/scanning/federated")
         self.assertEqual(response.status_code, 500)
-        
+
         # System should log error but not crash
         data = response.json()
         self.assertIn("detail", data)

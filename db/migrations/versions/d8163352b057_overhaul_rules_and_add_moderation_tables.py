@@ -1,7 +1,7 @@
 """overhaul_rules_and_add_moderation_tables
 
 Revision ID: d8163352b057
-Revises: 006_enhanced_scanning_system
+Revises: 006_scanning_system
 Create Date: 2025-08-03 01:19:02.679712
 
 """
@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d8163352b057"
-down_revision: str | None = "006_enhanced_scanning_system"
+down_revision: str | None = "006_scanning_system"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

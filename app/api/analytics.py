@@ -259,8 +259,8 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
         import redis
 
         from app.config import get_settings
-        from app.enhanced_scanning import EnhancedScanningSystem
         from app.models import ScanSession
+        from app.scanning import EnhancedScanningSystem
 
         enhanced_scanner = EnhancedScanningSystem()
         settings = get_settings()

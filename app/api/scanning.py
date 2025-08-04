@@ -7,8 +7,8 @@ from sqlalchemy import func
 
 from app.auth import require_api_key
 from app.db import SessionLocal
-from app.enhanced_scanning import EnhancedScanningSystem
 from app.models import ContentScan
+from app.scanning import EnhancedScanningSystem
 
 router = APIRouter()
 

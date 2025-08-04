@@ -8,9 +8,9 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.enhanced_scanning import EnhancedScanningSystem
 from app.models import Analysis, Rule
 from app.oauth import User, require_admin_hybrid
+from app.scanning import EnhancedScanningSystem
 from app.services.rule_service import rule_service
 
 logger = logging.getLogger(__name__)
