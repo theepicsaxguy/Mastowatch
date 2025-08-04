@@ -48,6 +48,8 @@ Set these in `.env` (copied from `.env.example`):
 * `DRY_RUN`: `true` to log without sending reports (default: `false`)
 * `PANIC_STOP`: `true` to halt all processing (default: `false`)
 * `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
+* `USER_AGENT`: user agent for Mastodon requests (default: `MastoWatch/<VERSION> (+moderation-sidecar)`)
+* `VERSION`: application version (default: `0.1.0`)
 * `SKIP_STARTUP_VALIDATION`: `true` to skip startup checks (for testing only)
 * `UI_ORIGIN`: origin for the dashboard UI
 * `MIN_MASTODON_VERSION`: minimum supported Mastodon version (default: `4.0.0`)

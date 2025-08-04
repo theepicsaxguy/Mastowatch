@@ -4,8 +4,11 @@ from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings
 
 
+APP_VERSION = "0.1.0"
+
+
 class Settings(BaseSettings):
-    VERSION: str = "0.1.0"
+    VERSION: str = APP_VERSION
     INSTANCE_BASE: AnyUrl
     BOT_TOKEN: str = Field(..., min_length=1)
     ADMIN_TOKEN: str = Field(..., min_length=1)
@@ -13,7 +16,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = Field(..., min_length=1)
     DRY_RUN: bool = True
     MAX_PAGES_PER_POLL: int = 3
-    USER_AGENT: str = "MastoWatch/1.0 (+moderation-sidecar)"
+    USER_AGENT: str = f"MastoWatch/{APP_VERSION} (+moderation-sidecar)"
     MAX_STATUSES_TO_FETCH: int = 5
     BATCH_SIZE: int = 20
 
