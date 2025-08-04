@@ -118,6 +118,10 @@ flake8 app tests --select=E9,F63,F7,F82
 bandit -r app
 ```
 
+### Pull Request Image Builds
+
+Add the `build_pr` label to a pull request to build the Docker image in CI. Without the label, the job is skipped.
+
 ### Getting Mastodon Access Tokens
 
 This application requires **two access tokens** from your Mastodon instance:
