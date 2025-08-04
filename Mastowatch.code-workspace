@@ -1,0 +1,68 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		// ESLint (frontend)
+		"eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+		"eslint.format.enable": true,
+		"editor.codeActionsOnSave": {
+			"source.fixAll.eslint": "explicit"
+		},
+		// Optionally escalate ESLint severity in the editor
+		"eslint.rules.customizations": [
+			{ "rule": "*", "severity": "error" }
+		],
+
+		// Ruff (backend)
+		"[python]": {
+			"editor.formatOnSave": true,
+			"editor.codeActionsOnSave": {
+				// run Ruff "Fix all" and "Organize Imports" on save
+				"source.fixAll.ruff": "explicit",
+				"source.organizeImports.ruff": "explicit"
+			},
+			"editor.defaultFormatter": "charliermarsh.ruff"
+		}
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "compose up",
+				"type": "shell",
+				"command": "docker compose -f docker-compose.yml -f docker-compose.override.yml up --build",
+				"problemMatcher": []
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Open Dashboard (Chrome)",
+				"type": "chrome",
+				"request": "launch",
+				"url": "http://localhost:5173",
+				"webRoot": "${workspaceFolder}/frontend"
+			}
+		],
+		"compounds": [
+			{
+				"name": "Dev: Compose Up + Open Dashboard",
+				"configurations": ["Open Dashboard (Chrome)"],
+				"preLaunchTask": "compose up"
+			}
+		]
+	},
+	"extensions": {
+		"recommendations": [
+			"dbaeumer.vscode-eslint",
+			"charliermarsh.ruff",
+			"ms-python.python",
+			"ms-python.pylint"
+		]
+	}
+}

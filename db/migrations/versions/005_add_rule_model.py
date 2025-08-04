@@ -1,6 +1,5 @@
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 revision = '005_add_rule_model'
 down_revision = '004_add_performance_indexes'

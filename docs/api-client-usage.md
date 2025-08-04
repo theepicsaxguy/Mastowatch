@@ -29,7 +29,7 @@ async with client.get_async_httpx_client() as http_client:
 
 ### 2. Avoid Direct httpx Usage
 
-**Avoid:** Direct `httpx.Client()` or `httpx.AsyncClient()` instantiation outside `/app/clients`:
+**Avoid:** Direct `httpx.Client()` or `httpx.AsyncClient()` instantiation outside `/app/clients/mastodon`:
 
 ```python
 # ❌ Don't do this

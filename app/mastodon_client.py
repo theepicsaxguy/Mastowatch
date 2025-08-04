@@ -1,14 +1,17 @@
-"""
-Type-safe Mastodon client using generated OpenAPI client with fallback to raw HTTP calls.
+"""Type-safe Mastodon client using generated OpenAPI client with fallback to raw HTTP calls.
 This provides the best of both worlds: type safety where available, flexibility where needed.
 """
 
 import hashlib
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import httpx
 
 from app.clients.mastodon import AuthenticatedClient
+from app.clients.mastodon.accounts.get_account import sync as get_account_sync
+from app.clients.mastodon.accounts.get_account_statuses import sync as get_account_statuses_sync
+from app.clients.mastodon.models.create_report_body import CreateReportBody
+from app.clients.mastodon.reports.create_report import sync as create_report_sync
 from app.config import get_settings
 from app.metrics import api_call_seconds, http_errors
 from app.rate_limit import throttle_if_needed, update_from_headers
@@ -17,8 +20,7 @@ settings = get_settings()
 
 
 class MastoClient:
-    """
-    Enhanced Mastodon client with type safety and fallback support.
+    """Enhanced Mastodon client with type safety and fallback support.
 
     Uses the generated OpenAPI client for documented endpoints while maintaining
     backward compatibility for admin endpoints and custom functionality.
@@ -39,132 +41,146 @@ class MastoClient:
             timeout=30.0,
         )
 
-    def _make_raw_request(
-        self,
-        method: str,
-        path: str,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
-    ) -> httpx.Response:
-        """
-        Make a raw HTTP request for endpoints not available in the generated client.
-        Creates a fresh HTTPX client for each request to avoid reuse issues in Celery tasks.
-        """
+    def _parse_next_cursor(self, link_header: str | None) -> str | None:
+        """Parses the Link header to extract the next_max_id for pagination."""
+        if not link_header:
+            return None
+        import re
+
+        for link in link_header.split(","):
+            if 'rel="next"' in link:
+                match = re.search(r"max_id=(\\d+)", link)
+                if match:
+                    return match.group(1)
+        return None
+
+    def _make_request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        """Make a raw HTTP request with rate limiting and metrics."""
+        throttle_if_needed(self._bucket_key)
+        headers = {"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}
+        if "headers" in kwargs:
+            headers.update(kwargs.pop("headers"))
+
+        url = f"{self._base_url}{path}"
+        with api_call_seconds.labels(endpoint=path).time():
+            response = httpx.request(method, url, headers=headers, timeout=30.0, **kwargs)
+
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+        response.raise_for_status()
+        return response
+
+    def get_account(self, account_id: str) -> dict[str, Any]:
+        """Get account information using generated OpenAPI client."""
         throttle_if_needed(self._bucket_key)
 
-        # Create a fresh HTTPX client for each request to avoid closure issues
-        headers = {"User-Agent": self._ua, "Authorization": f"Bearer {self._token}"}
-        
-        with httpx.Client(
-            base_url=self._base_url,
-            headers=headers,
-            timeout=30.0,
-        ) as client:
-            with api_call_seconds.labels(endpoint=path).time():
-                if method.upper() == "GET":
-                    response = client.get(path, params=params)
-                elif method.upper() == "POST":
-                    response = client.post(path, data=data, json=json)
-                else:
-                    raise ValueError(f"Unsupported HTTP method: {method}")
+        with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}").time():
+            result = get_account_sync(id=account_id, client=self._api_client)
 
-            update_from_headers(self._bucket_key, response.headers)
-            if response.status_code >= 400:
-                http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
-            response.raise_for_status()
-            return response
+        if result is None:
+            raise httpx.HTTPStatusError("Account not found", request=None, response=None)
 
-    # Type-safe methods using generated client
-
-    def get_account(self, account_id: str) -> Dict[str, Any]:
-        """Get account information using direct HTTP call."""
-        path = f"/api/v1/accounts/{account_id}"
-        response = self._make_raw_request("GET", path)
-        return response.json()
+        # Convert the Account model to dict for backward compatibility
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        else:
+            # Fallback to manual serialization if to_dict is not available
+            return result.__dict__
 
     def get_account_statuses(
         self,
         account_id: str,
         limit: int = 20,
-        max_id: Optional[str] = None,
+        max_id: str | None = None,
         exclude_reblogs: bool = False,
         exclude_replies: bool = False,
         only_media: bool = False,
         pinned: bool = False,
-    ) -> List[Dict[str, Any]]:
-        """Get account statuses using direct HTTP call."""
-        params = {
-            "limit": limit,
-            "exclude_reblogs": exclude_reblogs,
-            "exclude_replies": exclude_replies,
-            "only_media": only_media,
-            "pinned": pinned,
-        }
-        if max_id:
-            params["max_id"] = max_id
-            
-        path = f"/api/v1/accounts/{account_id}/statuses"
-        response = self._make_raw_request("GET", path, params=params)
-        return response.json()
+    ) -> list[dict[str, Any]]:
+        """Get account statuses using generated OpenAPI client."""
+        throttle_if_needed(self._bucket_key)
+
+        with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}/statuses").time():
+            result = get_account_statuses_sync(
+                id=account_id,
+                client=self._api_client,
+                limit=limit,
+                max_id=max_id if max_id else None,
+                exclude_reblogs=exclude_reblogs,
+                exclude_replies=exclude_replies,
+                only_media=only_media,
+                pinned=pinned,
+            )
+
+        if result is None:
+            return []
+
+        # Convert the Status models to dicts for backward compatibility
+        statuses = []
+        for status in result:
+            if hasattr(status, "to_dict"):
+                statuses.append(status.to_dict())
+            else:
+                statuses.append(status.__dict__)
+        return statuses
 
     def create_report(
         self,
         account_id: str,
         comment: str,
-        status_ids: Optional[List[str]] = None,
+        status_ids: list[str] | None = None,
         category: str = "other",
         forward: bool = False,
-        rule_ids: Optional[List[str]] = None,
-    ) -> httpx.Response:
-        """
-        Create a report - falls back to raw HTTP since not in community OpenAPI spec.
-        Returns raw response to maintain backward compatibility.
-        """
-        data = {
-            "account_id": account_id,
-            "comment": comment,
-            "category": category,
-            "forward": forward,
-        }
-        
-        if status_ids:
-            data["status_ids[]"] = status_ids
-        if rule_ids:
-            data["rule_ids[]"] = rule_ids
+        rule_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a report using generated OpenAPI client."""
+        throttle_if_needed(self._bucket_key)
 
-        return self._make_raw_request("POST", "/api/v1/reports", data=data)
+        # Create the request body using the generated model
+        report_body = CreateReportBody(
+            account_id=account_id,
+            comment=comment,
+            category=category,
+            forward=forward,
+            status_ids=status_ids or [],
+            rule_ids=rule_ids or [],
+        )
 
-    # Fallback methods for admin endpoints (not in community spec)
+        with api_call_seconds.labels(endpoint="/api/v1/reports").time():
+            result = create_report_sync(client=self._api_client, body=report_body)
+
+        if result is None:
+            raise Exception("Failed to create report")
+
+        # Convert the Report model to dict for backward compatibility
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        else:
+            return result.__dict__
 
     def get_admin_accounts(
-        self, origin: str = "remote", status: str = "active", limit: int = 100, max_id: Optional[str] = None
-    ) -> httpx.Response:
-        """
-        Get admin accounts - falls back to raw HTTP since not in community OpenAPI spec.
-        Returns raw response to maintain backward compatibility.
-        """
-        params = {
-            "origin": origin,
-            "status": status,
-            "limit": limit,
-        }
+        self,
+        origin: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        max_id: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """Get admin accounts using direct HTTP calls (admin endpoints not in OpenAPI spec)."""
+        params = {"limit": limit}
+        if origin:
+            params["origin"] = origin
+        if status:
+            params["status"] = status
         if max_id:
             params["max_id"] = max_id
 
-        return self._make_raw_request("GET", "/api/v1/admin/accounts", params=params)
+        response = self._make_request("GET", "/api/v1/admin/accounts", params=params)
+        accounts = response.json()
+        next_max_id = self._parse_next_cursor(response.headers.get("Link"))
+        return accounts, next_max_id
 
-    def get_instance_rules(self) -> List[Dict[str, Any]]:
-        """Get instance rules with type information."""
-        response = self._make_raw_request("GET", "/api/v1/instance/rules")
+    def get_instance_rules(self) -> list[dict[str, Any]]:
+        """Get instance rules using direct HTTP calls."""
+        response = self._make_request("GET", "/api/v1/instance/rules")
         return response.json()
-
-    # Legacy compatibility methods
-
-    def get(self, path: str, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
-        """Legacy get method for backward compatibility."""
-        return self._make_raw_request("GET", path, params=params)
-
-    def post(self, path: str, data: Optional[Dict[str, Any]] = None, json: Optional[Dict[str, Any]] = None) -> httpx.Response:
-        """Legacy post method for backward compatibility."""
-        return self._make_raw_request("POST", path, data=data, json=json)

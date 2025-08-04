@@ -1,5 +1,4 @@
 from alembic import op
-import sqlalchemy as sa
 
 revision = '004_add_performance_indexes'
 down_revision = '003_add_foreign_keys'

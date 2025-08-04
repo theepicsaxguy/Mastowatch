@@ -1,10 +1,7 @@
-"""
-Startup validation for critical environment variables and configuration.
-"""
+"""Startup validation for critical environment variables and configuration."""
 
 import logging
 import sys
-from typing import List
 
 from pydantic import ValidationError
 
@@ -12,13 +9,14 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+MIN_MASTODON_VERSION = "4.0.0"
+
 
 def validate_startup_configuration() -> None:
-    """
-    Validate that all critical configuration is present and properly formatted.
+    """Validate that all critical configuration is present and properly formatted.
     Fail fast with clear error messages if anything is missing or invalid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
         settings = get_settings()
@@ -86,9 +84,7 @@ def validate_startup_configuration() -> None:
 
 
 def validate_database_connection() -> None:
-    """
-    Test database connectivity and migration status.
-    """
+    """Test database connectivity and migration status."""
     try:
         from sqlalchemy import text
 
@@ -113,9 +109,7 @@ def validate_database_connection() -> None:
 
 
 def validate_redis_connection() -> None:
-    """
-    Test Redis connectivity.
-    """
+    """Test Redis connectivity."""
     try:
         import redis
 
@@ -134,9 +128,51 @@ def validate_redis_connection() -> None:
         sys.exit(1)
 
 
+def validate_mastodon_version() -> None:
+    """Fetches Mastodon instance version and validates it against MIN_MASTODON_VERSION."""
+    import httpx
+
+    settings = get_settings()
+    try:
+        # Use a direct httpx.get for instance info
+        response = httpx.get(f"{settings.INSTANCE_BASE}/api/v1/instance")
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        instance_info = response.json()
+
+        current_version = instance_info.get("version")
+        if not current_version:
+            raise ValueError("Could not find version in instance info")
+
+        logger.info(f"Mastodon instance version: {current_version}")
+
+        # Simple version comparison (major.minor.patch)
+        # Handle version strings like "4.5.0-nightly.2025-07-31+glitch" by extracting numeric parts
+        import re
+
+        # Extract major.minor.patch from version string using regex
+        version_match = re.match(r"^(\d+)\.(\d+)\.(\d+)", current_version)
+        if not version_match:
+            raise ValueError(f"Could not parse version number from: {current_version}")
+
+        current_parts = [int(version_match.group(1)), int(version_match.group(2)), int(version_match.group(3))]
+        min_parts = [int(x) for x in MIN_MASTODON_VERSION.split(".")[:3]]
+
+        if current_parts < min_parts:
+            logger.error(
+                f"UNSUPPORTED MASTODON VERSION: MastoWatch requires at least version {MIN_MASTODON_VERSION}, "
+                f"but found {current_version}. Please upgrade your Mastodon instance."
+            )
+            sys.exit(1)
+        else:
+            logger.info(f"✓ Mastodon instance version {current_version} is supported (min: {MIN_MASTODON_VERSION})")
+
+    except Exception as e:
+        logger.error(f"Failed to validate Mastodon instance version: {e}")
+        sys.exit(1)
+
+
 def run_all_startup_validations() -> None:
-    """
-    Run all startup validations. Call this early in application startup.
+    """Run all startup validations. Call this early in application startup.
     Can be disabled by setting SKIP_STARTUP_VALIDATION environment variable.
     """
     import os
@@ -149,4 +185,7 @@ def run_all_startup_validations() -> None:
     validate_startup_configuration()
     validate_database_connection()
     validate_redis_connection()
+
+    validate_mastodon_version()
+
     logger.info("✓ All startup validations passed")

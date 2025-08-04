@@ -1,3 +1,5 @@
+"""Database configuration and session management for MastoWatch."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -9,4 +11,15 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 class Base(DeclarativeBase):
+    """Base class for all database models."""
+
     pass
+
+
+def get_db():
+    """Dependency for database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

@@ -12,3 +12,7 @@ celerybeat-schedule
 venv/**
 .**
 *.db
+!.pylintrc
+!.eslintrc.cjs
+!.github/**
+.github/copilot-instructions.md

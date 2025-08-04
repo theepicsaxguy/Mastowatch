@@ -1,5 +1,5 @@
 [tool.black]
-line-length = 127
+line-length = 120
 target-version = ['py313']
 include = '\.pyi?$'
 extend-exclude = '''
@@ -44,3 +44,24 @@ module = [
     "prometheus_client.*",
 ]
 ignore_missing_imports = true
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "PL", "D"]  # pycodestyle, pyflakes, isort, bugbear, pyupgrade, pylint subset, pydocstyle
+ignore = [
+    "D203",  # 1 blank line required before class docstring (conflicts with D211)
+    "D213",  # Multi-line docstring summary should start at the second line (conflicts with D212)
+]
+
+# Ban manual HTTP libraries project-wide; allow narrow exceptions via per-file-ignores below
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"requests".msg = "Use the generated Mastodon OpenAPI client; no direct HTTP."
+"httpx".msg = "Use the generated Mastodon OpenAPI client; no direct HTTP."
+"urllib.request".msg = "Use the generated Mastodon OpenAPI client; no direct HTTP."
+
+# If you need to allow these modules in specific files, relax TID251 there:
+[tool.ruff.lint.per-file-ignores]
+# Example: allow requests in a generic HTTP adapter if you truly need it (not for Mastodon)
+"app/integrations/http_adapter.py" = ["TID251"]
