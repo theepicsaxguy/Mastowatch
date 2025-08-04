@@ -1,40 +1,270 @@
 """Test cases for rule evaluation functionality."""
 
 import os
+import tempfile
 import unittest
+from unittest.mock import patch
 
-from app.services.rule_service import rule_service
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db import Base
+from app.models import Rule
+from app.schemas import Violation
+from app.services.rule_service import RuleService
 
 
-class TestRules(unittest.TestCase):
-    """Test class for rule evaluation."""
+class TestRuleService(unittest.TestCase):
+    """Test class for rule evaluation using database-driven rules."""
 
-    def test_eval_account(self):
-        """Test account evaluation against rules."""
-        # Skip if running in CI or without rules setup
-        if os.environ.get("SKIP_STARTUP_VALIDATION"):
-            self.skipTest("Skipping rules test in testing environment")
+    def setUp(self):
+        """Set up a clean test database for each test."""
+        # Create a temporary in-memory SQLite database
+        self.test_db = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+        self.test_db_url = f"sqlite:///{self.test_db.name}"
 
-        try:
-            # Use the new rule service
-            all_rules, config, _ = rule_service.get_active_rules()
-        except Exception:
-            # If rules can't be loaded, just test the function doesn't crash
-            self.skipTest("Rules not available for testing")
+        # Create engine and session factory
+        self.engine = create_engine(self.test_db_url, echo=False)
+        Base.metadata.create_all(self.engine)
+        self.SessionLocal = sessionmaker(bind=self.engine)
 
+        # Create a test rule service instance with a fresh cache
+        self.rule_service = RuleService(cache_ttl_seconds=1)
+
+        # Mock the global SessionLocal to use our test database
+        self.db_patcher = patch("app.services.rule_service.SessionLocal", self.SessionLocal)
+        self.db_patcher.start()
+
+        # Create test rules in the database
+        self._create_test_rules()
+
+    def tearDown(self):
+        """Clean up after each test."""
+        self.db_patcher.stop()
+        self.engine.dispose()
+        os.unlink(self.test_db.name)
+
+    def _create_test_rules(self):
+        """Create sample rules for testing."""
+        with self.SessionLocal() as session:
+            # Rule 1: Regex detector for crypto-related usernames
+            crypto_rule = Rule(
+                name="crypto_username_test",
+                detector_type="regex",
+                pattern="crypto|bitcoin|nft",
+                weight=1.5,
+                action_type="report",
+                trigger_threshold=1.0,
+                enabled=True,
+                description="Detects crypto-related usernames",
+            )
+            session.add(crypto_rule)
+
+            # Rule 2: Keyword detector for spam content
+            spam_rule = Rule(
+                name="spam_keywords_test",
+                detector_type="keyword",
+                pattern="casino,adult,pills",
+                weight=2.0,
+                action_type="report",
+                trigger_threshold=1.5,
+                enabled=True,
+                description="Detects spam keywords",
+            )
+            session.add(spam_rule)
+
+            # Rule 3: Disabled rule that shouldn't trigger
+            disabled_rule = Rule(
+                name="disabled_rule_test",
+                detector_type="regex",
+                pattern="test_disabled",
+                weight=5.0,
+                action_type="suspend",
+                trigger_threshold=1.0,
+                enabled=False,
+                description="Disabled rule for testing",
+            )
+            session.add(disabled_rule)
+
+            session.commit()
+
+    def test_get_active_rules(self):
+        """Test getting active rules from database."""
+        rules, config, ruleset_sha = self.rule_service.get_active_rules()
+
+        # Should have 2 enabled rules (crypto and spam)
+        self.assertEqual(len(rules), 2)
+
+        # Verify rule names
+        rule_names = [rule.name for rule in rules]
+        self.assertIn("crypto_username_test", rule_names)
+        self.assertIn("spam_keywords_test", rule_names)
+        self.assertNotIn("disabled_rule_test", rule_names)
+
+        # Verify config structure
+        self.assertIn("report_threshold", config)
+        self.assertEqual(config["report_threshold"], 1.0)  # Default value
+
+        # Verify SHA is generated
+        self.assertIsInstance(ruleset_sha, str)
+        self.assertEqual(len(ruleset_sha), 64)  # SHA256 length
+
+    def test_eval_account_legacy_interface(self):
+        """Test account evaluation using legacy eval_account interface."""
         account = {
-            "acct": "ai_bot@example.com",
-            "note": "This is a test account with some keywords: casino, adult.",
-            "display_name": "Test Account",
+            "acct": "crypto_trader@example.com",
+            "username": "crypto_trader",
+            "note": "This account discusses casino games and adult content.",
+            "display_name": "Crypto Trader",
             "statuses_count": 10,
             "followers_count": 5,
             "following_count": 20,
             "created_at": "2023-01-01T00:00:00.000Z",
         }
-        score, hits = rule_service.eval_account(account, [])
-        # Since we may not have rules loaded, just test that it doesn't crash
-        self.assertGreaterEqual(score, 0)
-        self.assertIsInstance(hits, list)
+
+        statuses = [
+            {"content": "Check out these casino deals!", "id": "1"},
+            {"content": "Regular content here", "id": "2"},
+        ]
+
+        # Mock the detectors to return predictable violations
+        with patch.object(self.rule_service.detectors["regex"], "evaluate") as mock_regex:
+            with patch.object(self.rule_service.detectors["keyword"], "evaluate") as mock_keyword:
+                # Mock regex detector to return violation for crypto rule
+                mock_regex.return_value = [
+                    Violation(
+                        rule_name="crypto_username_test",
+                        rule_type="regex",
+                        score=1.5,
+                        evidence={"matched_pattern": "crypto", "field": "username"},
+                    )
+                ]
+
+                # Mock keyword detector to return violation for spam rule
+                mock_keyword.return_value = [
+                    Violation(
+                        rule_name="spam_keywords_test",
+                        rule_type="keyword",
+                        score=2.0,
+                        evidence={"matched_keywords": ["casino"], "field": "content"},
+                    )
+                ]
+
+                score, hits = self.rule_service.eval_account(account, statuses)
+
+                # Should get combined score from both violations
+                self.assertEqual(score, 3.5)  # 1.5 + 2.0
+
+                # Should have 2 hits in legacy format
+                self.assertEqual(len(hits), 2)
+
+                # Check hit format: (rule_key, weight, evidence)
+                rule_keys = [hit[0] for hit in hits]
+                weights = [hit[1] for hit in hits]
+
+                self.assertIn("regex/crypto_username_test", rule_keys)
+                self.assertIn("keyword/spam_keywords_test", rule_keys)
+                self.assertIn(1.5, weights)
+                self.assertIn(2.0, weights)
+
+    def test_evaluate_account_new_interface(self):
+        """Test account evaluation using new evaluate_account interface."""
+        account = {
+            "acct": "test@example.com",
+            "username": "test_user",
+            "note": "Normal account",
+        }
+
+        statuses = []
+
+        # Mock detectors to return no violations
+        with patch.object(self.rule_service.detectors["regex"], "evaluate") as mock_regex:
+            with patch.object(self.rule_service.detectors["keyword"], "evaluate") as mock_keyword:
+                mock_regex.return_value = []
+                mock_keyword.return_value = []
+
+                violations = self.rule_service.evaluate_account(account, statuses)
+
+                # Should have no violations
+                self.assertEqual(len(violations), 0)
+
+    def test_cache_invalidation(self):
+        """Test that cache invalidation works correctly."""
+        # Get rules to populate cache
+        rules1, _, sha1 = self.rule_service.get_active_rules()
+
+        # Add a new rule to database
+        with self.SessionLocal() as session:
+            new_rule = Rule(
+                name="new_test_rule",
+                detector_type="regex",
+                pattern="new_pattern",
+                weight=1.0,
+                action_type="report",
+                trigger_threshold=1.0,
+                enabled=True,
+            )
+            session.add(new_rule)
+            session.commit()
+
+        # Without cache invalidation, should still get old rules
+        rules2, _, sha2 = self.rule_service.get_active_rules()
+        self.assertEqual(len(rules2), 2)  # Still old count
+        self.assertEqual(sha1, sha2)  # Same SHA
+
+        # After invalidation, should get updated rules
+        self.rule_service.invalidate_cache()
+        rules3, _, sha3 = self.rule_service.get_active_rules()
+        self.assertEqual(len(rules3), 3)  # New count
+        self.assertNotEqual(sha1, sha3)  # Different SHA
+
+    def test_rule_crud_operations(self):
+        """Test CRUD operations for rules."""
+        # Test create
+        new_rule = self.rule_service.create_rule(
+            name="test_crud_rule",
+            detector_type="regex",
+            pattern="test_pattern",
+            weight=1.0,
+            action_type="report",
+            trigger_threshold=1.0,
+            description="Test CRUD rule",
+        )
+
+        self.assertIsNotNone(new_rule.id)
+        self.assertEqual(new_rule.name, "test_crud_rule")
+
+        # Test read
+        retrieved_rule = self.rule_service.get_rule_by_id(new_rule.id)
+        self.assertIsNotNone(retrieved_rule)
+        self.assertEqual(retrieved_rule.name, "test_crud_rule")
+
+        # Test update
+        updated_rule = self.rule_service.update_rule(new_rule.id, weight=2.0, description="Updated description")
+        self.assertEqual(updated_rule.weight, 2.0)
+        self.assertEqual(updated_rule.description, "Updated description")
+
+        # Test delete
+        deleted = self.rule_service.delete_rule(new_rule.id)
+        self.assertTrue(deleted)
+
+        # Verify deletion
+        deleted_rule = self.rule_service.get_rule_by_id(new_rule.id)
+        self.assertIsNone(deleted_rule)
+
+    def test_rule_statistics(self):
+        """Test rule statistics generation."""
+        stats = self.rule_service.get_rule_statistics()
+
+        self.assertIn("total_rules", stats)
+        self.assertIn("enabled_rules", stats)
+        self.assertIn("disabled_rules", stats)
+        self.assertIn("cache_status", stats)
+
+        # We have 3 total rules (2 enabled, 1 disabled)
+        self.assertEqual(stats["total_rules"], 3)
+        self.assertEqual(stats["enabled_rules"], 2)
+        self.assertEqual(stats["disabled_rules"], 1)
 
 
 if __name__ == "__main__":
