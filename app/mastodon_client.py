@@ -49,7 +49,7 @@ class MastoClient:
 
         for link in link_header.split(","):
             if 'rel="next"' in link:
-                match = re.search(r"max_id=(\\d+)", link)
+                match = re.search(r"max_id=(\d+)", link)
                 if match:
                     return match.group(1)
         return None

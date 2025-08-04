@@ -1,17 +1,112 @@
-"""Tests for the new type-safe Mastodon client."""
+"""Tests for the type-safe Mastodon client using current methods."""
 
 import os
+import sys
+import types
 import unittest
 from unittest.mock import Mock, patch
+
+import httpx
+
+mastodon_pkg = types.ModuleType("app.clients.mastodon")
+mastodon_pkg.__path__ = []
+
+client_mod = types.ModuleType("app.clients.mastodon.client")
+
+
+class AuthenticatedClient:  # noqa: D401
+    def __init__(self, *_, **__):
+        pass
+
+
+class Client:  # noqa: D401
+    def __init__(self, *_, **__):
+        pass
+
+
+client_mod.AuthenticatedClient = AuthenticatedClient
+client_mod.Client = Client
+
+accounts_pkg = types.ModuleType("app.clients.mastodon.accounts")
+accounts_pkg.__path__ = []
+
+get_account_mod = types.ModuleType("app.clients.mastodon.accounts.get_account")
+
+
+def _get_account_sync(*_, **__):
+    return None
+
+
+get_account_mod.sync = _get_account_sync
+
+get_account_statuses_mod = types.ModuleType("app.clients.mastodon.accounts.get_account_statuses")
+
+
+def _get_account_statuses_sync(*_, **__):
+    return []
+
+
+get_account_statuses_mod.sync = _get_account_statuses_sync
+
+models_pkg = types.ModuleType("app.clients.mastodon.models")
+models_pkg.__path__ = []
+
+create_report_body_mod = types.ModuleType("app.clients.mastodon.models.create_report_body")
+
+
+class CreateReportBody:  # noqa: D401
+    def __init__(self, account_id, comment, category, forward, status_ids, rule_ids):
+        self.account_id = account_id
+        self.comment = comment
+        self.category = category
+        self.forward = forward
+        self.status_ids = status_ids
+        self.rule_ids = rule_ids
+
+    def to_dict(self):
+        return {
+            "account_id": self.account_id,
+            "comment": self.comment,
+            "category": self.category,
+            "forward": self.forward,
+            "status_ids": self.status_ids,
+            "rule_ids": self.rule_ids,
+        }
+
+
+create_report_body_mod.CreateReportBody = CreateReportBody
+
+reports_pkg = types.ModuleType("app.clients.mastodon.reports")
+reports_pkg.__path__ = []
+
+create_report_mod = types.ModuleType("app.clients.mastodon.reports.create_report")
+
+
+def _create_report_sync(*_, **__):
+    return None
+
+
+create_report_mod.sync = _create_report_sync
+
+sys.modules.update(
+    {
+        "app.clients.mastodon": mastodon_pkg,
+        "app.clients.mastodon.client": client_mod,
+        "app.clients.mastodon.accounts": accounts_pkg,
+        "app.clients.mastodon.accounts.get_account": get_account_mod,
+        "app.clients.mastodon.accounts.get_account_statuses": get_account_statuses_mod,
+        "app.clients.mastodon.models": models_pkg,
+        "app.clients.mastodon.models.create_report_body": create_report_body_mod,
+        "app.clients.mastodon.reports": reports_pkg,
+        "app.clients.mastodon.reports.create_report": create_report_mod,
+    }
+)
 
 from app.mastodon_client import MastoClient
 
 
 class TestMastoClient(unittest.TestCase):
-    """Test suite for the Mastodon API client"""
-
     def setUp(self):
-        """Set up test environment with mocked dependencies"""
         with patch.dict(
             os.environ,
             {
@@ -22,129 +117,62 @@ class TestMastoClient(unittest.TestCase):
         ):
             self.client = MastoClient("test_token")
 
-    @patch("app.mastodon_client.httpx.Client")
-    def test_get_admin_accounts_pagination(self, mock_httpx_client):
-        """Test admin accounts pagination with cursor parsing."""
-        # Mock the raw HTTP client
-        mock_client_instance = Mock()
+    @patch("app.mastodon_client.httpx.request")
+    def test_get_admin_accounts_pagination(self, mock_request):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.headers = {"Link": '<https://test.mastodon.social/api/v1/admin/accounts?max_id=456>; rel="next"'}
         mock_response.json.return_value = [{"id": "123", "username": "test_user"}]
-        mock_client_instance.get.return_value = mock_response
-        mock_httpx_client.return_value.__enter__.return_value = mock_client_instance
+        mock_response.raise_for_status.return_value = None
+        mock_request.return_value = mock_response
 
-        # Call the method
         accounts, next_cursor = self.client.get_admin_accounts(limit=1)
-
-        # Assertions
         self.assertEqual(len(accounts), 1)
         self.assertEqual(accounts[0]["id"], "123")
-        self.assertEqual(next_cursor, "456")  # Check that cursor parsing works
+        self.assertEqual(next_cursor, "456")
 
-    @patch("app.mastodon_client.httpx.Client")
-    def test_get_admin_accounts_no_pagination(self, mock_httpx_client):
-        """Test admin accounts without pagination link."""
-        # Mock the raw HTTP client
-        mock_client_instance = Mock()
+    @patch("app.mastodon_client.httpx.request")
+    def test_get_admin_accounts_no_pagination(self, mock_request):
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.headers = {}  # No Link header
+        mock_response.headers = {}
         mock_response.json.return_value = [{"id": "123", "username": "test_user"}]
-        mock_client_instance.get.return_value = mock_response
-        mock_httpx_client.return_value.__enter__.return_value = mock_client_instance
+        mock_response.raise_for_status.return_value = None
+        mock_request.return_value = mock_response
 
-        # Call the method
         accounts, next_cursor = self.client.get_admin_accounts(limit=1)
-
-        # Assertions
         self.assertEqual(len(accounts), 1)
-        self.assertIsNone(next_cursor)  # No pagination
+        self.assertIsNone(next_cursor)
 
-    @patch("app.mastodon_client.httpx.Client")
-    def test_create_report_with_category_mapping(self, mock_httpx_client):
-        """Test that report creation maps string categories to proper types."""
-        # Mock the raw HTTP client
-        mock_client_instance = Mock()
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.json.return_value = {"id": "report_123", "status": "created"}
-        mock_client_instance.post.return_value = mock_response
-        mock_httpx_client.return_value.__enter__.return_value = mock_client_instance
+    @patch("app.mastodon_client.create_report_sync")
+    def test_create_report_with_category_mapping(self, mock_create_report):
+        mock_report = Mock()
+        mock_report.to_dict.return_value = {"id": "report_123", "status": "created"}
+        mock_create_report.return_value = mock_report
 
-        # Test creating a report with string category
         result = self.client.create_report(
-            account_id="test_account_123", comment="Test report comment", category="spam"
+            account_id="test_account_123",
+            comment="Test report comment",
+            category="spam",
         )
 
-        # Verify the call was made
-        mock_client_instance.post.assert_called_once()
-        call_args = mock_client_instance.post.call_args
+        self.assertEqual(result["id"], "report_123")
+        self.assertEqual(result["status"], "created")
+        args, kwargs = mock_create_report.call_args
+        body = kwargs["body"]
+        self.assertEqual(body.account_id, "test_account_123")
+        self.assertEqual(body.comment, "Test report comment")
 
-        # Check that the data includes the account_id and comment
-        posted_data = call_args.kwargs.get("data") or call_args.kwargs.get("json")
-        self.assertIn("account_id", posted_data)
-        self.assertIn("comment", posted_data)
-        self.assertEqual(posted_data["account_id"], "test_account_123")
-        self.assertEqual(posted_data["comment"], "Test report comment")
-
-    @patch("app.mastodon_client.httpx.Client")
-    def test_legacy_get_method(self, mock_httpx_client):
-        """Test that legacy .get() method still works for backward compatibility."""
-        # Mock the raw HTTP client
-        mock_client_instance = Mock()
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.json.return_value = {"success": True}
-        mock_client_instance.get.return_value = mock_response
-        mock_httpx_client.return_value.__enter__.return_value = mock_client_instance
-
-        # Test legacy GET
-        result = self.client.get("/api/v1/test", params={"param1": "value1"})
-
-        self.assertEqual(result, mock_response)
-        mock_client_instance.get.assert_called_with(
-            "https://test.mastodon.social/api/v1/test", params={"param1": "value1"}
-        )
-
-    @patch("app.mastodon_client.httpx.Client")
-    def test_legacy_post_method(self, mock_httpx_client):
-        """Test that legacy .post() method still works for backward compatibility."""
-        # Mock the raw HTTP client
-        mock_client_instance = Mock()
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.json.return_value = {"success": True}
-        mock_client_instance.post.return_value = mock_response
-        mock_httpx_client.return_value.__enter__.return_value = mock_client_instance
-
-        # Test legacy POST
-        result = self.client.post("/api/v1/test", data={"data1": "value1"})
-
-        self.assertEqual(result, mock_response)
-        mock_client_instance.post.assert_called_with(
-            "https://test.mastodon.social/api/v1/test", data={"data1": "value1"}, json=None
-        )
-
-    @patch("app.mastodon_client.httpx.Client")
-    def test_error_handling(self, mock_httpx_client):
-        """Test error handling for failed requests."""
-        # Mock the raw HTTP client to return an error
-        mock_client_instance = Mock()
+    @patch("app.mastodon_client.httpx.request")
+    def test_error_handling(self, mock_request):
         mock_response = Mock()
         mock_response.status_code = 404
         mock_response.headers = {}
         mock_response.json.return_value = {"error": "Not found"}
-        mock_client_instance.get.return_value = mock_response
-        mock_httpx_client.return_value.__enter__.return_value = mock_client_instance
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Not found", request=Mock(), response=mock_response
+        )
+        mock_request.return_value = mock_response
 
-        # Should still return the response (error handling is done by caller)
-        result = self.client.get("/api/v1/nonexistent")
-        self.assertEqual(result.status_code, 404)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        with self.assertRaises(httpx.HTTPStatusError):
+            self.client.get_admin_accounts()
