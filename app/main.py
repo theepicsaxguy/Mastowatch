@@ -28,12 +28,11 @@ from app.tasks.jobs import process_new_report, process_new_status
 
 setup_logging()
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
-# Run startup validations before anything else
 run_all_startup_validations()
 
-app = FastAPI(title="MastoWatch", version="1.0.0")
-settings = get_settings()
+app = FastAPI(title="MastoWatch", version=settings.VERSION)
 
 # Add session middleware for OAuth2 flow (uses SESSION_SECRET_KEY from settings)
 if settings.SESSION_SECRET_KEY:
