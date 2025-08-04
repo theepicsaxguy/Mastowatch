@@ -42,9 +42,9 @@ jobs:
       run: |
         black --check --diff app tests || true
         
-    - name: Type check with mypy (main modules only)
+    - name: Type check with mypy
       run: |
-        mypy app/main.py app/config.py app/oauth.py --ignore-missing-imports
+        mypy app --explicit-package-bases --ignore-missing-imports
         
     - name: Security check with bandit
       run: |
