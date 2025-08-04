@@ -49,6 +49,12 @@ Set these in `.env` (copied from `.env.example`):
 * `PANIC_STOP`: `true` to halt all processing (default: `false`)
 * `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
 * `SKIP_STARTUP_VALIDATION`: `true` to skip startup checks (for testing only)
+* `UI_ORIGIN`: origin for the dashboard UI
+* `MIN_MASTODON_VERSION`: minimum supported Mastodon version (default: `4.0.0`)
+* `POLL_ADMIN_ACCOUNTS_INTERVAL`: seconds between remote admin polls (default: `30`)
+* `POLL_ADMIN_ACCOUNTS_LOCAL_INTERVAL`: seconds between local admin polls (default: `30`)
+* `QUEUE_STATS_INTERVAL`: seconds between queue metrics snapshots (default: `15`)
+* `VITE_API_URL`: API base URL for the frontend
 
 ### Getting Mastodon Access Tokens
 
@@ -154,7 +160,7 @@ All API endpoints return structured error responses with:
 
 ## Notes
 
-* Celery Beat schedules polling every 30 seconds.
+* Celery Beat intervals are configurable via environment variables.
 * All endpoints use structured JSON logging with request IDs for troubleshooting.
 * Alembic migrations run via the `migrate` service. Note that `alembic.ini` leaves `sqlalchemy.url` empty; the `DATABASE_URL` environment variable is used instead.
 * Add Prometheus to scrape `/metrics` as desired.

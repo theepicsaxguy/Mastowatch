@@ -41,9 +41,13 @@ class Settings(BaseSettings):
     SESSION_SECRET_KEY: str | None = None
     SESSION_COOKIE_NAME: str = "mastowatch_session"
     SESSION_COOKIE_MAX_AGE: int = 86400  # 24 hours in seconds
-    
-    # Frontend UI origin for popup postMessage
-    UI_ORIGIN: str = "http://localhost:5173"
+
+    UI_ORIGIN: str = Field(..., min_length=1)
+
+    MIN_MASTODON_VERSION: str = "4.0.0"
+    POLL_ADMIN_ACCOUNTS_INTERVAL: int = 30
+    POLL_ADMIN_ACCOUNTS_LOCAL_INTERVAL: int = 30
+    QUEUE_STATS_INTERVAL: int = 15
 
     class Config:
         case_sensitive = True

@@ -16,7 +16,7 @@ os.environ.update({
     "SKIP_STARTUP_VALIDATION": "1", 
     "INSTANCE_BASE": "https://test.mastodon.social",
     "ADMIN_TOKEN": "test_admin_token",
-    "BOT_TOKEN": "test_bot_token", 
+    "BOT_TOKEN": "test_bot_token",
     "REDIS_URL": "redis://localhost:6380/1",
     "DEFEDERATION_THRESHOLD": "10",
     "CONTENT_CACHE_TTL": "24",
@@ -24,7 +24,8 @@ os.environ.update({
     "DRY_RUN": "true",
     "OAUTH_CLIENT_ID": "test_client_id",
     "OAUTH_CLIENT_SECRET": "test_client_secret",
-    "SESSION_SECRET_KEY": "test_session_key"
+    "SESSION_SECRET_KEY": "test_session_key",
+    "UI_ORIGIN": "http://localhost:5173",
 })
 
 # Create temporary SQLite database for testing
