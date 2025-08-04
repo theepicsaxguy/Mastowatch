@@ -86,13 +86,13 @@ make help          # See all available commands
 ### Running Tests
 ```bash
 # Run all tests
-python -m unittest discover tests
+pytest
 
 # Run specific test suite
-python -m unittest tests.test_edge_cases -v
+pytest tests/test_edge_cases.py -v
 
 # Run individual test
-python -m unittest tests.test_edge_cases.TestEdgeCasesAndErrorHandling.test_webhook_valid_signature -v
+pytest tests/test_edge_cases.py::TestEdgeCasesAndErrorHandling::test_webhook_valid_signature -v
 ```
 
 ### Test Environment Configuration
