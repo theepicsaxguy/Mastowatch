@@ -340,11 +340,10 @@ def analyze_and_maybe_report(payload: dict):
             score = cached_result.get("score", 0)
             hits = [(hit["rule"], hit["weight"], hit["evidence"]) for hit in cached_result.get("rule_hits", [])]
         else:
-            # Perform fresh analysis
-            current_rules = rule_service.get_current_rules_snapshot()
+            # Perform fresh analysis using the new rule service
             admin = _get_admin_client()
             statuses = admin.get_account_statuses(account_id=acct_id, limit=settings.MAX_STATUSES_TO_FETCH)
-            score, hits = current_rules.eval_account(acct, statuses)
+            score, hits = rule_service.eval_account(acct, statuses)
 
         accounts_scanned.inc()
         analysis_latency.observe(max(0.0, time.time() - started))
@@ -364,8 +363,8 @@ def analyze_and_maybe_report(payload: dict):
             db.commit()
 
         # Check if score meets reporting threshold
-        current_rules = rule_service.get_current_rules_snapshot()
-        if float(score) < float(current_rules.cfg.get("report_threshold", 1.0)):
+        rules, config, ruleset_sha = rule_service.get_active_rules()
+        if float(score) < float(config.get("report_threshold", 1.0)):
             return
 
         # Track domain violation
@@ -377,9 +376,7 @@ def analyze_and_maybe_report(payload: dict):
         # Prepare report
         status_ids = [h[2].get("status_id") for h in hits if h[2].get("status_id")]
         comment = f"[AUTO] score={score:.2f}; hits=" + ", ".join(h[0] for h in hits)
-        dedupe = make_dedupe_key(
-            acct_id, status_ids, settings.POLICY_VERSION, current_rules.ruleset_sha256, {"hit_count": len(hits)}
-        )
+        dedupe = make_dedupe_key(acct_id, status_ids, settings.POLICY_VERSION, ruleset_sha, {"hit_count": len(hits)})
 
         # UPSERT report row to enforce idempotency
         stmt = (

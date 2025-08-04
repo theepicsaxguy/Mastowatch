@@ -1,10 +1,9 @@
-"""
-CI/CD-friendly tests for Mastowatch application
+"""CI/CD-friendly tests for Mastowatch application
 No authentication required, uses in-memory SQLite database
 Tests all core functionality without external dependencies
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 class TestMastowatchCore:
@@ -47,10 +46,12 @@ class TestRuleManagement:
         """Test rule creation endpoint"""
         rule_data = {
             "name": "Test Rule",
-            "rule_type": "username_regex", 
+            "detector_type": "regex",
             "pattern": "spam.*",
             "weight": 1.0,
-            "enabled": True
+            "action_type": "report",
+            "trigger_threshold": 1.0,
+            "enabled": True,
         }
         response = test_client.post("/rules", json=rule_data)
         # Should work with mocked auth
@@ -60,28 +61,25 @@ class TestRuleManagement:
     def test_rule_update_custom_copy_creation(self, test_client):
         """Test that updating default rules creates custom copies"""
         # This tests the fix for "can't edit rules" issue
-        rule_update = {
-            "pattern": "updated_pattern.*",
-            "weight": 2.0
-        }
-        
+        rule_update = {"pattern": "updated_pattern.*", "weight": 2.0}
+
         # Mock a default rule exists
         with patch("app.main.SessionLocal") as mock_session_factory:
             mock_session = MagicMock()
             mock_session_factory.return_value.__enter__.return_value = mock_session
-            
+
             # Mock default rule
             mock_rule = MagicMock()
             mock_rule.is_default = True
             mock_rule.name = "Default Rule"
-            mock_rule.rule_type = "username_regex"
+            mock_rule.detector_type = "regex"
             mock_rule.pattern = "original_pattern.*"
             mock_rule.weight = 1.0
             mock_rule.enabled = True
             mock_session.query.return_value.filter.return_value.first.return_value = mock_rule
-            
+
             response = test_client.put("/rules/1", json=rule_update)
-            
+
             # Should succeed and create custom copy
             assert response.status_code in [200, 404]  # 404 is ok if rule doesn't exist
             print("PASS: Rule update with custom copy creation working")
@@ -136,31 +134,41 @@ class TestAnalyticsEndpoints:
             mock_scanner = MagicMock()
             # Mock domain data with the metrics the user requested
             mock_domain_alerts = [
-                {"domain": "monitored1.com", "violation_count": 3, "defederation_threshold": 10, "is_defederated": False},
+                {
+                    "domain": "monitored1.com",
+                    "violation_count": 3,
+                    "defederation_threshold": 10,
+                    "is_defederated": False,
+                },
                 {"domain": "highrisk.com", "violation_count": 8, "defederation_threshold": 10, "is_defederated": False},
-                {"domain": "defederated.com", "violation_count": 15, "defederation_threshold": 10, "is_defederated": True}
+                {
+                    "domain": "defederated.com",
+                    "violation_count": 15,
+                    "defederation_threshold": 10,
+                    "is_defederated": True,
+                },
             ]
             mock_scanner.get_domain_alerts.return_value = mock_domain_alerts
             mock_scanner_class.return_value = mock_scanner
-            
+
             response = test_client.get("/analytics/domains")
             assert response.status_code == 200
             data = response.json()
-            
+
             # Check that all requested metrics are present
             assert "summary" in data
             summary = data["summary"]
             assert "monitored_domains" in summary
-            assert "high_risk_domains" in summary 
+            assert "high_risk_domains" in summary
             assert "defederated_domains" in summary
-            
+
             # Check metadata for 15-second refresh capability
             assert "metadata" in data
             metadata = data["metadata"]
             assert "refresh_interval_seconds" in metadata
             assert metadata["refresh_interval_seconds"] == 15
             assert metadata["supports_real_time"] is True
-            
+
             print("PASS: Domain analytics with real-time metrics working")
 
     def test_scanning_analytics_job_tracking(self, test_client):
@@ -168,17 +176,17 @@ class TestAnalyticsEndpoints:
         response = test_client.get("/analytics/scanning")
         assert response.status_code == 200
         data = response.json()
-        
+
         # Check for job tracking features
         assert "active_jobs" in data
         assert "system_status" in data
         assert "metadata" in data
-        
+
         # Check 15-second refresh capability
         metadata = data["metadata"]
         assert metadata["refresh_interval_seconds"] == 15
         assert metadata["supports_real_time"] is True
-        
+
         print("PASS: Scanning analytics with job tracking working")
 
     def test_overview_analytics(self, test_client):
@@ -220,12 +228,14 @@ class TestDatabaseFunctionality:
         # This tests the fix for rule persistence issues
         rule_data = {
             "name": "Persistent Rule",
-            "rule_type": "content_regex",
-            "pattern": "test_pattern.*", 
+            "detector_type": "regex",
+            "pattern": "test_pattern.*",
             "weight": 1.5,
-            "enabled": True
+            "action_type": "report",
+            "trigger_threshold": 1.0,
+            "enabled": True,
         }
-        
+
         response = test_client.post("/rules", json=rule_data)
         # Should succeed or return appropriate error
         assert response.status_code in [200, 201, 422, 500]
@@ -236,39 +246,35 @@ def run_all_tests():
     """Run all tests without pytest for CI environments"""
     print("Running Mastowatch CI/CD Tests")
     print("=" * 50)
-    
+
     # Note: In actual CI/CD, these would run via pytest
     # This function is for manual testing
-    
-    test_results = {
-        "total": 0,
-        "passed": 0,
-        "failed": 0
-    }
-    
+
+    test_results = {"total": 0, "passed": 0, "failed": 0}
+
     print("\nCore functionality tests:")
     print("- Health endpoint: CONFIGURED")
-    print("- Metrics endpoint: CONFIGURED") 
+    print("- Metrics endpoint: CONFIGURED")
     print("- API docs: CONFIGURED")
-    
+
     print("\nRule management tests:")
     print("- Rules CRUD operations: CONFIGURED")
     print("- Custom copy creation for default rules: CONFIGURED")
-    
+
     print("\nScanning functionality tests:")
     print("- Federated scanning with error handling: CONFIGURED")
-    print("- Domain validation: CONFIGURED") 
+    print("- Domain validation: CONFIGURED")
     print("- Cache invalidation coordination: CONFIGURED")
-    
+
     print("\nAnalytics tests:")
     print("- Domain metrics with 15-second refresh: CONFIGURED")
     print("- Scanning job tracking: CONFIGURED")
-    
+
     print("\nError handling tests:")
     print("- 422 error handling: CONFIGURED")
     print("- Connection error handling: CONFIGURED")
     print("- Structured error responses: CONFIGURED")
-    
+
     print("\n" + "=" * 50)
     print("All tests configured for CI/CD environment")
     print("Use 'pytest' to run with proper fixtures and mocking")
