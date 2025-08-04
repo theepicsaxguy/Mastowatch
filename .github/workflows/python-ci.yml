@@ -86,3 +86,12 @@ jobs:
       run: |
         npm ci
         npm run build
+
+  build-pr-image:
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build_pr')
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build Docker image
+      run: docker build .
