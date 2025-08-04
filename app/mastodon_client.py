@@ -1,5 +1,4 @@
-"""
-Type-safe Mastodon client using generated OpenAPI client with fallback to raw HTTP calls.
+"""Type-safe Mastodon client using generated OpenAPI client with fallback to raw HTTP calls.
 This provides the best of both worlds: type safety where available, flexibility where needed.
 """
 
@@ -9,6 +8,10 @@ from typing import Any
 import httpx
 
 from app.clients.mastodon import AuthenticatedClient
+from app.clients.mastodon.accounts.get_account import sync as get_account_sync
+from app.clients.mastodon.accounts.get_account_statuses import sync as get_account_statuses_sync
+from app.clients.mastodon.models.create_report_body import CreateReportBody
+from app.clients.mastodon.reports.create_report import sync as create_report_sync
 from app.config import get_settings
 from app.metrics import api_call_seconds, http_errors
 from app.rate_limit import throttle_if_needed, update_from_headers
@@ -17,8 +20,7 @@ settings = get_settings()
 
 
 class MastoClient:
-    """
-    Enhanced Mastodon client with type safety and fallback support.
+    """Enhanced Mastodon client with type safety and fallback support.
 
     Uses the generated OpenAPI client for documented endpoints while maintaining
     backward compatibility for admin endpoints and custom functionality.
@@ -44,9 +46,10 @@ class MastoClient:
         if not link_header:
             return None
         import re
+
         for link in link_header.split(","):
             if 'rel="next"' in link:
-                match = re.search(r'max_id=(\\d+)', link)
+                match = re.search(r"max_id=(\\d+)", link)
                 if match:
                     return match.group(1)
         return None
@@ -61,7 +64,7 @@ class MastoClient:
         url = f"{self._base_url}{path}"
         with api_call_seconds.labels(endpoint=path).time():
             response = httpx.request(method, url, headers=headers, timeout=30.0, **kwargs)
-        
+
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
@@ -69,9 +72,21 @@ class MastoClient:
         return response
 
     def get_account(self, account_id: str) -> dict[str, Any]:
-        """Get account information using direct HTTP call."""
-        response = self._make_request("GET", f"/api/v1/accounts/{account_id}")
-        return response.json()
+        """Get account information using generated OpenAPI client."""
+        throttle_if_needed(self._bucket_key)
+
+        with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}").time():
+            result = get_account_sync(id=account_id, client=self._api_client)
+
+        if result is None:
+            raise httpx.HTTPStatusError("Account not found", request=None, response=None)
+
+        # Convert the Account model to dict for backward compatibility
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        else:
+            # Fallback to manual serialization if to_dict is not available
+            return result.__dict__
 
     def get_account_statuses(
         self,
@@ -83,19 +98,32 @@ class MastoClient:
         only_media: bool = False,
         pinned: bool = False,
     ) -> list[dict[str, Any]]:
-        """Get account statuses using direct HTTP call."""
-        params = {
-            "limit": limit,
-            "exclude_reblogs": exclude_reblogs,
-            "exclude_replies": exclude_replies,
-            "only_media": only_media,
-            "pinned": pinned,
-        }
-        if max_id:
-            params["max_id"] = max_id
+        """Get account statuses using generated OpenAPI client."""
+        throttle_if_needed(self._bucket_key)
 
-        response = self._make_request("GET", f"/api/v1/accounts/{account_id}/statuses", params=params)
-        return response.json()
+        with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}/statuses").time():
+            result = get_account_statuses_sync(
+                id=account_id,
+                client=self._api_client,
+                limit=limit,
+                max_id=max_id if max_id else None,
+                exclude_reblogs=exclude_reblogs,
+                exclude_replies=exclude_replies,
+                only_media=only_media,
+                pinned=pinned,
+            )
+
+        if result is None:
+            return []
+
+        # Convert the Status models to dicts for backward compatibility
+        statuses = []
+        for status in result:
+            if hasattr(status, "to_dict"):
+                statuses.append(status.to_dict())
+            else:
+                statuses.append(status.__dict__)
+        return statuses
 
     def create_report(
         self,
@@ -105,20 +133,31 @@ class MastoClient:
         category: str = "other",
         forward: bool = False,
         rule_ids: list[str] | None = None,
-    ) -> httpx.Response:
-        """Create a report using direct HTTP call."""
-        data = {
-            "account_id": account_id,
-            "comment": comment,
-            "category": category,
-            "forward": forward,
-        }
-        if status_ids:
-            data["status_ids"] = status_ids
-        if rule_ids:
-            data["rule_ids"] = rule_ids
+    ) -> dict[str, Any]:
+        """Create a report using generated OpenAPI client."""
+        throttle_if_needed(self._bucket_key)
 
-        return self._make_request("POST", "/api/v1/reports", json=data)
+        # Create the request body using the generated model
+        report_body = CreateReportBody(
+            account_id=account_id,
+            comment=comment,
+            category=category,
+            forward=forward,
+            status_ids=status_ids or [],
+            rule_ids=rule_ids or [],
+        )
+
+        with api_call_seconds.labels(endpoint="/api/v1/reports").time():
+            result = create_report_sync(client=self._api_client, body=report_body)
+
+        if result is None:
+            raise Exception("Failed to create report")
+
+        # Convert the Report model to dict for backward compatibility
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        else:
+            return result.__dict__
 
     def get_admin_accounts(
         self,
