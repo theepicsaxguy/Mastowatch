@@ -32,7 +32,7 @@ def get_current_rules(user: User = Depends(require_admin_hybrid)):
 
 @router.get("/rules", tags=["rules"])
 def list_rules(user: User = Depends(require_admin_hybrid)):
-    """List all rules (file-based and database rules)."""
+    """List all rules."""
     all_rules, _, _ = rule_service.get_active_rules()
     response = []
 

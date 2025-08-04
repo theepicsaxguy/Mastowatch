@@ -77,9 +77,9 @@ export type AnalysisData = {
 export type RulesData = {
   rules: {
     report_threshold: number;
-    username_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; is_default?: boolean; id?: number}>;
-    display_name_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; is_default?: boolean; id?: number}>;
-    content_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; is_default?: boolean; id?: number}>;
+    username_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; id?: number}>;
+    display_name_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; id?: number}>;
+    content_regex?: Array<{name: string; pattern: string; weight: number; enabled?: boolean; id?: number}>;
   };
   report_threshold: number;
 };
@@ -91,7 +91,6 @@ export type Rule = {
   pattern: string;
   weight: number;
   enabled: boolean;
-  is_default: boolean;
   trigger_count?: number;
   last_triggered_at?: string | null;
   last_triggered_content?: any;
@@ -152,8 +151,7 @@ export type DomainAnalytics = {
 export type RuleStatistics = {
   total_rules: number;
   enabled_rules: number;
-  custom_rules: number;
-  file_rules: number;
+  disabled_rules: number;
   top_triggered_rules: Array<{
     name: string;
     trigger_count: number;
@@ -205,7 +203,7 @@ export async function fetchRulesList(): Promise<RulesList> {
   return apiFetch<RulesList>('/rules');
 }
 
-export async function createRule(rule: Omit<Rule, 'id' | 'is_default'>): Promise<Rule> {
+export async function createRule(rule: Omit<Rule, 'id'>): Promise<Rule> {
   return apiFetch<Rule>('/rules', {
     method: 'POST',
     body: JSON.stringify(rule)
