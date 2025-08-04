@@ -806,7 +806,7 @@ function RulesTab({ rules, onReload, saving }: {
   }
 
   async function handleToggleRule(rule: Rule) {
-    if (rule.is_default || !rule.id) return;
+    if (!rule.id) return;
     
     try {
       setLoading(true);
@@ -821,7 +821,7 @@ function RulesTab({ rules, onReload, saving }: {
   }
 
   async function handleDeleteRule(rule: Rule) {
-    if (rule.is_default || !rule.id) return;
+    if (!rule.id) return;
     
     try {
       setLoading(true);
@@ -914,9 +914,6 @@ function RulesTab({ rules, onReload, saving }: {
                             <Text size="sm" fw={500} c={rule.enabled ? undefined : 'dimmed'}>
                               {rule.name}
                             </Text>
-                            {rule.is_default && (
-                              <Badge size="xs" color="blue" variant="light">Default</Badge>
-                            )}
                             <Badge size="xs" variant="light" color={rule.enabled ? 'green' : 'gray'}>
                               {rule.enabled ? 'On' : 'Off'}
                             </Badge>
@@ -937,7 +934,7 @@ function RulesTab({ rules, onReload, saving }: {
                           <Text size="xs" c="dimmed">Weight: {rule.weight}</Text>
                         </Stack>
                         <Group gap={4}>
-                          {!rule.is_default && rule.id && (
+                          {rule.id && (
                             <>
                               <ActionIcon
                                 size="sm"
@@ -1095,9 +1092,6 @@ function RulesTab({ rules, onReload, saving }: {
               </div>
               <Group>
                 <Badge variant="light">{selectedRuleForInfo.rule_type}</Badge>
-                {selectedRuleForInfo.is_default && (
-                  <Badge color="blue">Default Rule</Badge>
-                )}
               </Group>
             </Group>
             
@@ -1755,10 +1749,7 @@ function ScanningTab({
                   <Stat label="Enabled Rules" value={ruleStatistics.enabled_rules.toString()} />
                 </Grid.Col>
                 <Grid.Col span={6}>
-                  <Stat label="Custom Rules" value={ruleStatistics.custom_rules.toString()} />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Stat label="File Rules" value={ruleStatistics.file_rules.toString()} />
+                  <Stat label="Disabled Rules" value={ruleStatistics.disabled_rules.toString()} />
                 </Grid.Col>
               </Grid>
             </Grid.Col>
