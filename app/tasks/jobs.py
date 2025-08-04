@@ -340,10 +340,11 @@ def analyze_and_maybe_report(payload: dict):
             score = cached_result.get("score", 0)
             hits = [(hit["rule"], hit["weight"], hit["evidence"]) for hit in cached_result.get("rule_hits", [])]
         else:
-            # Perform fresh analysis using the new rule service
             admin = _get_admin_client()
             statuses = admin.get_account_statuses(account_id=acct_id, limit=settings.MAX_STATUSES_TO_FETCH)
-            score, hits = rule_service.eval_account(acct, statuses)
+            violations = rule_service.evaluate_account(acct, statuses)
+            score = sum(v.score for v in violations)
+            hits = [(v.rule_name, v.score, v.evidence.dict()) for v in violations]
 
         accounts_scanned.inc()
         analysis_latency.observe(max(0.0, time.time() - started))
@@ -551,7 +552,9 @@ def process_new_report(report_payload: dict):
                         "mastodon_report_id"
                     ):  # Assuming this field indicates if it's already reported
                         logging.info(
-                            f"Attempting to perform automated report for account {account_data['id']} due to rule {violation.rule_name}"
+                            "Attempting automated report for account %s due to rule %s",
+                            account_data["id"],
+                            violation.rule_name,
                         )
                         enforcement_service.perform_account_action(
                             account_id=account_data["id"],
@@ -562,7 +565,10 @@ def process_new_report(report_payload: dict):
                         )
                 elif violation.action_type in ["silence", "suspend", "disable", "sensitive", "domain_block"]:
                     logging.info(
-                        f"Attempting to perform automated action {violation.action_type} for account {account_data['id']} due to rule {violation.rule_name}"
+                        "Attempting automated action %s for account %s due to rule %s",
+                        violation.action_type,
+                        account_data["id"],
+                        violation.rule_name,
                     )
                     enforcement_service.perform_account_action(
                         account_id=account_data["id"],
@@ -618,7 +624,10 @@ def process_new_status(status_payload: dict):
                 # Decide on action based on the rule's action_type and trigger_threshold
                 if violation.action_type in ["silence", "suspend", "disable", "sensitive", "domain_block"]:
                     logging.info(
-                        f"Attempting to perform automated action {violation.action_type} for account {account_data['id']} due to rule {violation.rule_name}"
+                        "Attempting automated action %s for account %s due to rule %s",
+                        violation.action_type,
+                        account_data["id"],
+                        violation.rule_name,
                     )
                     enforcement_service.perform_account_action(
                         account_id=account_data["id"],
@@ -631,13 +640,15 @@ def process_new_status(status_payload: dict):
                 elif violation.action_type == "report":
                     # For status-triggered reports, create a new report
                     logging.info(
-                        f"Attempting to create automated report for account {account_data['id']} due to rule {violation.rule_name}"
+                        "Attempting automated report for account %s due to rule %s",
+                        account_data["id"],
+                        violation.rule_name,
                     )
                     enforcement_service.perform_account_action(
                         account_id=account_data["id"],
                         action_type=violation.action_type,
                         comment=f"Automated report: {violation.rule_name} (Score: {violation.score})",
-                        status_ids=[status_data.get("id")],  # Report the specific status
+                        status_ids=[status_data.get("id")],
                     )
         else:
             logging.info(f"Status {status_data.get('id')} did not trigger any violations.")

@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from app.schemas import Evidence, Violation
+
 # Add the app directory to the path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -20,8 +22,14 @@ class TestCeleryTasks(unittest.TestCase):
         mock_settings.return_value.DRY_RUN = True
         mock_settings.return_value.PANIC_STOP = False
 
-        # Mock rule service evaluation
-        mock_rule_service.eval_account.return_value = (0.8, [("rule1", 0.5, {}), ("rule2", 0.3, {})])
+        mock_rule_service.evaluate_account.return_value = [
+            Violation(
+                rule_name="rule1", score=0.5, evidence=Evidence(matched_terms=[], matched_status_ids=[], metrics={})
+            ),
+            Violation(
+                rule_name="rule2", score=0.3, evidence=Evidence(matched_terms=[], matched_status_ids=[], metrics={})
+            ),
+        ]
 
         mock_db_session = MagicMock()
         mock_db.return_value.__enter__.return_value = mock_db_session
@@ -41,7 +49,7 @@ class TestCeleryTasks(unittest.TestCase):
 
         # Assertions
         self.assertIsNotNone(result)
-        mock_rule_service.eval_account.assert_called_once()
+        mock_rule_service.evaluate_account.assert_called_once()
 
         # Verify that account and analysis records would be created/updated
         self.assertTrue(mock_db_session.merge.called)
@@ -61,10 +69,9 @@ class TestCeleryTasks(unittest.TestCase):
         payload = {"account": {"id": "123456"}, "statuses": []}
 
         # Call the function
-        result = analyze_and_maybe_report(payload)
+        analyze_and_maybe_report(payload)
 
-        # Should exit early due to panic stop
-        mock_rule_service.eval_account.assert_not_called()
+        mock_rule_service.evaluate_account.assert_not_called()
         mock_db.assert_not_called()
 
     @patch("app.tasks.jobs.SessionLocal")
@@ -137,7 +144,13 @@ class TestCeleryTasks(unittest.TestCase):
         mock_settings.return_value.PANIC_STOP = False
 
         # Mock rule service to return high score
-        mock_rule_service.eval_account.return_value = (2.5, [("high_risk_rule", 2.5, {})])
+        mock_rule_service.evaluate_account.return_value = [
+            Violation(
+                rule_name="high_risk_rule",
+                score=2.5,
+                evidence=Evidence(matched_terms=[], matched_status_ids=[], metrics={}),
+            ),
+        ]
         mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
 
         mock_db_session = MagicMock()
@@ -171,7 +184,13 @@ class TestCeleryTasks(unittest.TestCase):
         mock_settings.return_value.PANIC_STOP = False
 
         # Mock rule service to return low score
-        mock_rule_service.eval_account.return_value = (0.5, [("low_risk_rule", 0.5, {})])
+        mock_rule_service.evaluate_account.return_value = [
+            Violation(
+                rule_name="low_risk_rule",
+                score=0.5,
+                evidence=Evidence(matched_terms=[], matched_status_ids=[], metrics={}),
+            ),
+        ]
         mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
 
         mock_db_session = MagicMock()

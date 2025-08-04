@@ -140,7 +140,9 @@ def metrics():
 async def dryrun_evaluate(payload: dict):
     acct = payload.get("account") or {}
     statuses = payload.get("statuses") or []
-    score, hits = rule_service.eval_account(acct, statuses)
+    violations = rule_service.evaluate_account(acct, statuses)
+    score = sum(v.score for v in violations)
+    hits = [(v.rule_name, v.score, v.evidence.dict()) for v in violations]
     return {"score": score, "hits": hits}
 
 

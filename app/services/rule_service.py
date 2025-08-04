@@ -69,13 +69,14 @@ class RuleService:
         """Load rules from database and update cache"""
         with SessionLocal() as session:
             # Get all enabled rules
-            db_rules = session.query(Rule).filter(Rule.enabled == True).all()
+            db_rules = session.query(Rule).filter(Rule.enabled.is_(True)).all()
 
             # Create a hash from all the rule data for versioning
             rule_data = []
             for rule in db_rules:
                 rule_data.append(
-                    f"{rule.id}:{rule.pattern}:{rule.weight}:{rule.enabled}:{rule.detector_type}:{rule.action_type}:{rule.trigger_threshold}"
+                    f"{rule.id}:{rule.pattern}:{rule.weight}:{rule.enabled}:"
+                    f"{rule.detector_type}:{rule.action_type}:{rule.trigger_threshold}"
                 )
 
             ruleset_content = "|".join(sorted(rule_data))
@@ -293,105 +294,34 @@ class RuleService:
                 "cache_status": self.get_cache_status(),
             }
 
-    def eval_account(
-        self, account_data: dict[str, Any], statuses: list[dict[str, Any]]
-    ) -> tuple[float, list[tuple[str, float, dict]]]:
-        """Legacy compatibility method that matches the old Rules.eval_account interface.
-
-        Args:
-            account_data: Dictionary containing account information
-            statuses: List of status dictionaries
-
-        Returns:
-            Tuple of (total_score, hits) where hits is a list of (rule_key, weight, evidence) tuples
-
-        """
-        violations = self.evaluate_account(account_data, statuses)
-
-        total_score = 0.0
-        hits = []
-
-        for violation in violations:
-            rule_key = f"{violation.rule_type}/{violation.rule_name}"
-            weight = violation.score
-            evidence = violation.evidence or {}
-
-            hits.append((rule_key, weight, evidence))
-            total_score += weight
-
-        return total_score, hits
-
-    def get_current_rules_snapshot(self):
-        """Legacy compatibility method that returns an object with the old interface.
-        This creates a snapshot object that has the methods expected by the old code.
-        """
-        active_rules, config, ruleset_sha = self.get_active_rules()
-
-        class RulesSnapshot:
-            def __init__(self, service_instance, config, ruleset_sha):
-                self._service = service_instance
-                self.cfg = config
-                self.ruleset_sha256 = ruleset_sha
-
-            def eval_account(self, account_data, statuses):
-                return self._service.eval_account(account_data, statuses)
-
-        return RulesSnapshot(self, config, ruleset_sha)
-
     def evaluate_account(self, account_data: dict[str, Any], statuses: list[dict[str, Any]]) -> list[Violation]:
-        """Evaluates an account and its statuses against all active rules.
+        """Evaluates an account and its statuses against all active rules."""
 
-        Args:
-            account_data: Dictionary containing account information.
-            statuses: List of dictionaries, each representing a status from the account.
-
-        Returns:
-            A list of Violation objects for rules that were triggered.
-
-        """
         all_violations: list[Violation] = []
-        active_rules, _, _ = self.get_active_rules()  # Get active rules from cache/DB
+        active_rules, _, _ = self.get_active_rules()
 
         for rule in active_rules:
-            detector_type = rule.detector_type
-            detector = self.detectors.get(detector_type)
-
+            detector = self.detectors.get(rule.detector_type)
             if not detector:
-                logger.warning(f"No detector found for type: {detector_type}")
+                logger.warning(f"No detector found for type: {rule.detector_type}")
                 continue
 
-            # Temporarily pass the rule to the detector for evaluation
-            # This will be refined as detectors are made more generic
-            # For now, detectors will need to filter by rule.pattern and rule.trigger_threshold
-            # This is a simplification for the current task.
-            # A more robust solution would involve passing the rule object directly
-            # and having the detector evaluate against that specific rule.
-
-            # For now, we'll pass the rule as part of account_data or statuses if needed by the detector
-            # This is a temporary workaround until the detector architecture is fully fleshed out
-            # to handle individual rule evaluation.
-
-            # The detectors currently evaluate against hardcoded rules or general patterns.
-            # The next step would be to pass the specific rule to the detector.
-
-            # For now, we'll just call evaluate and let the detector decide based on its internal logic
-            # and the provided account_data/statuses.
-
-            # This is a placeholder for the actual integration of rule.pattern and rule.trigger_threshold
-            # into the detector's evaluation logic.
-
-            # The current detectors are designed to return all potential violations.
-            # The filtering by trigger_threshold will happen here.
-
             violations_from_detector = detector.evaluate(rule, account_data, statuses)
-
             for violation in violations_from_detector:
-                # Filter violations based on the rule's trigger_threshold
-                # This assumes the detector returns a score for each violation
                 if violation.score >= rule.trigger_threshold:
                     all_violations.append(violation)
 
         return all_violations
+
+    def get_config_value(self, key: str, default: Any | None = None) -> Any:
+        _, config, _ = self.get_active_rules()
+        return config.get(key, default)
+
+    @property
+    def ruleset_sha256(self) -> str | None:
+        if self._cache:
+            return self._cache.ruleset_sha256
+        return None
 
     def invalidate_cache(self):
         """Force cache invalidation to refresh rules on next access"""

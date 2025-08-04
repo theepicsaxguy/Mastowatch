@@ -167,21 +167,16 @@ def get_current_user_info(user: User = Depends(require_admin_hybrid)):
 def evaluate_dryrun(request_data: dict[str, Any], _: User = Depends(require_admin_hybrid)):
     """Evaluate content in dry-run mode without taking action."""
     try:
-        # Mock account data for testing
-        mock_account = request_data.get("account", {})
-
-        # Evaluate using rule service
-        violations = rule_service.evaluate_account(mock_account)
-
+        acct = request_data.get("account", {})
+        statuses = request_data.get("statuses") or []
+        violations = rule_service.evaluate_account(acct, statuses)
         return {
             "violations": [
-                {"rule_name": v.rule_name, "score": v.score, "evidence": v.evidence, "action_type": v.action_type}
-                for v in violations
+                {"rule_name": v.rule_name, "score": v.score, "evidence": v.evidence.dict()} for v in violations
             ],
             "total_score": sum(v.score for v in violations),
             "dry_run": True,
         }
-
     except Exception as e:
         logger.error("Failed to evaluate dry run", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail="Failed to evaluate content") from e

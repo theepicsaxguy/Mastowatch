@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from app.schemas import Evidence, Violation
+
 # Set test environment before any imports
 os.environ.update(
     {
@@ -212,12 +214,18 @@ class TestAPIEndpoints(unittest.TestCase):
 
     def test_dryrun_evaluate_new_endpoint(self):
         """Test the dry run evaluation endpoint with new API structure"""
-        with patch("app.api.scanning.rule_service") as mock_rule_service:
-            mock_rule_service.eval_account.return_value = (1.5, [("test_rule", 1.5, {})])
+        with patch("app.main.rule_service") as mock_rule_service:
+            mock_rule_service.evaluate_account.return_value = [
+                Violation(
+                    rule_name="test_rule",
+                    score=1.5,
+                    evidence=Evidence(matched_terms=[], matched_status_ids=[], metrics={}),
+                )
+            ]
 
             payload = {"account": {"id": "123", "acct": "test@example.com"}, "statuses": [{"content": "test status"}]}
 
-            response = self.client.post("/api/v1/scanning/dryrun/evaluate", json=payload)
+            response = self.client.post("/dryrun/evaluate", json=payload)
             self.assertEqual(response.status_code, 200)
             data = response.json()
             self.assertIn("score", data)
