@@ -121,7 +121,6 @@ Endpoints:
 #### Configuration Management (requires admin login)
 * `POST /config/dry_run` - Toggle dry run mode (body: `{"dry_run": true|false, "updated_by": "optional-string"}`)
 * `POST /config/panic_stop` - Emergency stop all processing (body: `{"panic_stop": true|false, "updated_by": "optional-string"}`)
-* `POST /config/rules/reload` - Reload rules.yml configuration
 
 #### Analytics & Data (requires admin login)
 * `GET /analytics/overview` - System analytics overview with account/report metrics

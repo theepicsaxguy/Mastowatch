@@ -64,9 +64,21 @@ class Rule(Base):
     pattern = Column(Text, nullable=False)
     weight = Column(Numeric, nullable=False)
     enabled = Column(Boolean, nullable=False, default=True)
-    is_default = Column(Boolean, nullable=False, default=False)  # True for rules from rules.yml
+    is_default = Column(Boolean, nullable=False, default=False)
     # New columns for action types and duration
-    action_type = Column(sa_Enum('report', 'silence', 'suspend', 'disable', 'sensitive', 'domain_block', name='action_type_enum', create_type=False), nullable=False)
+    action_type = Column(
+        sa_Enum(
+            "report",
+            "silence",
+            "suspend",
+            "disable",
+            "sensitive",
+            "domain_block",
+            name="action_type_enum",
+            create_type=False,
+        ),
+        nullable=False,
+    )
     action_duration_seconds = Column(Integer, nullable=True)
     action_warning_text = Column(Text, nullable=True)
     warning_preset_id = Column(Text, nullable=True)
@@ -84,6 +96,7 @@ class Rule(Base):
 
 class DomainAlert(Base):
     """Track domain-level violations and defederation thresholds"""
+
     __tablename__ = "domain_alerts"
     id = Column(BigInteger, primary_key=True)
     domain = Column(Text, nullable=False, unique=True)
@@ -100,10 +113,11 @@ class DomainAlert(Base):
 
 class ScanSession(Base):
     """Track scanning sessions and progress across multiple users/accounts"""
+
     __tablename__ = "scan_sessions"
     id = Column(BigInteger, primary_key=True)
     session_type = Column(Text, nullable=False)  # 'local', 'remote', 'federated'
-    status = Column(Text, nullable=False, default='active')  # 'active', 'completed', 'paused', 'failed'
+    status = Column(Text, nullable=False, default="active")  # 'active', 'completed', 'paused', 'failed'
     accounts_processed = Column(Integer, nullable=False, default=0)
     total_accounts = Column(Integer)  # Estimated total if known
     current_cursor = Column(Text)  # Current position in the scan
@@ -116,6 +130,7 @@ class ScanSession(Base):
 
 class ContentScan(Base):
     """Track individual content scans to prevent re-processing"""
+
     __tablename__ = "content_scans"
     id = Column(BigInteger, primary_key=True)
     content_hash = Column(Text, nullable=False, unique=True)  # Hash of content being scanned
@@ -132,7 +147,19 @@ class ScheduledAction(Base):
     __tablename__ = "scheduled_actions"
     id = Column(BigInteger, primary_key=True)
     mastodon_account_id = Column(Text, index=True, nullable=False)
-    action_to_reverse = Column(sa_Enum('report', 'silence', 'suspend', 'disable', 'sensitive', 'domain_block', name='action_type_enum', create_type=False), nullable=False)
+    action_to_reverse = Column(
+        sa_Enum(
+            "report",
+            "silence",
+            "suspend",
+            "disable",
+            "sensitive",
+            "domain_block",
+            name="action_type_enum",
+            create_type=False,
+        ),
+        nullable=False,
+    )
     expires_at = Column(TIMESTAMP(timezone=True), index=True, nullable=False)
 
 
@@ -159,7 +186,7 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
     id = Column(BigInteger, primary_key=True)
     action_type = Column(Text, nullable=False)
-    triggered_by_rule_id = Column(BigInteger, ForeignKey('rules.id'), nullable=True)
+    triggered_by_rule_id = Column(BigInteger, ForeignKey("rules.id"), nullable=True)
     target_account_id = Column(Text, nullable=False)
     timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
     evidence = Column(JSON)

@@ -296,15 +296,6 @@ export default function App() {
     }
   }
 
-  async function reloadRules() {
-    setSaving(true);
-    try {
-      await apiFetch('/config/rules/reload', { method: 'POST' });
-      await loadRules();
-    } finally {
-      setSaving(false);
-    }
-  }
 
   // Show login screen if not authenticated
   if (authLoading) {
@@ -446,7 +437,7 @@ export default function App() {
             </Tabs.Panel>
 
             <Tabs.Panel value="rules" pt="md">
-              <RulesTab rules={rules} onReload={reloadRules} saving={saving} />
+              <RulesTab rules={rules} saving={saving} />
             </Tabs.Panel>
 
             <Tabs.Panel value="scanning" pt="md">
@@ -469,11 +460,10 @@ export default function App() {
             </Tabs.Panel>
 
             <Tabs.Panel value="settings" pt="md">
-              <SettingsTab 
+              <SettingsTab
                 health={health}
                 onUpdateDryRun={updateDryRun}
                 onUpdatePanic={updatePanic}
-                onReloadRules={reloadRules}
                 saving={saving}
               />
             </Tabs.Panel>
@@ -753,10 +743,9 @@ function ReportsTab({ reports }: { reports: ReportData | null }) {
   );
 }
 
-function RulesTab({ rules, onReload, saving }: { 
-  rules: RulesData | null, 
-  onReload: () => void,
-  saving: boolean 
+function RulesTab({ rules, saving }: {
+  rules: RulesData | null,
+  saving: boolean
 }) {
   const [rulesList, setRulesList] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(false);
@@ -797,7 +786,6 @@ function RulesTab({ rules, onReload, saving }: {
       setNewRule({ name: '', rule_type: 'username_regex', pattern: '', weight: 0.5 });
       setShowCreateModal(false);
       await loadRulesList();
-      onReload();
     } catch (error) {
       console.error('Failed to create rule:', error);
     } finally {
@@ -812,7 +800,6 @@ function RulesTab({ rules, onReload, saving }: {
       setLoading(true);
       await toggleRule(rule.id);
       await loadRulesList();
-      onReload();
     } catch (error) {
       console.error('Failed to toggle rule:', error);
     } finally {
@@ -827,7 +814,6 @@ function RulesTab({ rules, onReload, saving }: {
       setLoading(true);
       await deleteRule(rule.id);
       await loadRulesList();
-      onReload();
     } catch (error) {
       console.error('Failed to delete rule:', error);
     } finally {
@@ -847,7 +833,6 @@ function RulesTab({ rules, onReload, saving }: {
       });
       setEditingRule(null);
       await loadRulesList();
-      onReload();
     } catch (error) {
       console.error('Failed to update rule:', error);
     } finally {
@@ -876,20 +861,12 @@ function RulesTab({ rules, onReload, saving }: {
             </Text>
           </Stack>
           <Group>
-            <Button 
-              variant="light" 
+            <Button
+              variant="light"
               leftSection={<IconPlus size={16} />}
               onClick={() => setShowCreateModal(true)}
             >
               Add Rule
-            </Button>
-            <Button 
-              variant="light" 
-              leftSection={<IconRefresh size={16} />}
-              onClick={onReload}
-              loading={saving}
-            >
-              Reload Rules
             </Button>
           </Group>
         </Group>
@@ -1195,11 +1172,10 @@ function RulesTab({ rules, onReload, saving }: {
   );
 }
 
-function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, onReloadRules, saving }: {
+function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, saving }: {
   health: Health | null,
   onUpdateDryRun: (next: boolean) => void,
   onUpdatePanic: (next: boolean) => void,
-  onReloadRules: () => void,
   saving: boolean
 }) {
   const [configError, setConfigError] = useState<string | null>(null);
@@ -1346,41 +1322,6 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, onReloadRules, sav
             />
           </Group>
           
-          <Divider />
-          
-          <Group justify="space-between" align="flex-start">
-            <div>
-              <Group gap="xs" align="center">
-                <Text fw={500}>Rules Configuration</Text>
-                <Tooltip 
-                  label="Reloads rules.yml into memory without restarting."
-                  withArrow
-                  position="top"
-                  multiline
-                  w={300}
-                  aria-label="Rules Configuration information"
-                >
-                  <IconInfoCircle size={16} style={{ color: 'var(--mantine-color-dimmed)', cursor: 'help' }} />
-                </Tooltip>
-              </Group>
-              <Text size="sm" c="dimmed">
-                Reload moderation rules from the configuration file. 
-                This will apply any changes made to rules.yml without restarting the service.
-              </Text>
-            </div>
-            <Button 
-              variant="light" 
-              leftSection={<IconRefresh size={16} />}
-              onClick={() => handleConfigUpdate(
-                async () => onReloadRules(),
-                'Rules configuration reloaded successfully'
-              )} 
-              disabled={saving}
-              loading={saving}
-            >
-              Reload Rules
-            </Button>
-          </Group>
         </Stack>
       </Card>
 
