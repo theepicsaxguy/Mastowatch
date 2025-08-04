@@ -18,44 +18,32 @@ export interface AuthResponse {
 export async function getCurrentUser(): Promise<User | null> {
   let retryCount = 0;
   const maxRetries = 3;
-  const baseDelay = 1000; // 1 second
-
+  const baseDelay = 1000;
   while (retryCount < maxRetries) {
     try {
-      const response = await apiFetch<User>('/api/v1/me');
-      return response;
+      return await apiFetch<User>('/api/v1/me');
     } catch (error: any) {
-      if (error.status === 401) {
-        return null; // Not authenticated
-      }
-      
-      // If it's a connection error and we have retries left, wait and retry
+      if (error.status === 401) return null;
       if (error.message?.includes('fetch') && retryCount < maxRetries - 1) {
         retryCount++;
-        const delay = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+        const delay = baseDelay * Math.pow(2, retryCount - 1);
         console.warn(`Failed to connect to API, retrying in ${delay}ms... (${retryCount}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      
       throw error;
     }
   }
-  
-  return null; // This should never be reached, but TypeScript requires it
+  return null;
 }
 
 export async function logout(): Promise<void> {
-  // Clear stored token
   localStorage.removeItem('auth_token');
-  
-  // Call logout endpoint (will clear cookies if any)
   try {
     await apiFetch('/admin/logout', {
       method: 'POST'
     });
   } catch (error) {
-    // Ignore errors on logout
     console.warn('Logout endpoint failed:', error);
   }
 }
@@ -72,52 +60,35 @@ export function clearStoredToken(): void {
   localStorage.removeItem('auth_token');
 }
 
-// Get API base URL from environment or default
-const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080';
+const apiBase = (import.meta as any).env?.VITE_API_URL;
 
 export function redirectToLogin(): void {
-  // Redirect directly to the API server for OAuth login
   window.location.href = `${apiBase}/admin/login`;
 }
 
-/**
- * Start OAuth flow in a popup window and get token
- * This is the preferred method as it doesn't require redirects
- */
 export function loginWithPopup(): Promise<AuthResponse> {
   return new Promise((resolve, reject) => {
-    // Create popup for OAuth flow with popup parameter
     const popup = window.open(
       `${apiBase}/admin/login?popup=true`,
       'oauth-login',
       'width=600,height=700,scrollbars=yes,resizable=yes'
     );
-
     if (!popup) {
       reject(new Error('Failed to open popup window. Please allow popups for this site.'));
       return;
     }
-
-    // Poll for completion
     const checkClosed = setInterval(() => {
       if (popup.closed) {
         clearInterval(checkClosed);
         reject(new Error('OAuth login was cancelled'));
       }
     }, 1000);
-
-    // Listen for messages from the popup
     const handleMessage = (event: MessageEvent) => {
-      // Verify origin for security - accept messages from our API server
-      if (event.origin !== apiBase && event.origin !== window.location.origin) {
-        return;
-      }
-
+      if (event.origin !== apiBase && event.origin !== window.location.origin) return;
       if (event.data.type === 'oauth-success') {
         clearInterval(checkClosed);
         popup.close();
         window.removeEventListener('message', handleMessage);
-        
         const authResponse = event.data.auth as AuthResponse;
         setStoredToken(authResponse.access_token);
         resolve(authResponse);
@@ -128,14 +99,10 @@ export function loginWithPopup(): Promise<AuthResponse> {
         reject(new Error(event.data.error || 'OAuth login failed'));
       }
     };
-
     window.addEventListener('message', handleMessage);
   });
 }
 
-/**
- * Attempt token-based login first, fallback to redirect
- */
 export async function login(): Promise<User | null> {
   try {
     const authResponse = await loginWithPopup();

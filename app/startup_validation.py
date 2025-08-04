@@ -9,8 +9,6 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-MIN_MASTODON_VERSION = "4.0.0"
-
 
 def validate_startup_configuration() -> None:
     """Validate that all critical configuration is present and properly formatted.
@@ -155,16 +153,17 @@ def validate_mastodon_version() -> None:
             raise ValueError(f"Could not parse version number from: {current_version}")
 
         current_parts = [int(version_match.group(1)), int(version_match.group(2)), int(version_match.group(3))]
-        min_parts = [int(x) for x in MIN_MASTODON_VERSION.split(".")[:3]]
+        min_version = settings.MIN_MASTODON_VERSION
+        min_parts = [int(x) for x in min_version.split(".")[:3]]
 
         if current_parts < min_parts:
             logger.error(
-                f"UNSUPPORTED MASTODON VERSION: MastoWatch requires at least version {MIN_MASTODON_VERSION}, "
+                f"UNSUPPORTED MASTODON VERSION: MastoWatch requires at least version {min_version}, "
                 f"but found {current_version}. Please upgrade your Mastodon instance."
             )
             sys.exit(1)
         else:
-            logger.info(f"✓ Mastodon instance version {current_version} is supported (min: {MIN_MASTODON_VERSION})")
+            logger.info(f"✓ Mastodon instance version {current_version} is supported (min: {min_version})")
 
     except Exception as e:
         logger.error(f"Failed to validate Mastodon instance version: {e}")

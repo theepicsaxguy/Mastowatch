@@ -1,5 +1,4 @@
-// Get API base URL from environment or default
-const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080';
+const apiBase = (import.meta as any).env?.VITE_API_URL;
 
 export function getStoredApiKey(): string | null {
   return localStorage.getItem('mw_api_key');
@@ -19,7 +18,6 @@ export async function apiFetch<T = unknown>(path: string, opts: FetchOpts = {}):
   const apiKey = opts.apiKey ?? getStoredApiKey() ?? undefined;
   const authToken = getStoredAuthToken();
   
-  // Use absolute URL if path starts with http, otherwise prefix with apiBase
   const url = path.startsWith('http') ? path : apiBase + path;
   
   const headers: HeadersInit = {
