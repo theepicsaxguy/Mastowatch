@@ -49,7 +49,7 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "PL", "D"]  # pycodestyle, pyflakes, isort, bugbear, pyupgrade, pylint subset, pydocstyle
+select = ["E", "F", "I", "B", "UP", "PL", "D"]
 ignore = [
     "D203",  # 1 blank line required before class docstring (conflicts with D211)
     "D213",  # Multi-line docstring summary should start at the second line (conflicts with D212)
