@@ -42,6 +42,7 @@ Set these in `.env` (copied from `.env.example`):
 * `OAUTH_CLIENT_ID`: OAuth application client ID
 * `OAUTH_CLIENT_SECRET`: OAuth application client secret
 * `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `https://your.instance/admin/callback`)
+* `OAUTH_SCOPE`: OAuth scopes for admin login (default: `read:accounts`)
 * `SESSION_SECRET_KEY`: Random secret for session cookies
 
 ### Optional Settings
@@ -49,6 +50,7 @@ Set these in `.env` (copied from `.env.example`):
 * `PANIC_STOP`: `true` to halt all processing (default: `false`)
 * `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
 * `USER_AGENT`: user agent for Mastodon requests (default: `MastoWatch/<VERSION> (+moderation-sidecar)`)
+* `HTTP_TIMEOUT`: seconds before Mastodon requests time out (default: `30`)
 * `VERSION`: application version (default: `0.1.0`)
 * `SKIP_STARTUP_VALIDATION`: `true` to skip startup checks (for testing only)
 * `UI_ORIGIN`: origin for the dashboard UI
@@ -127,8 +129,9 @@ Endpoints:
 * `GET /metrics` - Prometheus metrics for monitoring
 
 #### Configuration Management (requires admin login)
-* `POST /config/dry_run` - Toggle dry run mode (body: `{"dry_run": true|false, "updated_by": "optional-string"}`)
-* `POST /config/panic_stop` - Emergency stop all processing (body: `{"panic_stop": true|false, "updated_by": "optional-string"}`)
+* `GET /config` - Return non-sensitive configuration details
+* `POST /config/dry_run?enable=true|false` - Toggle dry run mode
+* `POST /config/panic_stop?enable=true|false` - Emergency stop all processing
 
 #### Rule Management (requires admin login)
 * `GET /rules` - List all rules

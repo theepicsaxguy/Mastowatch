@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Any, Dict, List
 from pydantic import BaseModel
 
 
@@ -12,3 +12,8 @@ class Violation(BaseModel):
     rule_name: str
     score: float
     evidence: Evidence
+
+
+class AccountsPage(BaseModel):
+    accounts: List[Dict[str, Any]]
+    next_cursor: str | None = None

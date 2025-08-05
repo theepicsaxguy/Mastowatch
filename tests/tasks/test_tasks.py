@@ -1,13 +1,22 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
-# Add the app directory to the path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import app.tasks.jobs as jobs
 from app.schemas import Violation
-from app.tasks.jobs import analyze_and_maybe_report, process_new_report, process_new_status
+from app.tasks.jobs import (
+    CURSOR_NAME,
+    CURSOR_NAME_LOCAL,
+    _poll_accounts,
+    analyze_and_maybe_report,
+    poll_admin_accounts,
+    poll_admin_accounts_local,
+    process_new_report,
+    process_new_status,
+)
 
 
 class TestCeleryTasks(unittest.TestCase):
@@ -197,6 +206,46 @@ class TestCeleryTasks(unittest.TestCase):
         # Should not create a report since score (0.5) < threshold (1.0)
         self.assertIsNotNone(result)
         # No report should be created, but analysis should be recorded
+
+    @patch("app.tasks.jobs._poll_accounts")
+    def test_poll_admin_accounts_wrapper(self, mock_poll):
+        poll_admin_accounts()
+        mock_poll.assert_called_once_with("remote", CURSOR_NAME)
+
+    @patch("app.tasks.jobs._poll_accounts")
+    def test_poll_admin_accounts_local_wrapper(self, mock_poll):
+        poll_admin_accounts_local()
+        mock_poll.assert_called_once_with("local", CURSOR_NAME_LOCAL)
+
+    @patch("app.tasks.jobs.analyze_and_maybe_report")
+    @patch("app.tasks.jobs._persist_account")
+    @patch("app.tasks.jobs.cursor_lag_pages")
+    @patch("app.tasks.jobs.SessionLocal")
+    @patch("app.tasks.jobs.EnhancedScanningSystem")
+    def test_poll_accounts_metrics(self, mock_scanner, mock_session, mock_metric, mock_persist, mock_analyze):
+        jobs.settings.MAX_PAGES_PER_POLL = 1
+        jobs.settings.BATCH_SIZE = 1
+        db_session = MagicMock()
+        exec_result = MagicMock()
+        exec_result.scalar.return_value = None
+        db_session.execute.return_value = exec_result
+        mock_session.return_value.__enter__.return_value = db_session
+        scanner = mock_scanner.return_value
+        scanner.start_scan_session.return_value = "s"
+        scanner.get_next_accounts_to_scan.return_value = ([], None)
+        metric = MagicMock()
+        mock_metric.labels.return_value = metric
+        with patch("app.tasks.jobs._should_pause", return_value=False):
+            for origin, cursor in [("remote", CURSOR_NAME), ("local", CURSOR_NAME_LOCAL)]:
+                _poll_accounts(origin, cursor)
+        scanner.get_next_accounts_to_scan.assert_has_calls(
+            [
+                call("remote", limit=jobs.settings.BATCH_SIZE, cursor=None),
+                call("local", limit=jobs.settings.BATCH_SIZE, cursor=None),
+            ]
+        )
+        mock_metric.labels.assert_has_calls([call(cursor=CURSOR_NAME), call(cursor=CURSOR_NAME_LOCAL)])
+        self.assertEqual(metric.set.call_count, 2)
 
 
 if __name__ == "__main__":

@@ -39,7 +39,10 @@ class TestConfig(unittest.TestCase):
         """Test that required settings are loaded properly"""
         settings = Settings()
 
-        self.assertEqual(str(settings.INSTANCE_BASE), self.test_env["INSTANCE_BASE"])
+        self.assertEqual(
+            str(settings.INSTANCE_BASE).rstrip("/"),
+            self.test_env["INSTANCE_BASE"],
+        )
         self.assertEqual(settings.BOT_TOKEN, self.test_env["BOT_TOKEN"])
         self.assertEqual(settings.ADMIN_TOKEN, self.test_env["ADMIN_TOKEN"])
         self.assertEqual(settings.DATABASE_URL, self.test_env["DATABASE_URL"])

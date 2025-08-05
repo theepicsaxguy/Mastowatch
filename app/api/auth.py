@@ -7,11 +7,11 @@ import secrets
 from typing import Any
 from urllib.parse import urlencode
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.config import get_settings
+from app.mastodon_client import MastoClient
 from app.oauth import (
     User,
     clear_session_cookie,
@@ -44,7 +44,7 @@ def admin_login(request: Request):
         "client_id": settings.OAUTH_CLIENT_ID,
         "redirect_uri": settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback",
         "response_type": "code",
-        "scope": "read:accounts",
+        "scope": settings.OAUTH_SCOPE,
         "state": state,
     }
 
@@ -62,7 +62,6 @@ async def admin_callback(request: Request, response: Response, code: str = None,
     if not oauth_config.configured:
         raise HTTPException(status_code=500, detail="OAuth not configured")
 
-    # Handle OAuth errors
     if error:
         logger.warning(f"OAuth error: {error}")
         raise HTTPException(status_code=400, detail=f"OAuth error: {error}")
@@ -70,56 +69,24 @@ async def admin_callback(request: Request, response: Response, code: str = None,
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
 
-    # Verify state parameter for CSRF protection
     stored_state = request.session.get("oauth_state")
     if not stored_state or stored_state != state:
         raise HTTPException(status_code=400, detail="Invalid state parameter")
 
     try:
-        # Exchange authorization code for access token
-        token_data = {
-            "client_id": settings.OAUTH_CLIENT_ID,
-            "client_secret": settings.OAUTH_CLIENT_SECRET,
-            "redirect_uri": settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback",
-            "grant_type": "authorization_code",
-            "code": code,
-        }
-
-        async with httpx.AsyncClient() as client:
-            token_response = await client.post(
-                f"{settings.INSTANCE_BASE}/oauth/token",
-                data=token_data,
-                headers={"Accept": "application/json"},
-            )
-
-        if token_response.status_code != 200:
-            logger.error(f"Token exchange failed: {token_response.status_code} - {token_response.text}")
-            raise HTTPException(status_code=500, detail="Failed to exchange authorization code")
-
-        token_info = token_response.json()
+        redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+        token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
         access_token = token_info.get("access_token")
-
         if not access_token:
             raise HTTPException(status_code=500, detail="No access token received")
-
-        # Fetch user information
         user = await oauth_config.fetch_user_info(access_token)
-
         if not user:
             raise HTTPException(status_code=500, detail="Failed to fetch user information")
-
         if not user.is_admin:
             raise HTTPException(status_code=403, detail="Admin access required")
-
-        # Create session cookie
         create_session_cookie(response, user, settings)
-
-        # Clear OAuth state from session
         request.session.pop("oauth_state", None)
-
-        # Redirect to admin dashboard
         return RedirectResponse(url="/dashboard", status_code=302)
-
     except Exception as e:
         logger.error("OAuth callback failed", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail="Authentication failed") from e
