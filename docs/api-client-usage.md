@@ -90,6 +90,25 @@ def test_api_call(self, mock_get_client):
     mock_client = AsyncMock()
     mock_client.get.return_value = mock_response
     mock_get_client.return_value.__aenter__.return_value = mock_client
-    
+
     # Test your code here
 ```
+
+## Scanning
+
+`GET /scan/accounts` returns a page of accounts to analyze.
+
+```http
+GET /scan/accounts?session_type=remote&limit=50&cursor=12345
+```
+
+Response:
+
+```json
+{
+  "accounts": [{"id": "1"}],
+  "next_cursor": "67890"
+}
+```
+
+Send the `next_cursor` value in the query string to request the following page.

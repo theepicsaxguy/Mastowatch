@@ -92,49 +92,49 @@ class TestAPIEndpoints(unittest.TestCase):
 
     # NEW API ROUTER TESTS
 
-    @patch("app.api.config.require_admin")
+    @patch("app.api.config.require_admin_hybrid")
     def test_dry_run_toggle_new_endpoint(self, mock_auth):
         """Test dry run configuration endpoint with new API structure"""
         mock_auth.return_value = create_mock_admin_user()
 
-        response = self.client.post("/api/v1/config/dry_run", json={"dry_run": False, "updated_by": "test_user"})
+        response = self.client.post("/config/dry_run", json={"dry_run": False, "updated_by": "test_user"})
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("dry_run", data)
 
-    @patch("app.api.config.require_admin")
+    @patch("app.api.config.require_admin_hybrid")
     def test_panic_stop_toggle_new_endpoint(self, mock_auth):
         """Test panic stop configuration endpoint with new API structure"""
         mock_auth.return_value = create_mock_admin_user()
 
-        response = self.client.post("/api/v1/config/panic_stop", json={"panic_stop": True, "updated_by": "test_user"})
+        response = self.client.post("/config/panic_stop", json={"panic_stop": True, "updated_by": "test_user"})
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("panic_stop", data)
 
-    @patch("app.api.analytics.require_admin")
+    @patch("app.api.analytics.require_admin_hybrid")
     def test_analytics_overview_new_endpoint(self, mock_auth):
         """Test analytics overview endpoint with new API structure"""
         mock_auth.return_value = create_mock_admin_user()
 
-        response = self.client.get("/api/v1/analytics/overview")
+        response = self.client.get("/analytics/overview")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("totals", data)
         self.assertIn("recent_24h", data)
 
-    @patch("app.api.analytics.require_admin")
+    @patch("app.api.analytics.require_admin_hybrid")
     def test_analytics_timeline_new_endpoint(self, mock_auth):
         """Test analytics timeline endpoint with new API structure"""
         mock_auth.return_value = create_mock_admin_user()
 
-        response = self.client.get("/api/v1/analytics/timeline?days=7")
+        response = self.client.get("/analytics/timeline?days=7")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("analyses", data)
         self.assertIn("reports", data)
 
-    @patch("app.api.rules.require_admin")
+    @patch("app.api.rules.require_admin_hybrid")
     def test_get_current_rules_new_endpoint(self, mock_auth):
         """Test current rules endpoint with new API structure"""
         mock_auth.return_value = create_mock_admin_user()
@@ -142,13 +142,13 @@ class TestAPIEndpoints(unittest.TestCase):
         with patch("app.api.rules.rule_service") as mock_rule_service:
             mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
 
-            response = self.client.get("/api/v1/rules/")
+            response = self.client.get("/rules/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
             self.assertIn("rules", data)
             self.assertIn("report_threshold", data)
 
-    @patch("app.api.rules.require_admin")
+    @patch("app.api.rules.require_admin_hybrid")
     def test_create_rule_new_endpoint(self, mock_auth):
         """Test creating a new rule via API"""
         mock_auth.return_value = create_mock_admin_user()
@@ -170,13 +170,13 @@ class TestAPIEndpoints(unittest.TestCase):
                 "trigger_threshold": 1.0,
             }
 
-            response = self.client.post("/api/v1/rules/", json=rule_data)
+            response = self.client.post("/rules/", json=rule_data)
             self.assertEqual(response.status_code, 200)
 
             # Verify rule service was called
             mock_rule_service.create_rule.assert_called_once()
 
-    @patch("app.api.rules.require_admin")
+    @patch("app.api.rules.require_admin_hybrid")
     def test_update_rule_new_endpoint(self, mock_auth):
         """Test updating a rule via API"""
         mock_auth.return_value = create_mock_admin_user()
@@ -190,13 +190,13 @@ class TestAPIEndpoints(unittest.TestCase):
 
             update_data = {"weight": 2.0}
 
-            response = self.client.put("/api/v1/rules/1", json=update_data)
+            response = self.client.put("/rules/1", json=update_data)
             self.assertEqual(response.status_code, 200)
 
             # Verify rule service was called
             mock_rule_service.update_rule.assert_called_once_with(1, **update_data)
 
-    @patch("app.api.rules.require_admin")
+    @patch("app.api.rules.require_admin_hybrid")
     def test_delete_rule_new_endpoint(self, mock_auth):
         """Test deleting a rule via API"""
         mock_auth.return_value = create_mock_admin_user()
@@ -204,11 +204,21 @@ class TestAPIEndpoints(unittest.TestCase):
         with patch("app.api.rules.rule_service") as mock_rule_service:
             mock_rule_service.delete_rule.return_value = True
 
-            response = self.client.delete("/api/v1/rules/1")
+            response = self.client.delete("/rules/1")
             self.assertEqual(response.status_code, 200)
 
             # Verify rule service was called
             mock_rule_service.delete_rule.assert_called_once_with(1)
+
+    @patch("app.api.scanning.require_api_key")
+    def test_get_next_accounts_to_scan_endpoint(self, mock_api_key):
+        mock_api_key.return_value = True
+        with patch("app.api.scanning.EnhancedScanningSystem") as mock_scanner:
+            instance = mock_scanner.return_value
+            instance.get_next_accounts_to_scan.return_value = ([{"id": "1"}], "next123")
+            response = self.client.get("/scan/accounts?session_type=remote&limit=1")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"accounts": [{"id": "1"}], "next_cursor": "next123"})
 
     # NEW WEBHOOK TESTS
 
@@ -263,26 +273,26 @@ class TestAPIEndpoints(unittest.TestCase):
 
     def test_unauthorized_analytics(self):
         """Test that analytics endpoints require authentication"""
-        response = self.client.get("/api/v1/analytics/overview")
+        response = self.client.get("/analytics/overview")
         self.assertEqual(response.status_code, 401)
 
-        response = self.client.get("/api/v1/analytics/timeline")
+        response = self.client.get("/analytics/timeline")
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_rules_endpoints(self):
         """Test that rules endpoints require authentication"""
-        response = self.client.get("/api/v1/rules/")
+        response = self.client.get("/rules/")
         self.assertEqual(response.status_code, 401)
 
-        response = self.client.post("/api/v1/rules/", json={"name": "test"})
+        response = self.client.post("/rules/", json={"name": "test"})
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_config_endpoints(self):
         """Test that config endpoints require authentication"""
-        response = self.client.post("/api/v1/config/dry_run", json={"dry_run": False})
+        response = self.client.post("/config/dry_run", json={"dry_run": False})
         self.assertEqual(response.status_code, 401)
 
-        response = self.client.post("/api/v1/config/panic_stop", json={"panic_stop": True})
+        response = self.client.post("/config/panic_stop", json={"panic_stop": True})
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_webhook(self):

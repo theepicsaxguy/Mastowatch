@@ -9,6 +9,7 @@ from app.auth import require_api_key
 from app.db import SessionLocal
 from app.models import ContentScan
 from app.scanning import EnhancedScanningSystem
+from app.schemas import AccountsPage
 
 router = APIRouter()
 
@@ -31,14 +32,14 @@ async def complete_scan_session(session_id: str, api_key_valid: bool = Depends(r
     return {"message": f"Session {session_id} completed"}
 
 
-@router.get("/scan/accounts", response_model=list[dict[str, Any]])
+@router.get("/scan/accounts", response_model=AccountsPage)
 async def get_next_accounts_to_scan(
     session_type: str, limit: int = 50, cursor: str | None = None, api_key_valid: bool = Depends(require_api_key)
 ):
     """Get the next batch of accounts to scan."""
     scanner = EnhancedScanningSystem()
     accounts, next_cursor = scanner.get_next_accounts_to_scan(session_type, limit, cursor)
-    return accounts
+    return {"accounts": accounts, "next_cursor": next_cursor}
 
 
 @router.post("/scan/account", response_model=dict[str, Any])
