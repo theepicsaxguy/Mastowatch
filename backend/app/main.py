@@ -5,13 +5,6 @@ import time
 from datetime import datetime
 
 import redis
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
-from fastapi.staticfiles import StaticFiles
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from sqlalchemy import text
-from starlette.middleware.sessions import SessionMiddleware
 
 # Import API routers
 from app.api.analytics import router as analytics_router
@@ -25,6 +18,13 @@ from app.logging_conf import setup_logging
 from app.services.rule_service import rule_service
 from app.startup_validation import run_all_startup_validations
 from app.tasks.jobs import process_new_report, process_new_status
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy import text
+from starlette.middleware.sessions import SessionMiddleware
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ except Exception:
 
 @app.get("/healthz", tags=["ops"])
 def healthz():
-    """Health check endpoint with comprehensive system status"""
+    """Health check endpoint with comprehensive system status."""
     start_time = time.time()
     health_data = {
         "ok": True,
@@ -127,6 +127,60 @@ def healthz():
         raise HTTPException(
             status_code=500,
             detail={"error": "health_check_failed", "message": "Health check endpoint encountered an error"},
+        )
+
+
+@app.get("/livez", tags=["ops"])
+def livez():
+    """Liveness probe - always returns 200 if the process loop is alive."""
+    return {"ok": True, "status": "alive", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/readyz", tags=["ops"])
+def readyz():
+    """Readiness probe - checks DB/Redis availability with fast timeout."""
+    start_time = time.time()
+    ready_data = {
+        "ok": True,
+        "db_ok": False,
+        "redis_ok": False,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    try:
+        # Test database connection with short timeout
+        try:
+            with SessionLocal() as db:
+                # Use a simple query with timeout
+                db.execute(text("SELECT 1"))
+                ready_data["db_ok"] = True
+        except Exception as e:
+            logger.debug("Database readiness check failed", extra={"error": str(e)})
+            ready_data["db_ok"] = False
+
+        # Test Redis connection with short timeout
+        try:
+            r = redis.from_url(settings.REDIS_URL, socket_timeout=2)
+            ready_data["redis_ok"] = r.ping()
+        except Exception as e:
+            logger.debug("Redis readiness check failed", extra={"error": str(e)})
+            ready_data["redis_ok"] = False
+
+        ready_data["ok"] = ready_data["db_ok"] and ready_data["redis_ok"]
+        ready_data["response_time_ms"] = round((time.time() - start_time) * 1000, 1)
+
+        if not ready_data["ok"]:
+            raise HTTPException(status_code=503, detail=ready_data)
+
+        return ready_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Readiness check failed", extra={"error": str(e), "error_type": type(e).__name__})
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "readiness_check_failed", "message": "Service not ready"},
         )
 
 

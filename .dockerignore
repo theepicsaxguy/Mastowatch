@@ -1,11 +1,63 @@
-.dockerignore
-.env
-.git
+# Git
+.git/
 .gitignore
-__pycache__/
+
+# Python
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
+.Python
+*.so
+.coverage
 .pytest_cache/
-frontend/node_modules
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
+build/
+dist/
+env/
 venv/
+
+# Node
+**/node_modules/**
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env*
+
+# Celery
+celerybeat-schedule
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Tests
+tests/
+coverage/
+.nyc_output/
+
+# Test databases
+*.db
+test*.db
+
+# Temporary
+*.tmp
+*.log
+.cache/

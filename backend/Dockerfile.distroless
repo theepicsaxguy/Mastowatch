@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.4
+
+# Build stage with full Python environment
+FROM python:3.13-slim AS builder
+WORKDIR /app
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential python3-dev \
+ && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+# Install dependencies in a virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt
+
+# Distroless runtime stage
+FROM gcr.io/distroless/python3-debian12:latest
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH="/opt/venv/lib/python3.13/site-packages"
+# Copy the virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+# Copy application files (distroless already runs as nonroot)
+COPY app/ ./app/
+COPY migrations/ ./migrations/
+COPY alembic.ini ./alembic.ini
+EXPOSE 8080
+ENTRYPOINT ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

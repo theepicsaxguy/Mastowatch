@@ -9,13 +9,13 @@ This module provides shared pytest fixtures for all tests, including:
 import os
 import sys
 import tempfile
+import types
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import types
 
 mastodon_pkg = types.ModuleType("app.clients.mastodon")
 mastodon_pkg.__path__ = []

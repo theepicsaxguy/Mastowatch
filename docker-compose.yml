@@ -1,25 +1,114 @@
-x-backend: &backend
-  build: .
-  env_file:
-    - .env
+version: "3.8"
 
+# Shared environment variables
 x-backend-env: &backend-env
   INSTANCE_BASE: "${INSTANCE_BASE}"
   ADMIN_TOKEN: "${ADMIN_TOKEN}"
   BOT_TOKEN: "${BOT_TOKEN}"
-  DATABASE_URL: "postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch"
-  REDIS_URL: "redis://redis:6379/0"
-  DRY_RUN: "true"
-  MAX_PAGES_PER_POLL: "3"
-  MAX_STATUSES_TO_FETCH: "100"
-  REPORT_CATEGORY_DEFAULT: "spam"
-  FORWARD_REMOTE_REPORTS: "false"
-  POLICY_VERSION: "v1"
+  DATABASE_URL: "${DATABASE_URL}"
+  REDIS_URL: "${REDIS_URL}"
   API_KEY: "${API_KEY}"
   WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
-  CORS_ORIGINS: '["http://localhost:5173"]'
+  DRY_RUN: "${DRY_RUN:-true}"
+  PANIC_STOP: "${PANIC_STOP:-false}"
+  CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:3000"]}'
 
 services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file: [.env]
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/healthz').getcode()==200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    env_file: [.env]
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # Verify Redis is reachable (simple k8s-compatible exec probe)
+      test: ["CMD-SHELL","python -c \"import os,sys; import redis; r=redis.from_url(os.getenv('REDIS_URL')); sys.exit(0 if r.ping() else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
+    env_file: [.env]
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL","python -c \"import os,sys; import redis; r=redis.from_url(os.getenv('REDIS_URL')); sys.exit(0 if r.ping() else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    env_file: [.env]
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: postgres:17
     environment:
@@ -35,51 +124,3 @@ services:
   redis:
     image: redis:8
     command: ["redis-server", "--appendonly", "yes"]
-
-  api:
-    <<: *backend
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      migrate:
-        condition: service_completed_successfully
-    environment:
-      <<: *backend-env
-    ports: ["8080:8080"]
-    restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
-
-  migrate:
-    <<: *backend
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: "postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch"
-    command: ["alembic", "upgrade", "head"]
-
-  worker:
-    <<: *backend
-    depends_on:
-      - api
-      - redis
-    environment:
-      <<: *backend-env
-    restart: on-failure
-    command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
-
-  beat:
-    <<: *backend
-    depends_on:
-      - worker
-    environment:
-      <<: *backend-env
-    restart: on-failure
-    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
