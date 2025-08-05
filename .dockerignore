@@ -12,6 +12,11 @@
 .coverage
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
+build/
+dist/
 env/
 venv/
 
@@ -21,6 +26,7 @@ frontend/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+frontend/.vite/
 
 # IDE
 .vscode/

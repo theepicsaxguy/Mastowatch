@@ -20,6 +20,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    env_file: [.env]
     environment:
       <<: *backend-env
     depends_on:
@@ -45,9 +46,9 @@ services:
     depends_on:
       - api
     healthcheck:
-      test: ["CMD-SHELL","wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL","/bin/sh -c 'exec 3<>/dev/tcp/127.0.0.1/80'"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 10s
 
@@ -56,6 +57,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    env_file: [.env]
     environment:
       <<: *backend-env
     depends_on:
@@ -78,6 +80,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
+    env_file: [.env]
     environment:
       <<: *backend-env
     depends_on:
@@ -99,6 +102,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: ["alembic", "upgrade", "head"]
+    env_file: [.env]
     environment:
       <<: *backend-env
     depends_on:
