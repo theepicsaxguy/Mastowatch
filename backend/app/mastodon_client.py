@@ -1,5 +1,6 @@
 """Type-safe Mastodon client using generated OpenAPI client with fallback to raw HTTP calls.
-This provides the best of both worlds: type safety where available, flexibility where needed.
+
+This provides the best type safety where available, flexibility where needed.
 """
 
 import hashlib
@@ -121,7 +122,6 @@ class MastoClient:
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             ),
             "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-Dest": "document",
@@ -143,15 +143,22 @@ class MastoClient:
             # Handle potential encoding issues in error response
             try:
                 error_text = response.text
-            except UnicodeDecodeError:
-                error_text = response.content.decode("utf-8", errors="ignore")
+            except (UnicodeDecodeError, Exception):
+                # Fallback for compressed or binary responses
+                error_text = str(response.content)
             logger.error(f"OAuth token exchange failed: {response.status_code} - {error_text}")
             logger.error(
                 f"Request data: client_id={client_id_preview}, redirect_uri={redirect_uri}, "
                 f"grant_type=authorization_code"
             )
         response.raise_for_status()
-        return response.json()
+        try:
+            return response.json()
+        except Exception as e:
+            logger.error(f"Failed to parse OAuth response as JSON: {e}")
+            logger.error(f"Response content type: {response.headers.get('content-type')}")
+            logger.error(f"Response encoding: {response.encoding}")
+            raise ValueError("Authentication failed due to server response encoding issue") from e
 
     def get_account(self, account_id: str) -> dict[str, Any]:
         """Get account information using generated OpenAPI client."""

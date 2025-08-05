@@ -181,12 +181,15 @@ def create_session_cookie(response: Response, user: User, settings) -> None:
     oauth_config = get_oauth_config()
     session_token = oauth_config.create_session_token(user.model_dump())
 
+    # Don't use secure cookies in development (HTTP)
+    is_development = str(settings.INSTANCE_BASE).startswith("http://")
+    
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=session_token,
         max_age=settings.SESSION_COOKIE_MAX_AGE,
         httponly=True,
-        secure=True,
+        secure=not is_development,  # Only secure in production (HTTPS)
         samesite="lax",
     )
 
