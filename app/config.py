@@ -1,13 +1,16 @@
+"""Application configuration."""
+
 from functools import lru_cache
 
 from pydantic import AnyUrl, Field
-from pydantic_settings import BaseSettings
-
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 APP_VERSION = "0.1.0"
 
 
 class Settings(BaseSettings):
+    """Application settings loaded from environment."""
+
     VERSION: str = APP_VERSION
     INSTANCE_BASE: AnyUrl
     BOT_TOKEN: str = Field(..., min_length=1)
@@ -51,13 +54,10 @@ class Settings(BaseSettings):
     POLL_ADMIN_ACCOUNTS_INTERVAL: int = 30
     POLL_ADMIN_ACCOUNTS_LOCAL_INTERVAL: int = 30
     QUEUE_STATS_INTERVAL: int = 15
-
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 @lru_cache
-def get_settings():
+def get_settings() -> Settings:
+    """Return cached application settings."""
     return Settings()
