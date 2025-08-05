@@ -11,9 +11,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 FROM python:3.13-slim AS runtime
 WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 RUN groupadd -r nonroot && useradd -r -g nonroot nonroot
 COPY --from=builder /wheels /wheels
-RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels
+RUN pip install --no-cache-dir --no-compile /wheels/*.whl && rm -rf /wheels
 COPY app/ ./app/
 COPY migrations/ ./migrations/
 COPY alembic.ini ./alembic.ini

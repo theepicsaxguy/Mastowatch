@@ -11,7 +11,7 @@ x-backend-env: &backend-env
   WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
   DRY_RUN: "${DRY_RUN:-true}"
   PANIC_STOP: "${PANIC_STOP:-false}"
-  CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:3000}"
+  CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:3000"]}'
 
 services:
   api:
@@ -23,8 +23,12 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/healthz').getcode()==200 else 1)\""]
       interval: 30s
@@ -40,6 +44,12 @@ services:
       - "3000:80"
     depends_on:
       - api
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   worker:
     build:
@@ -49,8 +59,19 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # Verify Redis is reachable (simple k8s-compatible exec probe)
+      test: ["CMD-SHELL","python -c \"import os,sys; import redis; r=redis.from_url(os.getenv('REDIS_URL')); sys.exit(0 if r.ping() else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   beat:
     build:
@@ -60,8 +81,18 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL","python -c \"import os,sys; import redis; r=redis.from_url(os.getenv('REDIS_URL')); sys.exit(0 if r.ping() else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   migrate:
     build:
@@ -71,7 +102,8 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:17
