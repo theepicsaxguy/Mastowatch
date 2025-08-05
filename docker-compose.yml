@@ -46,7 +46,7 @@ services:
     depends_on:
       - api
     healthcheck:
-      test: ["CMD-SHELL","/bin/sh -c 'exec 3<>/dev/tcp/127.0.0.1/80'"]
+      test: ["CMD-SHELL","wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

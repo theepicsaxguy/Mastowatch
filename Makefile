@@ -1,4 +1,4 @@
-.PHONY: help dev backend-only prod build clean format lint typecheck test shell-db migration new-migration
+.PHONY: help dev backend-only prod build clean format lint typecheck test shell-db migration
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -44,7 +44,7 @@ check-httpx-usage: ## Check for direct httpx usage outside /app/clients
 shell-db: ## Open database shell
 	docker compose exec db psql -U mastowatch -d mastowatch
 
-migration: ## Create new migration (usage: make new-migration name="description")
+migration: ## Create new migration (usage: make migration name="description")
 	docker compose run --rm migrate alembic revision --autogenerate -m "$(name)"
 
 logs-api: ## Show API logs
