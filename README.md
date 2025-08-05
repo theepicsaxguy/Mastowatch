@@ -50,6 +50,7 @@ Set these in `.env` (copied from `.env.example`):
 * `PANIC_STOP`: `true` to halt all processing (default: `false`)
 * `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
 * `USER_AGENT`: user agent for Mastodon requests (default: `MastoWatch/<VERSION> (+moderation-sidecar)`)
+* `HTTP_TIMEOUT`: seconds before Mastodon requests time out (default: `30`)
 * `VERSION`: application version (default: `0.1.0`)
 * `SKIP_STARTUP_VALIDATION`: `true` to skip startup checks (for testing only)
 * `UI_ORIGIN`: origin for the dashboard UI

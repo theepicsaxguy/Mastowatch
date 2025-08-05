@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     DRY_RUN: bool = True
     MAX_PAGES_PER_POLL: int = 3
     USER_AGENT: str = f"MastoWatch/{APP_VERSION} (+moderation-sidecar)"
+    HTTP_TIMEOUT: float = 30.0
     MAX_STATUSES_TO_FETCH: int = 5
     BATCH_SIZE: int = 20
 

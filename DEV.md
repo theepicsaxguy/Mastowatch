@@ -73,6 +73,7 @@ make help          # See all available commands
    - `SKIP_STARTUP_VALIDATION`: Set to `true` when running tests (bypasses connectivity checks)
    - `UI_ORIGIN`: defaults to `http://localhost:5173`
    - `VITE_API_URL`: defaults to `http://localhost:8080`
+   - `HTTP_TIMEOUT`: defaults to `30`
    - `MIN_MASTODON_VERSION`: defaults to `4.0.0`
    - `POLL_ADMIN_ACCOUNTS_INTERVAL`: defaults to `30`
    - `POLL_ADMIN_ACCOUNTS_LOCAL_INTERVAL`: defaults to `30`

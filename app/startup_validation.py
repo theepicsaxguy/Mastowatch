@@ -6,6 +6,7 @@ import sys
 from pydantic import ValidationError
 
 from app.config import get_settings
+from app.mastodon_client import MastoClient
 
 logger = logging.getLogger(__name__)
 
@@ -128,26 +129,18 @@ def validate_redis_connection() -> None:
 
 def validate_mastodon_version() -> None:
     """Fetches Mastodon instance version and validates it against MIN_MASTODON_VERSION."""
-    import httpx
-
     settings = get_settings()
     try:
-        # Use a direct httpx.get for instance info
-        response = httpx.get(f"{settings.INSTANCE_BASE}/api/v1/instance")
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        instance_info = response.json()
-
+        client = MastoClient(settings.BOT_TOKEN)
+        instance_info = client.get_instance_info()
         current_version = instance_info.get("version")
         if not current_version:
             raise ValueError("Could not find version in instance info")
 
         logger.info(f"Mastodon instance version: {current_version}")
 
-        # Simple version comparison (major.minor.patch)
-        # Handle version strings like "4.5.0-nightly.2025-07-31+glitch" by extracting numeric parts
         import re
 
-        # Extract major.minor.patch from version string using regex
         version_match = re.match(r"^(\d+)\.(\d+)\.(\d+)", current_version)
         if not version_match:
             raise ValueError(f"Could not parse version number from: {current_version}")
