@@ -81,6 +81,23 @@ make help          # See all available commands
    - `DATABASE_URL`: PostgreSQL connection (auto-configured in Docker)
    - `REDIS_URL`: Redis connection (auto-configured in Docker)
 
+### Configuration Loading
+`app/config.py` pulls values from `.env` using Pydantic's `BaseSettings`.
+The settings source is defined with `model_config`:
+
+```python
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+    )
+```
+
+This replaces the previous `class Config` approach.
+
 ## Testing
 
 ### Running Tests
