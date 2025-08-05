@@ -22,7 +22,7 @@ Mastowatch/
 │   ├── clients/mastodon/          # Generated Python client
 │   └── mastodon_client.py         # Type-safe client with admin fallbacks
 └── scripts/
-    └── update_mastodon_client.sh  # Management script
+    └── mastodon_api.sh            # Management script
 ```
 
 ## Mastodon Client
@@ -81,16 +81,16 @@ accounts = response.json()
 ### Script Commands
 ```bash
 # Show current status
-./scripts/update_mastodon_client.sh status
+./scripts/mastodon_api.sh status
 
 # Update submodule and copy latest schema
-./scripts/update_mastodon_client.sh update-schema
+./scripts/mastodon_api.sh update-schema
 
 # Regenerate Python client from current schema
-./scripts/update_mastodon_client.sh regenerate
+./scripts/mastodon_api.sh regenerate
 
 # Full update: submodule + schema + client
-./scripts/update_mastodon_client.sh update
+./scripts/mastodon_api.sh update
 ```
 
 ### Makefile Targets

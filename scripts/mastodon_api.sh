@@ -85,13 +85,14 @@ init_submodule() {
 
     cd "$PROJECT_ROOT"
 
-    if [ ! -f "$SUBMODULE_PATH/.git" ]; then
-        log_warning "Submodule not initialized. Adding mastodon-openapi submodule..."
+    # Add submodule only if it's not already tracked in .gitmodules
+    if ! git config --file .gitmodules --get-regexp path 2>/dev/null | grep -q "specs/mastodon-openapi"; then
+        log_warning "Submodule not found in .gitmodules. Adding mastodon-openapi submodule..."
         git submodule add https://github.com/abraham/mastodon-openapi.git specs/mastodon-openapi
     fi
 
     # Initialize and update submodule
-    git submodule update --init --recursive
+    git submodule update --init "$SUBMODULE_PATH"
     log_success "Submodule initialized"
 }
 
@@ -124,12 +125,6 @@ copy_schema() {
         log_error "Schema not found at: $SCHEMA_SOURCE"
         log_info "Try building the submodule first: cd $SUBMODULE_PATH && npm install && npm run generate"
         exit 1
-    fi
-
-    # Create backup of existing schema
-    if [ -f "$SCHEMA_DEST" ]; then
-        cp "$SCHEMA_DEST" "${SCHEMA_DEST}.backup"
-        log_info "Backed up existing schema to: ${SCHEMA_DEST}.backup"
     fi
 
     # Copy new schema
@@ -247,6 +242,17 @@ EOF
 
     # Copy package contents into CLIENT_DIR
     rsync -a --delete "$pkg_dir"/ "$CLIENT_DIR"/
+
+    cat > "$CLIENT_DIR/__init__.py" <<'EOF'
+"""Contains methods for accessing the API"""
+
+from .client import AuthenticatedClient, Client
+
+__all__ = (
+    "AuthenticatedClient",
+    "Client",
+)
+EOF
 
     # Include typing marker if present
     if [ -f "$project_root/py.typed" ]; then

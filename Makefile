@@ -75,16 +75,16 @@ check-httpx-usage:
 
 # OpenAPI client management (using Git submodule)
 update-api-spec:
-	./scripts/update_mastodon_client.sh update-schema
+    ./scripts/mastodon_api.sh update-schema
 
 regenerate-client:
-	./scripts/update_mastodon_client.sh regenerate
+    ./scripts/mastodon_api.sh regenerate
 
 update-mastodon-client:
-	./scripts/update_mastodon_client.sh update
+    ./scripts/mastodon_api.sh update
 
 api-client-status:
-	./scripts/update_mastodon_client.sh status
+    ./scripts/mastodon_api.sh status
 
 # Stop all services
 stop:

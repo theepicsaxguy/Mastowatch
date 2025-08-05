@@ -1,4 +1,4 @@
-"""A client library for accessing Mastodon API"""
+"""Contains methods for accessing the API"""
 
 from .client import AuthenticatedClient, Client
 
