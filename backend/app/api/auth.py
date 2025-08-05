@@ -103,27 +103,32 @@ async def admin_callback(request: Request, response: Response, code: str = None,
     if not stored_state or stored_state != state:
         raise HTTPException(status_code=400, detail="Invalid state parameter")
 
-        try:
-            redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
-            token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
-            access_token = token_info.get("access_token")
-            if not access_token:
-                raise HTTPException(status_code=500, detail="No access token received")
-            user = await oauth_config.fetch_user_info(access_token)
-            if not user:
-                raise HTTPException(status_code=500, detail="Failed to fetch user information")
-            if not user.is_admin:
-                raise HTTPException(status_code=403, detail="Admin access required")
-            create_session_cookie(response, user, settings)
-            request.session.pop("oauth_state", None)
-            return RedirectResponse(url="/dashboard", status_code=302)
-        except Exception as e:
-            error_msg = str(e)
-            # Handle potential encoding issues in error messages
-            if "codec can't decode" in error_msg:
-                error_msg = "Authentication failed due to server response encoding issue"
-            logger.error("OAuth callback failed", extra={"error": error_msg})
-            raise HTTPException(status_code=500, detail="Authentication failed") from e
+    try:
+        redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+        token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
+        access_token = token_info.get("access_token")
+        
+        if not access_token:
+            raise HTTPException(status_code=500, detail="No access token received")
+            
+        user = await oauth_config.fetch_user_info(access_token)
+        if not user:
+            raise HTTPException(status_code=500, detail="Failed to fetch user information")
+            
+        if not user.is_admin:
+            raise HTTPException(status_code=403, detail="Admin access required")
+            
+        create_session_cookie(response, user, settings)
+        request.session.pop("oauth_state", None)
+        return RedirectResponse(url="/dashboard", status_code=302)
+        
+    except Exception as e:
+        error_msg = str(e)
+        # Handle potential encoding issues in error messages
+        if "codec can't decode" in error_msg:
+            error_msg = "Authentication failed due to server response encoding issue"
+        logger.error("OAuth callback failed", extra={"error": error_msg})
+        raise HTTPException(status_code=500, detail="Authentication failed") from e
 
 
 @router.get("/admin/popup-callback", response_class=HTMLResponse, tags=["auth"])
@@ -264,14 +269,15 @@ async def popup_callback(
 
 @router.post("/admin/logout", tags=["auth"])
 def admin_logout(response: Response, user: User = Depends(require_admin_hybrid)):
-    """Logout current admin user"""
-    clear_session_cookie(response)
+    """Logout current admin user."""
+    settings = get_settings()
+    clear_session_cookie(response, settings)
     return {"message": "Logged out successfully"}
 
 
 @router.get("/api/v1/me", tags=["auth"])
 def get_current_user_info(user: User = Depends(require_admin_hybrid)):
-    """Get current authenticated user information"""
+    """Get current authenticated user information."""
     return {
         "username": user.username,
         "display_name": user.display_name,

@@ -19,11 +19,29 @@ export async function getCurrentUser(): Promise<User | null> {
   let retryCount = 0;
   const maxRetries = 3;
   const baseDelay = 1000;
+  
+  const apiBase = (import.meta as any).env?.VITE_API_URL;
+  
   while (retryCount < maxRetries) {
     try {
-      return await apiFetch<User>('/api/v1/me');
+      // Use session-based auth only, no Bearer token
+      const url = `${apiBase}/api/v1/me`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        credentials: 'include' // Include cookies
+      });
+      
+      if (!res.ok) {
+        if (res.status === 401) return null;
+        throw new Error(`${res.status} ${res.statusText}`);
+      }
+      
+      return await res.json() as User;
     } catch (error: any) {
-      if (error.status === 401) return null;
+      if (error.message?.includes('401')) return null;
       if (error.message?.includes('fetch') && retryCount < maxRetries - 1) {
         retryCount++;
         const delay = baseDelay * Math.pow(2, retryCount - 1);
@@ -38,11 +56,23 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function logout(): Promise<void> {
+  // Clear any stored tokens (though we're primarily using session cookies now)
   localStorage.removeItem('auth_token');
+  
+  const apiBase = (import.meta as any).env?.VITE_API_URL;
+  
   try {
-    await apiFetch('/admin/logout', {
-      method: 'POST'
+    const res = await fetch(`${apiBase}/admin/logout`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+      },
+      credentials: 'include' // Include cookies for session-based auth
     });
+    
+    if (!res.ok) {
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
   } catch (error) {
     console.warn('Logout endpoint failed:', error);
   }
@@ -93,7 +123,8 @@ export function loginWithPopup(): Promise<AuthResponse> {
         popup.close();
         window.removeEventListener('message', handleMessage);
         const authResponse = event.data.auth as AuthResponse;
-        setStoredToken(authResponse.access_token);
+        // Don't store access token since we're using session cookies
+        // setStoredToken(authResponse.access_token);
         resolve(authResponse);
       } else if (event.data.type === 'oauth-error') {
         clearInterval(checkClosed);

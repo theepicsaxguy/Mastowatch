@@ -4,6 +4,7 @@ This provides the best of both worlds: type safety where available, flexibility 
 
 import hashlib
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -42,10 +43,9 @@ class MastoClient:
         )
 
     def _parse_next_cursor(self, link_header: str | None) -> str | None:
-        """Parses the Link header to extract the next_max_id for pagination."""
+        """Parse the Link header to extract the next_max_id for pagination."""
         if not link_header:
             return None
-        import re
 
         for link in link_header.split(","):
             if 'rel="next"' in link:
