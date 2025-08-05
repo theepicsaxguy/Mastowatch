@@ -98,6 +98,13 @@ class MastoClient:
     @classmethod
     async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
         settings_local = get_settings()
+
+        # Validate required OAuth settings
+        if not settings_local.OAUTH_CLIENT_ID:
+            raise ValueError("OAUTH_CLIENT_ID is not configured")
+        if not settings_local.OAUTH_CLIENT_SECRET:
+            raise ValueError("OAUTH_CLIENT_SECRET is not configured")
+
         data = {
             "client_id": settings_local.OAUTH_CLIENT_ID,
             "client_secret": settings_local.OAUTH_CLIENT_SECRET,
@@ -108,12 +115,24 @@ class MastoClient:
         base = str(settings_local.INSTANCE_BASE).rstrip("/")
         bucket = f"{base}:oauth"
         throttle_if_needed(bucket)
-        headers = {"Accept": "application/json", "User-Agent": settings_local.USER_AGENT}
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Cache-Control": "max-age=0",
+        }
 
         # Debug logging to help troubleshoot OAuth issues
-        logger.info(
-            f"OAuth token exchange attempt - redirect_uri: {redirect_uri}, client_id: {settings_local.OAUTH_CLIENT_ID[:10]}..."
-        )
+        client_id_preview = settings_local.OAUTH_CLIENT_ID[:10] if settings_local.OAUTH_CLIENT_ID else "None"
+        logger.info(f"OAuth token exchange attempt - redirect_uri: {redirect_uri}, client_id: {client_id_preview}...")
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             with api_call_seconds.labels(endpoint="/oauth/token").time():
@@ -121,7 +140,16 @@ class MastoClient:
         update_from_headers(bucket, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint="/oauth/token", code=str(response.status_code)).inc()
-            logger.error(f"OAuth token exchange failed: {response.status_code} - {response.text}")
+            # Handle potential encoding issues in error response
+            try:
+                error_text = response.text
+            except UnicodeDecodeError:
+                error_text = response.content.decode("utf-8", errors="ignore")
+            logger.error(f"OAuth token exchange failed: {response.status_code} - {error_text}")
+            logger.error(
+                f"Request data: client_id={client_id_preview}, redirect_uri={redirect_uri}, "
+                f"grant_type=authorization_code"
+            )
         response.raise_for_status()
         return response.json()
 

@@ -73,8 +73,14 @@ def admin_login(request: Request, popup: bool = False):
         </html>
         """)
 
-    # For regular mode (direct navigation), redirect immediately instead of returning JSON
-    return RedirectResponse(url=auth_url, status_code=302)
+    # Check if this is a browser request (has Accept header indicating HTML preference)
+    accept_header = request.headers.get("accept", "")
+    if "text/html" in accept_header:
+        # This is a browser navigation - redirect immediately
+        return RedirectResponse(url=auth_url, status_code=302)
+    else:
+        # This is likely a programmatic request - return JSON for backward compatibility
+        return {"auth_url": auth_url}
 
 
 @router.get("/admin/callback", tags=["auth"])
@@ -97,23 +103,27 @@ async def admin_callback(request: Request, response: Response, code: str = None,
     if not stored_state or stored_state != state:
         raise HTTPException(status_code=400, detail="Invalid state parameter")
 
-    try:
-        redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
-        token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
-        access_token = token_info.get("access_token")
-        if not access_token:
-            raise HTTPException(status_code=500, detail="No access token received")
-        user = await oauth_config.fetch_user_info(access_token)
-        if not user:
-            raise HTTPException(status_code=500, detail="Failed to fetch user information")
-        if not user.is_admin:
-            raise HTTPException(status_code=403, detail="Admin access required")
-        create_session_cookie(response, user, settings)
-        request.session.pop("oauth_state", None)
-        return RedirectResponse(url="/dashboard", status_code=302)
-    except Exception as e:
-        logger.error("OAuth callback failed", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Authentication failed") from e
+        try:
+            redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+            token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
+            access_token = token_info.get("access_token")
+            if not access_token:
+                raise HTTPException(status_code=500, detail="No access token received")
+            user = await oauth_config.fetch_user_info(access_token)
+            if not user:
+                raise HTTPException(status_code=500, detail="Failed to fetch user information")
+            if not user.is_admin:
+                raise HTTPException(status_code=403, detail="Admin access required")
+            create_session_cookie(response, user, settings)
+            request.session.pop("oauth_state", None)
+            return RedirectResponse(url="/dashboard", status_code=302)
+        except Exception as e:
+            error_msg = str(e)
+            # Handle potential encoding issues in error messages
+            if "codec can't decode" in error_msg:
+                error_msg = "Authentication failed due to server response encoding issue"
+            logger.error("OAuth callback failed", extra={"error": error_msg})
+            raise HTTPException(status_code=500, detail="Authentication failed") from e
 
 
 @router.get("/admin/popup-callback", response_class=HTMLResponse, tags=["auth"])
@@ -230,16 +240,23 @@ async def popup_callback(
         """)
 
     except Exception as e:
-        logger.error("OAuth popup callback failed", extra={"error": str(e)})
+        error_msg = str(e)
+        # Handle potential encoding issues in error messages
+        if "codec can't decode" in error_msg:
+            error_msg = "Authentication failed due to server response encoding issue"
+        logger.error("OAuth popup callback failed", extra={"error": error_msg})
         return HTMLResponse(f"""
         <html>
             <head><title>OAuth Error</title></head>
             <body>
                 <script>
-                    window.opener.postMessage({{type: 'oauth-error', error: 'Authentication failed: {str(e)}'}}, '*');
+                    window.opener.postMessage({{
+                        type: 'oauth-error', 
+                        error: 'Authentication failed: {error_msg}'
+                    }}, '*');
                     window.close();
                 </script>
-                <p>Authentication failed: {str(e)}</p>
+                <p>Authentication failed: {error_msg}</p>
             </body>
         </html>
         """)
