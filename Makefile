@@ -21,13 +21,13 @@ clean: ## Clean up containers and volumes
 	docker system prune -f
 
 format: ## Format code with black
-	black --line-length 120 app/ tests/
+	black --line-length 120 backend/app/ tests/
 
 lint: ## Lint code with ruff
-	ruff check app/ tests/
+	ruff check backend/app/ tests/
 
 typecheck: ## Type check with mypy
-	mypy app/
+	mypy backend/app/
 
 test: ## Run tests
 	pytest
@@ -39,7 +39,7 @@ migration: ## Run database migrations
 	docker compose run --rm migrate
 
 new-migration: ## Create new migration (usage: make new-migration name="description")
-	docker compose run --rm api alembic revision --autogenerate -m "$(name)"
+	docker compose run --rm migrate alembic revision --autogenerate -m "$(name)"
 	docker compose logs -f api
 
 logs-worker:
@@ -57,17 +57,17 @@ test:
 	SKIP_STARTUP_VALIDATION=1 pytest
 
 lint:
-	flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
-	flake8 app tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+	flake8 backend/app tests --count --select=E9,F63,F7,F82 --show-source --statistics
+	flake8 backend/app tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
 format:
-	black app tests
+	black backend/app tests
 
 format-check:
-	black --check app tests
+	black --check backend/app tests
 
 typecheck:
-	mypy app/main.py app/config.py app/oauth.py --ignore-missing-imports
+	mypy backend/app/main.py backend/app/config.py backend/app/oauth.py --ignore-missing-imports
 
 # Combined quality checks
 check: lint format-check typecheck test check-httpx-usage
@@ -116,7 +116,7 @@ shell-db:
 
 # Generate new migration
 new-migration:
-	docker compose run --rm api alembic revision --autogenerate -m "$(name)"
+	docker compose run --rm migrate alembic revision --autogenerate -m "$(name)"
 
 # Help
 help:

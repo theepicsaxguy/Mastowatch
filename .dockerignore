@@ -16,7 +16,8 @@ env/
 venv/
 
 # Node
-node_modules/
+**/node_modules/**
+frontend/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -45,6 +46,10 @@ docs/
 tests/
 coverage/
 .nyc_output/
+
+# Test databases
+*.db
+test*.db
 
 # Temporary
 *.tmp

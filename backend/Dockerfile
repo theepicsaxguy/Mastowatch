@@ -3,7 +3,7 @@
 FROM python:3.13-slim AS builder
 WORKDIR /app
 RUN apt-get update \
- && apt-get install -y build-essential python3-dev --no-install-recommends \
+ && apt-get install -y --no-install-recommends build-essential python3-dev \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -16,15 +16,7 @@ COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels
 COPY app/ ./app/
 COPY migrations/ ./migrations/
+COPY alembic.ini ./alembic.ini
 USER nonroot:nonroot
 EXPOSE 8080
-ENTRYPOINT ["uvicorn", "app.main:app", "--host=0.0.0.0", "--port=8080"]
-WORKDIR /app
-COPY --from=builder /usr/local /usr/local
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY app /app/app
-COPY migrations /app/db/migrations
-COPY --from=fe /backend/frontend/dist /app/static/dashboard
-USER nonroot:nonroot
-EXPOSE 8080
-ENTRYPOINT ["uvicorn","app.main:app","--host=0.0.0.0","--port=8080"]
+ENTRYPOINT ["uvicorn","app.main:app","--host","0.0.0.0","--port","8080"]
