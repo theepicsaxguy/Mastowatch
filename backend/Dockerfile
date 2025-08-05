@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.4
+# syntax=docker/dockerfile:1.17
 
 FROM python:3.13-slim AS builder
 WORKDIR /app
