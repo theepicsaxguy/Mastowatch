@@ -20314,7 +20314,8 @@
             "schema": {
               "type": "integer",
               "description": "Height of the iframe. Defaults to null",
-              "default": "null"
+              "default": "null",
+              "nullable": true
             }
           },
           {
@@ -20324,7 +20325,8 @@
             "schema": {
               "type": "integer",
               "description": "Width of the iframe. Defaults to 400",
-              "default": 400
+              "default": 400,
+              "nullable": true
             }
           }
         ]
@@ -22743,8 +22745,7 @@
             "in": "header",
             "description": "Provide this header with any arbitrary string to prevent duplicate submissions of the same status. Consider using a hash or UUID generated client-side. Idempotency keys are stored for up to 1 hour.",
             "schema": {
-              "type": "object",
-              "description": "Provide this header with any arbitrary string to prevent duplicate submissions of the same status. Consider using a hash or UUID generated client-side. Idempotency keys are stored for up to 1 hour."
+              "type": "string"
             }
           }
         ],

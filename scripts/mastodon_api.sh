@@ -11,7 +11,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SUBMODULE_PATH="$PROJECT_ROOT/specs/mastodon-openapi"
 SCHEMA_SOURCE="$SUBMODULE_PATH/dist/schema.json"
 SCHEMA_DEST="$PROJECT_ROOT/specs/openapi.json"
-CLIENT_DIR="$PROJECT_ROOT/app/clients/mastodon"
+CLIENT_DIR="$PROJECT_ROOT/backend/app/clients/mastodon"
 
 # Colors for output
 RED='\033[0;31m'
@@ -71,6 +71,10 @@ check_dependencies() {
 
     if ! command -v openapi-python-client &> /dev/null; then
         missing_deps+=("openapi-python-client")
+    fi
+
+    if ! command -v jq &> /dev/null; then
+        missing_deps+=("jq")
     fi
 
     if [ ${#missing_deps[@]} -ne 0 ]; then
@@ -140,12 +144,61 @@ copy_schema() {
     log_info "API Version: $schema_version"
 }
 
+patch_schema() {
+    log_info "Patching OpenAPI schema for generator compatibility..."
+
+    if ! command -v jq >/dev/null; then
+        log_error "jq is required for schema patching"; exit 1
+    fi
+
+    # Require jq 1.6+ for `walk`
+    local jqv
+    jqv=$(jq --version 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+' | head -1)
+    if [[ -z "$jqv" ]] || [[ "$(printf '%s\n' "1.6" "$jqv" | sort -V | head -1)" != "1.6" ]]; then
+        log_error "jq 1.6+ required (found $jqv)"; exit 1
+    fi
+
+    local tmp="${SCHEMA_DEST}.tmp"
+
+    jq '
+      # Fix individual Parameter objects, regardless of location (paths or components)
+      def fix_param:
+        if (has("in") and .in=="header" and ((.name|ascii_downcase)=="idempotency-key")) then
+          # Headers must be scalar; force to string
+          (.schema = ({type:"string"}))
+        elif (has("in") and .in=="query" and (.name=="maxwidth" or .name=="maxheight")) then
+          # Integer query params cannot have default: null
+          if ((.schema|type)=="object" and (.schema.type=="integer")) then
+            .schema |= (
+              (if (has("default") and .default==null) then del(.default) else . end)
+              + {nullable:true}
+            )
+          else
+            .
+          end
+        else
+          .
+        end;
+
+      # Walk entire document; whenever an object looks like a Parameter, fix it.
+      walk(
+        if (type=="object" and has("in") and has("name") and (has("schema") or has("content"))) then
+          fix_param
+        else
+          .
+        end
+      )
+    ' "$SCHEMA_DEST" > "$tmp" && mv "$tmp" "$SCHEMA_DEST"
+
+    log_success "Schema patched"
+}
+
 purge_client_dir() {
     # Safety guard: refuse to purge suspicious paths
     case "$CLIENT_DIR" in
         "/"|"") log_error "Refusing to purge CLIENT_DIR because it resolves to '$CLIENT_DIR'"; exit 1 ;;
     esac
-    if [[ "$CLIENT_DIR" != *"/app/clients/mastodon" ]]; then
+    if [[ "$CLIENT_DIR" != *"/backend/app/clients/mastodon" ]]; then
         log_error "CLIENT_DIR does not look safe to purge: $CLIENT_DIR"
         exit 1
     fi
@@ -218,21 +271,34 @@ EOF
         exit 1
     fi
 
-    # Locate the Python package dir inside the project (folder with __init__.py at top-level)
+    # Look for the main package directory that contains client.py
     local pkg_dir=""
-    for d in "$project_root"/*; do
-        if [ -d "$d" ] && [ -f "$d/__init__.py" ]; then
-            pkg_dir="$d"
-            break
+    # First check if client.py exists in the project root
+    if [ -f "$project_root/client.py" ]; then
+        pkg_dir="$project_root"
+    else
+        # Look for any subdirectory that contains client.py
+        for d in "$project_root"/*; do
+            if [ -d "$d" ] && [ -f "$d/client.py" ]; then
+                pkg_dir="$d"
+                break
+            fi
+        done
+        # Fallback to directory with __init__.py that imports Client
+        if [ -z "$pkg_dir" ]; then
+            for d in "$project_root"/*; do
+                if [ -d "$d" ] && [ -f "$d/__init__.py" ] && grep -q "Client" "$d/__init__.py" 2>/dev/null; then
+                    pkg_dir="$d"
+                    break
+                fi
+            done
         fi
-    done
-    # Fallback to common default
-    if [ -z "$pkg_dir" ] && [ -d "$project_root/openapi_client" ]; then
-        pkg_dir="$project_root/openapi_client"
     fi
 
     if [ -z "$pkg_dir" ]; then
-        log_error "Failed to detect generated package directory"
+        log_error "Failed to detect generated package directory with client.py"
+        log_info "Available directories in $project_root:"
+        ls -la "$project_root/" || true
         popd >/dev/null || true
         rm -rf "$TMPDIR"
         exit 1
@@ -348,6 +414,7 @@ case "${1:-help}" in
         init_submodule
         update_submodule
         copy_schema
+        patch_schema
         regenerate_client
         log_success "Full update completed!"
         ;;
@@ -356,6 +423,7 @@ case "${1:-help}" in
         init_submodule
         update_submodule
         copy_schema
+        patch_schema
         log_success "Schema update completed!"
         ;;
     "regenerate")
