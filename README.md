@@ -127,8 +127,9 @@ Endpoints:
 * `GET /metrics` - Prometheus metrics for monitoring
 
 #### Configuration Management (requires admin login)
-* `POST /config/dry_run` - Toggle dry run mode (body: `{"dry_run": true|false, "updated_by": "optional-string"}`)
-* `POST /config/panic_stop` - Emergency stop all processing (body: `{"panic_stop": true|false, "updated_by": "optional-string"}`)
+* `GET /config` - Return non-sensitive configuration details
+* `POST /config/dry_run?enable=true|false` - Toggle dry run mode
+* `POST /config/panic_stop?enable=true|false` - Emergency stop all processing
 
 #### Rule Management (requires admin login)
 * `GET /rules` - List all rules
