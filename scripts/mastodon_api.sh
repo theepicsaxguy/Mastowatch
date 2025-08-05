@@ -92,7 +92,7 @@ init_submodule() {
     fi
 
     # Initialize and update submodule
-    git submodule update --init --recursive "$SUBMODULE_PATH"
+    git submodule update --init "$SUBMODULE_PATH"
     log_success "Submodule initialized"
 }
 
