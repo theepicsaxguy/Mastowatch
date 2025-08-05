@@ -8,15 +8,10 @@ export function setStoredApiKey(v: string) {
   localStorage.setItem('mw_api_key', v);
 }
 
-export function getStoredAuthToken(): string | null {
-  return localStorage.getItem('auth_token');
-}
-
 type FetchOpts = RequestInit & { apiKey?: string };
 
 export async function apiFetch<T = unknown>(path: string, opts: FetchOpts = {}): Promise<T> {
   const apiKey = opts.apiKey ?? getStoredApiKey() ?? undefined;
-  const authToken = getStoredAuthToken();
   
   const url = path.startsWith('http') ? path : apiBase + path;
   
@@ -24,11 +19,14 @@ export async function apiFetch<T = unknown>(path: string, opts: FetchOpts = {}):
     'Accept': 'application/json',
     ...(opts.body && !(opts.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
     ...(opts.headers ?? {}),
-    ...(apiKey ? { 'X-API-Key': apiKey } : {}),
-    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+    ...(apiKey ? { 'X-API-Key': apiKey } : {})
   };
   
-  const res = await fetch(url, { ...opts, headers });
+  const res = await fetch(url, { 
+    ...opts, 
+    headers,
+    credentials: 'include' // Include cookies for session-based authentication
+  });
   if (!res.ok) {
     const text = await res.text();
     const error = new Error(`${res.status} ${res.statusText}: ${text}`) as any;

@@ -7,9 +7,6 @@ import secrets
 from typing import Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
-
 from app.config import get_settings
 from app.mastodon_client import MastoClient
 from app.oauth import (
@@ -21,13 +18,15 @@ from app.oauth import (
 )
 from app.services.rule_service import rule_service
 from app.tasks.jobs import process_new_report, process_new_status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.get("/admin/login", tags=["auth"])
-def admin_login(request: Request):
+def admin_login(request: Request, popup: bool = False):
     """Initiate admin OAuth login."""
     oauth_config = get_oauth_config()
     settings = get_settings()
@@ -39,18 +38,49 @@ def admin_login(request: Request):
     state = secrets.token_urlsafe(32)
     request.session["oauth_state"] = state
 
+    # Choose redirect URI based on popup mode
+    if popup:
+        redirect_uri = settings.OAUTH_POPUP_REDIRECT_URI or f"{request.base_url}admin/popup-callback"
+    else:
+        redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
+
     # Build OAuth authorization URL
     params = {
         "client_id": settings.OAUTH_CLIENT_ID,
-        "redirect_uri": settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback",
+        "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": settings.OAUTH_SCOPE,
         "state": state,
     }
 
-    auth_url = f"{settings.INSTANCE_BASE}/oauth/authorize?" + urlencode(params)
+    # Strip trailing slash to avoid double slashes
+    instance_base = str(settings.INSTANCE_BASE).rstrip("/")
+    auth_url = f"{instance_base}/oauth/authorize?" + urlencode(params)
 
-    return {"auth_url": auth_url}
+    # For popup mode, return HTML that redirects immediately
+    if popup:
+        return HTMLResponse(f"""
+        <html>
+            <head>
+                <title>Redirecting to OAuth...</title>
+            </head>
+            <body>
+                <script>
+                    window.location.href = "{auth_url}";
+                </script>
+                <p>Redirecting to authentication...</p>
+            </body>
+        </html>
+        """)
+
+    # Check if this is a browser request (has Accept header indicating HTML preference)
+    accept_header = request.headers.get("accept", "")
+    if "text/html" in accept_header:
+        # This is a browser navigation - redirect immediately
+        return RedirectResponse(url=auth_url, status_code=302)
+    else:
+        # This is likely a programmatic request - return JSON for backward compatibility
+        return {"auth_url": auth_url}
 
 
 @router.get("/admin/callback", tags=["auth"])
@@ -77,51 +107,177 @@ async def admin_callback(request: Request, response: Response, code: str = None,
         redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
         token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
         access_token = token_info.get("access_token")
+
         if not access_token:
             raise HTTPException(status_code=500, detail="No access token received")
+
         user = await oauth_config.fetch_user_info(access_token)
         if not user:
             raise HTTPException(status_code=500, detail="Failed to fetch user information")
+
         if not user.is_admin:
             raise HTTPException(status_code=403, detail="Admin access required")
+
         create_session_cookie(response, user, settings)
         request.session.pop("oauth_state", None)
         return RedirectResponse(url="/dashboard", status_code=302)
+
     except Exception as e:
-        logger.error("OAuth callback failed", extra={"error": str(e)})
+        error_msg = str(e)
+        # Handle potential encoding issues in error messages
+        if "codec can't decode" in error_msg:
+            error_msg = "Authentication failed due to server response encoding issue"
+        logger.error("OAuth callback failed", extra={"error": error_msg})
         raise HTTPException(status_code=500, detail="Authentication failed") from e
 
 
 @router.get("/admin/popup-callback", response_class=HTMLResponse, tags=["auth"])
-def popup_callback(request: Request):
-    """Handle popup OAuth callback"""
-    return """
-    <html>
-        <head>
-            <title>Authorization Complete</title>
-        </head>
-        <body>
-            <script>
-                // Close popup and notify parent window
-                window.opener.postMessage({type: 'oauth_success'}, '*');
-                window.close();
-            </script>
-            <p>Authorization complete. You can close this window.</p>
-        </body>
-    </html>
-    """
+async def popup_callback(
+    request: Request, response: Response, code: str | None = None, state: str | None = None, error: str | None = None
+):
+    """Handle popup OAuth callback."""
+    settings = get_settings()
+    oauth_config = get_oauth_config()
+
+    if not oauth_config.configured:
+        return HTMLResponse("""
+        <html>
+            <head><title>OAuth Error</title></head>
+            <body>
+                <script>
+                    window.opener.postMessage({type: 'oauth-error', error: 'OAuth not configured'}, '*');
+                    window.close();
+                </script>
+                <p>OAuth not configured. Please contact your administrator.</p>
+            </body>
+        </html>
+        """)
+
+    if error:
+        logger.warning(f"OAuth error: {error}")
+        return HTMLResponse(f"""
+        <html>
+            <head><title>OAuth Error</title></head>
+            <body>
+                <script>
+                    window.opener.postMessage({{type: 'oauth-error', error: 'OAuth error: {error}'}}, '*');
+                    window.close();
+                </script>
+                <p>Authentication failed: {error}</p>
+            </body>
+        </html>
+        """)
+
+    if not code:
+        return HTMLResponse("""
+        <html>
+            <head><title>OAuth Error</title></head>
+            <body>
+                <script>
+                    window.opener.postMessage({type: 'oauth-error', error: 'Missing authorization code'}, '*');
+                    window.close();
+                </script>
+                <p>Missing authorization code.</p>
+            </body>
+        </html>
+        """)
+
+    stored_state = request.session.get("oauth_state")
+    if not stored_state or stored_state != state:
+        return HTMLResponse("""
+        <html>
+            <head><title>OAuth Error</title></head>
+            <body>
+                <script>
+                    window.opener.postMessage({type: 'oauth-error', error: 'Invalid state parameter'}, '*');
+                    window.close();
+                </script>
+                <p>Invalid state parameter.</p>
+            </body>
+        </html>
+        """)
+
+    try:
+        redirect_uri = settings.OAUTH_POPUP_REDIRECT_URI or f"{request.base_url}admin/popup-callback"
+        token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
+        access_token = token_info.get("access_token")
+
+        if not access_token:
+            raise Exception("No access token received")
+
+        user = await oauth_config.fetch_user_info(access_token)
+        if not user:
+            raise Exception("Failed to fetch user information")
+
+        if not user.is_admin:
+            raise Exception("Admin access required")
+
+        # Create session cookie
+        create_session_cookie(response, user, settings)
+        request.session.pop("oauth_state", None)
+
+        # Return HTML that communicates success to parent window
+        return HTMLResponse(f"""
+        <html>
+            <head><title>Authorization Complete</title></head>
+            <body>
+                <script>
+                    window.opener.postMessage({{
+                        type: 'oauth-success',
+                        auth: {{
+                            access_token: '{access_token}',
+                            token_type: 'Bearer',
+                            user: {{
+                                id: '{user.id}',
+                                username: '{user.username}',
+                                acct: '{user.acct}',
+                                display_name: '{user.display_name}',
+                                is_admin: {str(user.is_admin).lower()},
+                                avatar: '{user.avatar_url or ""}'
+                            }}
+                        }}
+                    }}, '*');
+                    window.close();
+                </script>
+                <p>Authorization complete. You can close this window.</p>
+            </body>
+        </html>
+        """)
+
+    except Exception as e:
+        error_msg = str(e)
+        # Handle potential encoding issues in error messages
+        if "codec can't decode" in error_msg:
+            error_msg = "Authentication failed due to server response encoding issue"
+        logger.error("OAuth popup callback failed", extra={"error": error_msg})
+        return HTMLResponse(f"""
+        <html>
+            <head><title>OAuth Error</title></head>
+            <body>
+                <script>
+                    window.opener.postMessage({{
+                        type: 'oauth-error', 
+                        error: 'Authentication failed: {error_msg}'
+                    }}, '*');
+                    window.close();
+                </script>
+                <p>Authentication failed: {error_msg}</p>
+            </body>
+        </html>
+        """)
 
 
 @router.post("/admin/logout", tags=["auth"])
 def admin_logout(response: Response, user: User = Depends(require_admin_hybrid)):
-    """Logout current admin user"""
-    clear_session_cookie(response)
+    """Logout current admin user."""
+    settings = get_settings()
+    clear_session_cookie(response, settings)
     return {"message": "Logged out successfully"}
 
 
 @router.get("/api/v1/me", tags=["auth"])
 def get_current_user_info(user: User = Depends(require_admin_hybrid)):
-    """Get current authenticated user information"""
+    """Get current authenticated user information."""
     return {
         "username": user.username,
         "display_name": user.display_name,

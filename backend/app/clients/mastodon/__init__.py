@@ -1,3 +1,8 @@
-"""Auto-generated Mastodon client"""
+"""A client library for accessing Mastodon API"""
+
 from .client import AuthenticatedClient, Client
-__all__ = ("AuthenticatedClient", "Client")
+
+__all__ = (
+    "AuthenticatedClient",
+    "Client",
+)

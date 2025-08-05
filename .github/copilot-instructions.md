@@ -26,40 +26,82 @@ MastoWatch is a **Mastodon moderation sidecar** that analyzes accounts/statuses 
 
 ## Development Workflows
 
-### Docker Compose Commands
+### Make Commands (Preferred)
+**ALWAYS use `make` commands when working with this project.** The project includes a comprehensive Makefile that provides convenient shortcuts for all common development tasks.
+
 ```bash
 # Development with hot reload
-make dev  # or docker compose -f docker-compose.yml -f docker-compose.override.yml up
+make dev
 
-# Backend only (for frontend dev)
+# Backend only (for frontend development)
 make backend-only
 
-# Production
+# Production environment
 make prod
+
+# Stop all services
+make stop
+
+# Clean up containers and volumes
+make clean
+
+# View service status
+make status
+
+# View logs
+make logs              # All services
+make logs-api          # API only
+make logs-worker       # Worker only
+make logs-frontend     # Frontend only
 ```
 
 ### Testing Strategy
 - **Restructured Test Suite**: Tests are organized by feature area, mirroring the application structure (`tests/api`, `tests/services`, `tests/tasks`).
 - **Isolation**: Tests use an in-memory SQLite database and a separate Redis instance to ensure isolation and prevent side effects.
 - **Mocking External APIs**: All outbound calls to the Mastodon API are mocked using `unittest.mock.patch` to prevent real network requests during tests.
-- **Run tests**: `pytest`
+- **Run tests**: `make test`
 
 ### Code Quality Tools
 - **Formatting**: Black with a **120-character** line length (`make format`).
-- **Linting**: Ruff with custom rules in `pyproject.toml` to ban direct use of `requests` and `httpx`.
+- **Format checking**: `make format-check` to verify formatting without making changes.
+- **Linting**: Ruff with custom rules in `pyproject.toml` to ban direct use of `requests` and `httpx` (`make lint`).
 - **Type checking**: MyPy with selective strictness (`make typecheck`).
+- **All quality checks**: `make check` runs lint, format-check, typecheck, and test in sequence.
 - **HTTP Library Policy**: Only the `MastoClient` wrapper is permitted to interact with the Mastodon API. Direct use of `requests` or `httpx` elsewhere is a linting error.
 
 ### Database Operations
 ```bash
-# Run migrations
-make migration
-
-# Generate new migration
-make new-migration name="your_migration_description"
+# Run migrations (automatic during startup)
+make migration name="your_migration_description"
 
 # Database shell
 make shell-db
+```
+
+### Service Management
+```bash
+# Restart specific services
+make restart-api
+make restart-worker  
+make restart-frontend
+
+# Enter container shells
+make shell-api       # API container shell
+```
+
+### Mastodon Client Management
+```bash
+# Update OpenAPI spec from submodule
+make update-api-spec
+
+# Regenerate typed client from current spec  
+make regenerate-client
+
+# Full update: submodule + spec + client
+make update-mastodon-client
+
+# Show current API client status
+make api-client-status
 ```
 
 ## Critical Configuration Patterns

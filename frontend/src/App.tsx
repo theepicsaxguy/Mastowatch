@@ -85,6 +85,8 @@ export default function App() {
       const user = await login();
       if (user) {
         setCurrentUser(user);
+        // Trigger a refresh of all data after successful login
+        await refreshAllData();
       }
     } catch (error) {
       console.error('Login failed:', error);

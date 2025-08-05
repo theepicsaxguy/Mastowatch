@@ -1,22 +1,25 @@
 """Type-safe Mastodon client using generated OpenAPI client with fallback to raw HTTP calls.
-This provides the best of both worlds: type safety where available, flexibility where needed.
+
+This provides the best type safety where available, flexibility where needed.
 """
 
 import hashlib
+import logging
+import re
 from typing import Any
 
 import httpx
-
 from app.clients.mastodon import AuthenticatedClient
-from app.clients.mastodon.accounts.get_account import sync as get_account_sync
-from app.clients.mastodon.accounts.get_account_statuses import sync as get_account_statuses_sync
+from app.clients.mastodon.api.accounts.get_account import sync as get_account_sync
+from app.clients.mastodon.api.accounts.get_account_statuses import sync as get_account_statuses_sync
+from app.clients.mastodon.api.reports.create_report import sync as create_report_sync
 from app.clients.mastodon.models.create_report_body import CreateReportBody
-from app.clients.mastodon.reports.create_report import sync as create_report_sync
 from app.config import get_settings
 from app.metrics import api_call_seconds, http_errors
 from app.rate_limit import throttle_if_needed, update_from_headers
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class MastoClient:
@@ -41,10 +44,9 @@ class MastoClient:
         )
 
     def _parse_next_cursor(self, link_header: str | None) -> str | None:
-        """Parses the Link header to extract the next_max_id for pagination."""
+        """Parse the Link header to extract the next_max_id for pagination."""
         if not link_header:
             return None
-        import re
 
         for link in link_header.split(","):
             if 'rel="next"' in link:
@@ -61,7 +63,6 @@ class MastoClient:
 
         url = f"{self._base_url}{path}"
         with api_call_seconds.labels(endpoint=path).time():
-
             response = httpx.request(
                 method,
                 url,
@@ -98,6 +99,13 @@ class MastoClient:
     @classmethod
     async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
         settings_local = get_settings()
+
+        # Validate required OAuth settings
+        if not settings_local.OAUTH_CLIENT_ID:
+            raise ValueError("OAUTH_CLIENT_ID is not configured")
+        if not settings_local.OAUTH_CLIENT_SECRET:
+            raise ValueError("OAUTH_CLIENT_SECRET is not configured")
+
         data = {
             "client_id": settings_local.OAUTH_CLIENT_ID,
             "client_secret": settings_local.OAUTH_CLIENT_SECRET,
@@ -108,15 +116,49 @@ class MastoClient:
         base = str(settings_local.INSTANCE_BASE).rstrip("/")
         bucket = f"{base}:oauth"
         throttle_if_needed(bucket)
-        headers = {"Accept": "application/json", "User-Agent": settings_local.USER_AGENT}
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Cache-Control": "max-age=0",
+        }
+
+        # Debug logging to help troubleshoot OAuth issues
+        client_id_preview = settings_local.OAUTH_CLIENT_ID[:10] if settings_local.OAUTH_CLIENT_ID else "None"
+        logger.info(f"OAuth token exchange attempt - redirect_uri: {redirect_uri}, client_id: {client_id_preview}...")
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             with api_call_seconds.labels(endpoint="/oauth/token").time():
                 response = await client.post(f"{base}/oauth/token", data=data, headers=headers)
         update_from_headers(bucket, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint="/oauth/token", code=str(response.status_code)).inc()
+            # Handle potential encoding issues in error response
+            try:
+                error_text = response.text
+            except (UnicodeDecodeError, Exception):
+                # Fallback for compressed or binary responses
+                error_text = str(response.content)
+            logger.error(f"OAuth token exchange failed: {response.status_code} - {error_text}")
+            logger.error(
+                f"Request data: client_id={client_id_preview}, redirect_uri={redirect_uri}, "
+                f"grant_type=authorization_code"
+            )
         response.raise_for_status()
-        return response.json()
+        try:
+            return response.json()
+        except Exception as e:
+            logger.error(f"Failed to parse OAuth response as JSON: {e}")
+            logger.error(f"Response content type: {response.headers.get('content-type')}")
+            logger.error(f"Response encoding: {response.encoding}")
+            raise ValueError("Authentication failed due to server response encoding issue") from e
 
     def get_account(self, account_id: str) -> dict[str, Any]:
         """Get account information using generated OpenAPI client."""

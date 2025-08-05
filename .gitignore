@@ -1,3 +1,7 @@
+!.pylintrc
+!.eslintrc.cjs
+!.github/**
+
 # Byte-code files
 **/__pycache__/**
 *.pyc
@@ -12,7 +16,3 @@ celerybeat-schedule
 venv/**
 .**
 *.db
-!.pylintrc
-!.eslintrc.cjs
-!.github/**
-.github/copilot-instructions.md
