@@ -183,6 +183,8 @@ def create_session_cookie(response: Response, user: User, settings) -> None:
     # Don't use secure cookies in development (HTTP)
     is_development = str(settings.INSTANCE_BASE).startswith("http://")
 
+    logger.info(f"Creating session cookie: name={settings.SESSION_COOKIE_NAME}, secure={not is_development}, domain=None, path=/")
+
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=session_token,
@@ -196,6 +198,15 @@ def create_session_cookie(response: Response, user: User, settings) -> None:
 
 def clear_session_cookie(response: Response, settings) -> None:
     """Clear session cookie"""
+    # Don't use secure cookies in development (HTTP)
+    is_development = str(settings.INSTANCE_BASE).startswith("http://")
+    
     response.set_cookie(
-        key=settings.SESSION_COOKIE_NAME, value="", max_age=0, httponly=True, secure=True, samesite="lax"
+        key=settings.SESSION_COOKIE_NAME, 
+        value="", 
+        max_age=0, 
+        path="/",
+        httponly=True, 
+        secure=not is_development,  # Only secure in production (HTTPS)
+        samesite="lax"
     )
