@@ -51,7 +51,7 @@ make help          # See all available commands
 ## Environment Setup
 
 1. Copy environment file: `cp .env.example .env`
-2. Edit `.env` with your Mastodon instance details:
+2. Edit `.env` with your Mastodon instance details. The API, worker, and beat services all read from this shared file:
 
 ### Required Production Settings
    - `INSTANCE_BASE`: Your Mastodon instance URL
