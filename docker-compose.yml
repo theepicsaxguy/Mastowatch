@@ -1,25 +1,77 @@
 version: "3.8"
 
+# Shared environment variables
+x-backend-env: &backend-env
+  INSTANCE_BASE: "${INSTANCE_BASE}"
+  ADMIN_TOKEN: "${ADMIN_TOKEN}"
+  BOT_TOKEN: "${BOT_TOKEN}"
+  DATABASE_URL: "${DATABASE_URL}"
+  REDIS_URL: "${REDIS_URL}"
+  API_KEY: "${API_KEY}"
+  WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
+  DRY_RUN: "${DRY_RUN:-true}"
+  PANIC_STOP: "${PANIC_STOP:-false}"
+  CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:3000}"
+
 services:
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    env_file:
-      - .env
-    environment:
-      CORS_ORIGINS: '["http://localhost:5173"]'
-      API_KEY: "${API_KEY}"
-      WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
     ports:
       - "8080:8080"
+    environment:
+      <<: *backend-env
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "5173:80"
+      - "3000:80"
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.celery", "worker", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      - db
+      - redis
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.celery", "beat", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      - db
+      - redis
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      - db
 
   db:
     image: postgres:17
@@ -36,53 +88,3 @@ services:
   redis:
     image: redis:8
     command: ["redis-server", "--appendonly", "yes"]
-
-  migrate:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: "postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch"
-    command: ["alembic", "upgrade", "head"]
-
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    depends_on:
-      - api
-      - redis
-    environment:
-      <<: *backend-env
-    restart: on-failure
-    command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
-
-  beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    depends_on:
-      - worker
-    environment:
-      <<: *backend-env
-    restart: on-failure
-    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
-      - api
-      - redis
-    environment:
-      <<: *backend-env
-    restart: on-failure
-    command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
-
-  beat:
-    <<: *backend
-    depends_on:
-      - worker
-    environment:
-      <<: *backend-env
-    restart: on-failure
-    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
-    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]

@@ -1,45 +1,45 @@
-.PHONY: dev prod build clean logs test lint format migration
+.PHONY: help dev backend-only prod build clean format lint typecheck test shell-db migration new-migration
 
-# Development shortcuts
-dev:
-	docker compose -f docker-compose.yml -f docker-compose.override.yml up
+help: ## Show this help message
+	@echo "Available commands:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-dev-build:
+dev: ## Start development environment with hot reload
 	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 
-dev-detached:
-	docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
+backend-only: ## Start only backend services (for frontend development)
+	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build api worker beat redis db
 
-# Backend only (for frontend development)
-backend-only:
-	docker compose -f docker-compose.yml -f docker-compose.override.yml up db redis api worker beat migrate
+prod: ## Start production environment
+	docker compose up --build
 
-# Frontend only (assumes backend is running separately)
-frontend-only:
-	docker compose -f docker-compose.yml -f docker-compose.override.yml up frontend
+build: ## Build all images
+	docker compose build
 
-# Production
-prod:
-	docker compose up
-
-prod-build:
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build
-
-up:
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose up --build
-
-# Utility commands
-build:
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build
-
-clean:
-	docker compose down -v
+clean: ## Clean up containers and volumes
+	docker compose down -v --remove-orphans
 	docker system prune -f
 
-logs:
-	docker compose logs -f
+format: ## Format code with black
+	black --line-length 120 app/ tests/
 
-logs-api:
+lint: ## Lint code with ruff
+	ruff check app/ tests/
+
+typecheck: ## Type check with mypy
+	mypy app/
+
+test: ## Run tests
+	pytest
+
+shell-db: ## Open database shell
+	docker compose exec db psql -U postgres mastowatch
+
+migration: ## Run database migrations
+	docker compose run --rm migrate
+
+new-migration: ## Create new migration (usage: make new-migration name="description")
+	docker compose run --rm api alembic revision --autogenerate -m "$(name)"
 	docker compose logs -f api
 
 logs-worker:
