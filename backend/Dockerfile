@@ -1,20 +1,20 @@
 # syntax=docker/dockerfile:1.4
 
-FROM python:3.13-slim AS builder
-WORKDIR /backend
+# Stage 1: Builder
+FROM python:3.10-slim as builder
+WORKDIR /app
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential python3-dev \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip wheel --wheel-dir=/wheels -r requirements.txt \
- && pip install --no-cache-dir /wheels/*.whl \
- && rm -rf /wheels
+RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY . .
 
-FROM node:22-alpine AS fe
-WORKDIR /backend/frontend
-COPY frontend/package*.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+# Stage 2: Runtime
+FROM gcr.io/distroless/python3
+WORKDIR /app
+COPY --from=builder /app /app
+CMD ["app/main.py"]  # Adjust as needed
 COPY frontend/ .
 RUN npm run build
 

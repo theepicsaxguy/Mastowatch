@@ -149,3 +149,9 @@ help:
 	@echo "  api-client-status    - Show current API client status"
 	@echo "  help             - Show this help message"
 	@echo "  help             - Show this help message"
+
+docker-build:
+	DOCKER_BUILDKIT=1 docker compose build
+
+docker-up:
+	DOCKER_BUILDKIT=1 docker compose up
