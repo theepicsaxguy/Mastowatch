@@ -19,6 +19,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.mastodon_client import MastoClient
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +58,7 @@ class OAuthConfig:
             client_secret=settings.OAUTH_CLIENT_SECRET,
             authorize_url=f"{settings.INSTANCE_BASE}/oauth/authorize",
             access_token_url=f"{settings.INSTANCE_BASE}/oauth/token",
-            client_kwargs={
-                "scope": "read:accounts",
-            },
+            client_kwargs={"scope": settings.OAUTH_SCOPE},
         )
 
         # Session serializer for secure cookies
@@ -81,41 +80,20 @@ class OAuthConfig:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session")
 
     async def fetch_user_info(self, access_token: str) -> User | None:
-        """Fetch user information from Mastodon API using generated client"""
         try:
-            from app.clients.mastodon.client import AuthenticatedClient
-
-            # Use generated client for verify_credentials
-            api_client = AuthenticatedClient(
-                base_url=str(self.settings.INSTANCE_BASE), token=access_token, prefix="Bearer", timeout=10.0
-            )
-
-            # Use the generated client's HTTP session for consistency
-            async with api_client.get_async_httpx_client() as http_client:
-                response = await http_client.get("/api/v1/accounts/verify_credentials")
-
-            if response.status_code != 200:
-                logger.warning(f"Failed to fetch user credentials: {response.status_code}")
-                return None
-
-            data = response.json()
-
-            # Check if user has admin role
+            client = MastoClient(access_token)
+            data = await client.verify_credentials()
             is_admin = False
             role_data = data.get("role")
             if role_data:
-                # Check permissions bitmask - admin permission is bit 0 (value 1)
                 try:
                     permissions = int(role_data.get("permissions", 0))
                     is_admin = bool(permissions & 1)
                 except (ValueError, TypeError):
                     pass
-
-                # Fallback: check if user has elevated permissions by role name
                 if not is_admin:
                     role_name = (role_data.get("name") or "").lower()
                     is_admin = role_name in ["admin", "moderator", "owner"]
-
             return User(
                 id=data["id"],
                 username=data["username"],
@@ -124,7 +102,6 @@ class OAuthConfig:
                 is_admin=is_admin,
                 avatar_url=data.get("avatar"),
             )
-
         except Exception as e:
             logger.error(f"Error fetching user info: {e}")
             return None

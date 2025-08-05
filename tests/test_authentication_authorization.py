@@ -1,5 +1,4 @@
-"""
-Comprehensive test suite for authentication and authorization functionality:
+"""Comprehensive test suite for authentication and authorization functionality:
 - OAuth flow with CSRF protection
 - Role-based access control (Owner/Admin only)
 - Session management and cookies
@@ -29,6 +28,7 @@ os.environ.update(
         "SESSION_SECRET_KEY": "test_session_secret_key_123456789",
         "OAUTH_REDIRECT_URI": "http://localhost:8080/admin/callback",
         "OAUTH_POPUP_REDIRECT_URI": "http://localhost:8080/admin/popup-callback",
+        "OAUTH_SCOPE": "read:accounts",
     }
 )
 
@@ -161,53 +161,24 @@ class TestAuthenticationAuthorization(unittest.TestCase):
         response = self.client.get("/admin/callback?state=test_state")
         self.assertEqual(response.status_code, 400)
 
-    @patch("app.main.Client")
-    async def test_oauth_token_exchange(self, mock_client):
-        """Test OAuth token exchange process"""
-        # Mock successful token exchange
-        mock_http_client = AsyncMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"access_token": "test_access_token"}
-        mock_http_client.post.return_value = mock_response
-
-        mock_client_instance = MagicMock()
-        mock_client_instance.get_async_httpx_client.return_value.__aenter__.return_value = mock_http_client
-        mock_client.return_value = mock_client_instance
-
-        # Mock user info fetch
+    @patch("app.api.auth.MastoClient.exchange_code_for_token", new_callable=AsyncMock)
+    async def test_oauth_token_exchange(self, mock_exchange):
         admin_user = self.create_test_admin_user()
         self.mock_oauth_instance.fetch_user_info.return_value = admin_user
-
-        # Mock state validation
         self.mock_redis_instance.get.return_value = "valid"
-
+        mock_exchange.return_value = {"access_token": "test_access_token"}
         response = self.client.get("/admin/callback?code=test_code&state=test_state")
-
-        # Should successfully process callback
         self.assertIn(response.status_code, [200, 302])
 
     def test_oauth_non_admin_user_rejection(self):
         """Test rejection of non-admin users during OAuth"""
-        # Mock user info fetch returning non-admin user
         regular_user = self.create_test_regular_user()
         self.mock_oauth_instance.fetch_user_info.return_value = regular_user
-
-        # Mock successful token exchange
-        with patch("app.main.Client") as mock_client:
-            mock_http_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"access_token": "test_access_token"}
-            mock_http_client.post.return_value = mock_response
-
-            mock_client_instance = MagicMock()
-            mock_client_instance.get_async_httpx_client.return_value.__aenter__.return_value = mock_http_client
-            mock_client.return_value = mock_client_instance
-
-            # Mock state validation
+        with patch(
+            "app.api.auth.MastoClient.exchange_code_for_token",
+            AsyncMock(return_value={"access_token": "test_access_token"}),
+        ):
             self.mock_redis_instance.get.return_value = "valid"
-
             response = self.client.get("/admin/callback?code=test_code&state=test_state")
             self.assertEqual(response.status_code, 403)
 
@@ -326,28 +297,15 @@ class TestAuthenticationAuthorization(unittest.TestCase):
         """Test session cookie creation"""
         admin_user = self.create_test_admin_user()
 
-        # Mock successful OAuth callback with cookie creation
         with patch("app.main.create_session_cookie") as mock_create_cookie:
-            with patch("app.main.Client") as mock_client:
-                # Mock token exchange
-                mock_http_client = AsyncMock()
-                mock_response = MagicMock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = {"access_token": "test_token"}
-                mock_http_client.post.return_value = mock_response
-
-                mock_client_instance = MagicMock()
-                mock_client_instance.get_async_httpx_client.return_value.__aenter__.return_value = mock_http_client
-                mock_client.return_value = mock_client_instance
-
-                # Mock user fetch and state validation
+            with patch(
+                "app.api.auth.MastoClient.exchange_code_for_token",
+                AsyncMock(return_value={"access_token": "test_token"}),
+            ):
                 self.mock_oauth_instance.fetch_user_info.return_value = admin_user
                 self.mock_redis_instance.get.return_value = "valid"
-
                 response = self.client.get("/admin/callback?code=test_code&state=test_state")
-
-                # Should create session cookie for non-popup mode
-                if response.status_code == 302:  # Redirect mode
+                if response.status_code == 302:
                     mock_create_cookie.assert_called_once()
 
     def test_session_logout(self):
