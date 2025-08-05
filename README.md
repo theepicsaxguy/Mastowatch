@@ -42,6 +42,7 @@ Set these in `.env` (copied from `.env.example`):
 * `OAUTH_CLIENT_ID`: OAuth application client ID
 * `OAUTH_CLIENT_SECRET`: OAuth application client secret
 * `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `https://your.instance/admin/callback`)
+* `OAUTH_SCOPE`: OAuth scopes for admin login (default: `read:accounts`)
 * `SESSION_SECRET_KEY`: Random secret for session cookies
 
 ### Optional Settings

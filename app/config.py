@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     OAUTH_CLIENT_ID: str | None = None
     OAUTH_CLIENT_SECRET: str | None = None
     OAUTH_REDIRECT_URI: str | None = None
+    OAUTH_SCOPE: str = "read:accounts"
     OAUTH_POPUP_REDIRECT_URI: str | None = None
     SESSION_SECRET_KEY: str | None = None
     SESSION_COOKIE_NAME: str = "mastowatch_session"

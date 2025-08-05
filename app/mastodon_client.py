@@ -71,6 +71,48 @@ class MastoClient:
         response.raise_for_status()
         return response
 
+    async def _make_request_async(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        throttle_if_needed(self._bucket_key)
+        headers = {"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}
+        if "headers" in kwargs:
+            headers.update(kwargs.pop("headers"))
+        url = f"{self._base_url}{path}"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            with api_call_seconds.labels(endpoint=path).time():
+                response = await client.request(method, url, headers=headers, **kwargs)
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+        response.raise_for_status()
+        return response
+
+    async def verify_credentials(self) -> dict[str, Any]:
+        response = await self._make_request_async("GET", "/api/v1/accounts/verify_credentials")
+        return response.json()
+
+    @classmethod
+    async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
+        settings_local = get_settings()
+        data = {
+            "client_id": settings_local.OAUTH_CLIENT_ID,
+            "client_secret": settings_local.OAUTH_CLIENT_SECRET,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+            "code": code,
+        }
+        base = str(settings_local.INSTANCE_BASE).rstrip("/")
+        bucket = f"{base}:oauth"
+        throttle_if_needed(bucket)
+        headers = {"Accept": "application/json", "User-Agent": settings_local.USER_AGENT}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            with api_call_seconds.labels(endpoint="/oauth/token").time():
+                response = await client.post(f"{base}/oauth/token", data=data, headers=headers)
+        update_from_headers(bucket, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint="/oauth/token", code=str(response.status_code)).inc()
+        response.raise_for_status()
+        return response.json()
+
     def get_account(self, account_id: str) -> dict[str, Any]:
         """Get account information using generated OpenAPI client."""
         throttle_if_needed(self._bucket_key)
