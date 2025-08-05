@@ -1,5 +1,3 @@
-version: "3.8"
-
 # Shared environment variables
 x-backend-env: &backend-env
   INSTANCE_BASE: "${INSTANCE_BASE}"

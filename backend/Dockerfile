@@ -20,4 +20,4 @@ COPY --chown=nonroot:nonroot migrations/ ./migrations/
 COPY --chown=nonroot:nonroot alembic.ini ./alembic.ini
 USER nonroot:nonroot
 EXPOSE 8080
-ENTRYPOINT ["uvicorn","app.main:app","--host","0.0.0.0","--port","8080"]
+CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","8080"]

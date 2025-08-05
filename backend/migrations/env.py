@@ -10,7 +10,7 @@ from sqlalchemy import engine_from_config, pool
 config = context.config
 
 # add your project root to the sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 # Interpret the config file for Python logging.
