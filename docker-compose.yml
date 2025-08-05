@@ -99,7 +99,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["alembic", "upgrade", "head"]
+    command: ["alembic", "upgrade", "heads"]
     env_file: [.env]
     environment:
       <<: *backend-env
