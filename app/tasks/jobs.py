@@ -72,39 +72,27 @@ def _persist_account(a: dict):
         db.execute(stmt)
         db.commit()
 
-
-@shared_task(
-    name="app.tasks.jobs.poll_admin_accounts",
-    autoretry_for=(Exception,),
-    retry_backoff=2,
-    retry_backoff_max=60,
-    retry_jitter=True,
-)
-def poll_admin_accounts():
-    """Enhanced polling of remote admin accounts with efficient scanning"""
+def _poll_accounts(origin: str, cursor_name: str):
     if _should_pause():
-        logging.warning("PANIC_STOP enabled; skipping remote account poll")
+        logging.warning(f"PANIC_STOP enabled; skipping {origin} account poll")
         return
 
     enhanced_scanner = EnhancedScanningSystem()
-    session_id = enhanced_scanner.start_scan_session("remote")
+    session_id = enhanced_scanner.start_scan_session(origin)
 
     try:
-        # Read cursor
         with SessionLocal() as db:
-            pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": CURSOR_NAME}).scalar()
+            pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": cursor_name}).scalar()
 
         pages = 0
         next_max = pos
         accounts_processed = 0
 
         while pages < settings.MAX_PAGES_PER_POLL:
-            # Get next batch of accounts
             accounts, new_next = enhanced_scanner.get_next_accounts_to_scan(
-                "remote", limit=settings.BATCH_SIZE, cursor=next_max
+                origin, limit=settings.BATCH_SIZE, cursor=next_max
             )
 
-            # CRITICAL FIX: Update cursor immediately to avoid infinite loop
             next_max = new_next
 
             if not accounts:
@@ -112,15 +100,14 @@ def poll_admin_accounts():
 
             for account_data in accounts:
                 try:
-                    # Persist account information
                     _persist_account(account_data)
 
-                    # Use enhanced scanning with deduplication
-                    scan_result = enhanced_scanner.scan_account_efficiently(account_data.get("account", {}), session_id)
+                    scan_result = enhanced_scanner.scan_account_efficiently(
+                        account_data.get("account", {}), session_id
+                    )
 
                     if scan_result:
                         accounts_processed += 1
-                        # Enqueue for analysis if needed
                         if scan_result.get("score", 0) > 0:
                             analyze_and_maybe_report.delay(
                                 {
@@ -133,17 +120,15 @@ def poll_admin_accounts():
                 except Exception as e:
                     logging.error(f"Error processing account: {e}")
 
-            # Update cursor after processing the page
             with SessionLocal() as db:
-                stmt = pg_insert(Cursor).values(name=CURSOR_NAME, position=new_next)
+                stmt = pg_insert(Cursor).values(name=cursor_name, position=new_next)
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["name"], set_=dict(position=new_next, updated_at=func.now())
                 )
                 db.execute(stmt)
                 db.commit()
 
-            # Update cursor lag metric
-            cursor_lag_pages.labels(cursor=CURSOR_NAME).set(1.0 if new_next else 0.0)
+            cursor_lag_pages.labels(cursor=cursor_name).set(1.0 if new_next else 0.0)
 
             if not new_next:
                 break
@@ -151,11 +136,25 @@ def poll_admin_accounts():
             pages += 1
 
         enhanced_scanner.complete_scan_session(session_id)
-        logging.info(f"Remote account poll completed: {accounts_processed} accounts processed, {pages} pages")
+        logging.info(
+            f"{origin.capitalize()} account poll completed: {accounts_processed} accounts processed, {pages} pages"
+        )
 
     except Exception as e:
-        logging.error(f"Error in remote account poll: {e}")
+        logging.error(f"Error in {origin} account poll: {e}")
         enhanced_scanner.complete_scan_session(session_id, "failed")
+
+
+@shared_task(
+    name="app.tasks.jobs.poll_admin_accounts",
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    retry_backoff_max=60,
+    retry_jitter=True,
+)
+def poll_admin_accounts():
+    """Poll remote admin accounts"""
+    _poll_accounts("remote", CURSOR_NAME)
 
 
 @shared_task(
@@ -166,81 +165,8 @@ def poll_admin_accounts():
     retry_jitter=True,
 )
 def poll_admin_accounts_local():
-    """Enhanced polling of local admin accounts with efficient scanning"""
-    if _should_pause():
-        logging.warning("PANIC_STOP enabled; skipping local account poll")
-        return
-
-    enhanced_scanner = EnhancedScanningSystem()
-    session_id = enhanced_scanner.start_scan_session("local")
-
-    try:
-        # Read cursor
-        with SessionLocal() as db:
-            pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": CURSOR_NAME_LOCAL}).scalar()
-
-        pages = 0
-        next_max = pos
-        accounts_processed = 0
-
-        while pages < settings.MAX_PAGES_PER_POLL:
-            # Get next batch of accounts
-            accounts, new_next = enhanced_scanner.get_next_accounts_to_scan(
-                "local", limit=settings.BATCH_SIZE, cursor=next_max
-            )
-
-            # CRITICAL FIX: Update cursor immediately to avoid infinite loop
-            next_max = new_next
-
-            if not accounts:
-                break
-
-            for account_data in accounts:
-                try:
-                    # Persist account information
-                    _persist_account(account_data)
-
-                    # Use enhanced scanning with deduplication
-                    scan_result = enhanced_scanner.scan_account_efficiently(account_data.get("account", {}), session_id)
-
-                    if scan_result:
-                        accounts_processed += 1
-                        # Enqueue for analysis if needed
-                        if scan_result.get("score", 0) > 0:
-                            analyze_and_maybe_report.delay(
-                                {
-                                    "account": account_data.get("account"),
-                                    "admin_obj": account_data,
-                                    "scan_result": scan_result,
-                                }
-                            )
-
-                except Exception as e:
-                    logging.error(f"Error processing account: {e}")
-
-            # Update cursor after processing the page
-            with SessionLocal() as db:
-                stmt = pg_insert(Cursor).values(name=CURSOR_NAME_LOCAL, position=new_next)
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["name"], set_=dict(position=new_next, updated_at=func.now())
-                )
-                db.execute(stmt)
-                db.commit()
-
-            # Update cursor lag metric
-            cursor_lag_pages.labels(cursor=CURSOR_NAME_LOCAL).set(1.0 if new_next else 0.0)
-
-            if not new_next:
-                break
-
-            pages += 1
-
-        enhanced_scanner.complete_scan_session(session_id)
-        logging.info(f"Local account poll completed: {accounts_processed} accounts processed, {pages} pages")
-
-    except Exception as e:
-        logging.error(f"Error in local account poll: {e}")
-        enhanced_scanner.complete_scan_session(session_id, "failed")
+    """Poll local admin accounts"""
+    _poll_accounts("local", CURSOR_NAME_LOCAL)
 
 
 @shared_task(name="app.tasks.jobs.record_queue_stats")

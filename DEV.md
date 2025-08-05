@@ -195,6 +195,8 @@ tests/                 # Comprehensive test suite
 .env                   # Environment variables (copy from .env.example)
 ```
 
+Remote and local account polling both use a shared helper to keep the code simple.
+
 ## Database Features
 
 ### Production-Ready Database Schema
