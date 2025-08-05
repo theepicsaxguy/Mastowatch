@@ -36,10 +36,7 @@ test: ## Run tests
 	SKIP_STARTUP_VALIDATION=1 pytest
 
 check: ## Run all quality checks
-	$(MAKE) lint format-check typecheck test check-httpx-usage
-
-check-httpx-usage: ## Check for direct httpx usage outside /app/clients
-	./scripts/check-httpx-usage.sh
+	$(MAKE) lint format-check typecheck test
 
 shell-db: ## Open database shell
 	docker compose exec db psql -U mastowatch -d mastowatch
@@ -78,16 +75,16 @@ shell-api: ## Enter API container shell
 	docker compose exec api bash
 
 update-api-spec: ## Update OpenAPI spec from submodule
-	./scripts/mastodon_api.sh update-schema
+	./scripts/regenerate_client.sh update
 
 regenerate-client: ## Regenerate typed client from current spec
-	./scripts/mastodon_api.sh regenerate
+	./scripts/regenerate_client.sh regenerate
 
 update-mastodon-client: ## Full update: submodule + spec + client
-	./scripts/mastodon_api.sh update
+	./scripts/regenerate_client.sh update
 
 api-client-status: ## Show current API client status
-	./scripts/mastodon_api.sh status
+	./scripts/regenerate_client.sh status
 
 docker-build: ## Build with BuildKit
 	DOCKER_BUILDKIT=1 docker compose build

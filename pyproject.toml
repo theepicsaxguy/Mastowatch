@@ -1,3 +1,19 @@
+[tool.openapi-python-client]
+# Declarative configuration for openapi-python-client
+# This eliminates the need for temporary config files and manual directory manipulation
+
+# Path to the cleaned schema (relative to this pyproject.toml file)
+path = "specs/mastodon-openapi/dist/schema.cleaned.json"
+
+# Output directory for the generated client code
+output_path = "backend/app/clients/mastodon"
+
+# Don't create a top-level project folder - place modules directly in output_path
+meta = "none"
+
+# Disable post-generation checks for better performance
+post_gen_checks = false
+
 [tool.black]
 line-length = 120
 target-version = ['py313']
@@ -17,6 +33,7 @@ extend-exclude = '''
   | build
   | dist
   | migrations
+  | backend/app/clients/mastodon  # Auto-generated client code
 )/
 '''
 
@@ -42,11 +59,15 @@ module = [
     "redis.*",
     "alembic.*",
     "prometheus_client.*",
+    "app.clients.mastodon.*",  # Auto-generated client code
 ]
 ignore_missing_imports = true
 [tool.ruff]
 line-length = 120
 target-version = "py312"
+extend-exclude = [
+    "backend/app/clients/mastodon",  # Auto-generated client code
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "PL", "D"]
