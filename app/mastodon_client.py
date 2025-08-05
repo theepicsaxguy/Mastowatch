@@ -33,12 +33,11 @@ class MastoClient:
         tok = hashlib.sha256(token.encode("utf-8")).hexdigest()
         self._bucket_key = f"{self._base_url}:{tok}"
 
-        # Initialize the generated client
         self._api_client = AuthenticatedClient(
             base_url=self._base_url,
             token=token,
             headers={"User-Agent": self._ua},
-            timeout=30.0,
+            timeout=settings.HTTP_TIMEOUT,
         )
 
     def _parse_next_cursor(self, link_header: str | None) -> str | None:
@@ -55,7 +54,6 @@ class MastoClient:
         return None
 
     def _make_request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        """Make a raw HTTP request with rate limiting and metrics."""
         throttle_if_needed(self._bucket_key)
         headers = {"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}
         if "headers" in kwargs:
@@ -63,13 +61,55 @@ class MastoClient:
 
         url = f"{self._base_url}{path}"
         with api_call_seconds.labels(endpoint=path).time():
-            response = httpx.request(method, url, headers=headers, timeout=30.0, **kwargs)
+            response = httpx.request(method, url, headers=headers, timeout=settings.HTTP_TIMEOUT, **kwargs)
 
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
         response.raise_for_status()
         return response
+
+    async def _make_request_async(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        throttle_if_needed(self._bucket_key)
+        headers = {"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}
+        if "headers" in kwargs:
+            headers.update(kwargs.pop("headers"))
+        url = f"{self._base_url}{path}"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            with api_call_seconds.labels(endpoint=path).time():
+                response = await client.request(method, url, headers=headers, **kwargs)
+        update_from_headers(self._bucket_key, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
+        response.raise_for_status()
+        return response
+
+    async def verify_credentials(self) -> dict[str, Any]:
+        response = await self._make_request_async("GET", "/api/v1/accounts/verify_credentials")
+        return response.json()
+
+    @classmethod
+    async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
+        settings_local = get_settings()
+        data = {
+            "client_id": settings_local.OAUTH_CLIENT_ID,
+            "client_secret": settings_local.OAUTH_CLIENT_SECRET,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+            "code": code,
+        }
+        base = str(settings_local.INSTANCE_BASE).rstrip("/")
+        bucket = f"{base}:oauth"
+        throttle_if_needed(bucket)
+        headers = {"Accept": "application/json", "User-Agent": settings_local.USER_AGENT}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            with api_call_seconds.labels(endpoint="/oauth/token").time():
+                response = await client.post(f"{base}/oauth/token", data=data, headers=headers)
+        update_from_headers(bucket, response.headers)
+        if response.status_code >= 400:
+            http_errors.labels(endpoint="/oauth/token", code=str(response.status_code)).inc()
+        response.raise_for_status()
+        return response.json()
 
     def get_account(self, account_id: str) -> dict[str, Any]:
         """Get account information using generated OpenAPI client."""
@@ -81,11 +121,9 @@ class MastoClient:
         if result is None:
             raise httpx.HTTPStatusError("Account not found", request=None, response=None)
 
-        # Convert the Account model to dict for backward compatibility
         if hasattr(result, "to_dict"):
             return result.to_dict()
         else:
-            # Fallback to manual serialization if to_dict is not available
             return result.__dict__
 
     def get_account_statuses(
@@ -116,7 +154,6 @@ class MastoClient:
         if result is None:
             return []
 
-        # Convert the Status models to dicts for backward compatibility
         statuses = []
         for status in result:
             if hasattr(status, "to_dict"):
@@ -137,7 +174,6 @@ class MastoClient:
         """Create a report using generated OpenAPI client."""
         throttle_if_needed(self._bucket_key)
 
-        # Create the request body using the generated model
         report_body = CreateReportBody(
             account_id=account_id,
             comment=comment,
@@ -153,7 +189,6 @@ class MastoClient:
         if result is None:
             raise Exception("Failed to create report")
 
-        # Convert the Report model to dict for backward compatibility
         if hasattr(result, "to_dict"):
             return result.to_dict()
         else:
@@ -180,7 +215,10 @@ class MastoClient:
         next_max_id = self._parse_next_cursor(response.headers.get("Link"))
         return accounts, next_max_id
 
+    def get_instance_info(self) -> dict[str, Any]:
+        response = self._make_request("GET", "/api/v1/instance")
+        return response.json()
+
     def get_instance_rules(self) -> list[dict[str, Any]]:
-        """Get instance rules using direct HTTP calls."""
         response = self._make_request("GET", "/api/v1/instance/rules")
         return response.json()
