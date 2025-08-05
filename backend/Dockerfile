@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 FROM python:3.13-slim AS builder
-WORKDIR /app
+WORKDIR /backend
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential python3-dev \
  && rm -rf /var/lib/apt/lists/*
@@ -12,7 +12,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
  && rm -rf /wheels
 
 FROM node:22-alpine AS fe
-WORKDIR /fe
+WORKDIR /backend/frontend
 COPY frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend/ .
@@ -23,9 +23,8 @@ WORKDIR /app
 COPY --from=builder /usr/local /usr/local
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY app /app/app
-COPY alembic.ini /app/alembic.ini
-COPY db/migrations /app/db/migrations
-COPY --from=fe /fe/dist /app/static/dashboard
+COPY migrations /app/db/migrations
+COPY --from=fe /backend/frontend/dist /app/static/dashboard
 USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["uvicorn","app.main:app","--host=0.0.0.0","--port=8080"]

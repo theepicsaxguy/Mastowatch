@@ -23,11 +23,14 @@ prod:
 	docker compose up
 
 prod-build:
-	docker compose up --build
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build
+
+up:
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose up --build
 
 # Utility commands
 build:
-	docker compose build
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build
 
 clean:
 	docker compose down -v
@@ -144,4 +147,5 @@ help:
 	@echo "  regenerate-client    - Regenerate typed client from current spec"
 	@echo "  update-mastodon-client - Full update: submodule + spec + client"
 	@echo "  api-client-status    - Show current API client status"
+	@echo "  help             - Show this help message"
 	@echo "  help             - Show this help message"

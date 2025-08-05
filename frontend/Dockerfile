@@ -1,13 +1,14 @@
+# syntax=docker/dockerfile:1.4
+
 FROM node:22-alpine AS base
 WORKDIR /app
-COPY package*.json ./
 
-FROM base AS prod
-RUN npm ci
-COPY . .
+FROM base AS build
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY frontend/ .
 RUN npm run build
 
-FROM base AS dev
-RUN npm ci
-COPY . .
-CMD ["npm", "run", "dev"]
+FROM nginx:stable-alpine AS prod
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx","-g","daemon off;"]
