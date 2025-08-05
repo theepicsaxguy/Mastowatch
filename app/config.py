@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     HTTP_TIMEOUT: float = 30.0
     MAX_STATUSES_TO_FETCH: int = 5
     BATCH_SIZE: int = 20
+    HTTP_TIMEOUT: float = 30.0
+    RULE_CACHE_TTL: int = 60
 
     # Reporting behavior
     REPORT_CATEGORY_DEFAULT: str = "spam"  # spam | violation | legal | other

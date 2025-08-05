@@ -61,7 +61,14 @@ class MastoClient:
 
         url = f"{self._base_url}{path}"
         with api_call_seconds.labels(endpoint=path).time():
-            response = httpx.request(method, url, headers=headers, timeout=settings.HTTP_TIMEOUT, **kwargs)
+
+            response = httpx.request(
+                method,
+                url,
+                headers=headers,
+                timeout=settings.HTTP_TIMEOUT,
+                **kwargs,
+            )
 
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:

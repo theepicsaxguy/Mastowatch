@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import httpx
+import app.mastodon_client as mastodon_client_module
 
 mastodon_pkg = types.ModuleType("app.clients.mastodon")
 mastodon_pkg.__path__ = []
@@ -176,3 +177,19 @@ class TestMastoClient(unittest.TestCase):
 
         with self.assertRaises(httpx.HTTPStatusError):
             self.client.get_admin_accounts()
+
+    @patch("app.mastodon_client.httpx.request")
+    @patch("app.mastodon_client.AuthenticatedClient")
+    def test_http_timeout_override(self, mock_client, mock_request):
+        with patch.object(mastodon_client_module.settings, "HTTP_TIMEOUT", 10):
+            test_client = MastoClient("test_token")
+        mock_client.assert_called_once()
+        self.assertEqual(mock_client.call_args.kwargs["timeout"], 10)
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = []
+        mock_response.raise_for_status.return_value = None
+        mock_request.return_value = mock_response
+        test_client.get_admin_accounts()
+        self.assertEqual(mock_request.call_args.kwargs["timeout"], 10)
