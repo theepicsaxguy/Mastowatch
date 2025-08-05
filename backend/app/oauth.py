@@ -14,12 +14,11 @@ except ImportError:
             pass
 
 
+from app.config import get_settings
+from app.mastodon_client import MastoClient
 from fastapi import Cookie, Depends, HTTPException, Request, Response, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel
-
-from app.config import get_settings
-from app.mastodon_client import MastoClient
 
 logger = logging.getLogger(__name__)
 
@@ -183,11 +182,12 @@ def create_session_cookie(response: Response, user: User, settings) -> None:
 
     # Don't use secure cookies in development (HTTP)
     is_development = str(settings.INSTANCE_BASE).startswith("http://")
-    
+
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=session_token,
         max_age=settings.SESSION_COOKIE_MAX_AGE,
+        path="/",  # Ensure cookie is sent for all paths
         httponly=True,
         secure=not is_development,  # Only secure in production (HTTPS)
         samesite="lax",

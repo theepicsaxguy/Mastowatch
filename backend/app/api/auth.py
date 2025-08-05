@@ -107,21 +107,21 @@ async def admin_callback(request: Request, response: Response, code: str = None,
         redirect_uri = settings.OAUTH_REDIRECT_URI or f"{request.base_url}admin/callback"
         token_info = await MastoClient.exchange_code_for_token(code, redirect_uri)
         access_token = token_info.get("access_token")
-        
+
         if not access_token:
             raise HTTPException(status_code=500, detail="No access token received")
-            
+
         user = await oauth_config.fetch_user_info(access_token)
         if not user:
             raise HTTPException(status_code=500, detail="Failed to fetch user information")
-            
+
         if not user.is_admin:
             raise HTTPException(status_code=403, detail="Admin access required")
-            
+
         create_session_cookie(response, user, settings)
         request.session.pop("oauth_state", None)
         return RedirectResponse(url="/dashboard", status_code=302)
-        
+
     except Exception as e:
         error_msg = str(e)
         # Handle potential encoding issues in error messages
