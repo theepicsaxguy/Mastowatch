@@ -51,7 +51,7 @@ migration:
 
 # Testing and code quality
 test:
-	python -m unittest discover tests
+	SKIP_STARTUP_VALIDATION=1 pytest
 
 lint:
 	flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
