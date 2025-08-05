@@ -7,6 +7,9 @@ help: ## Show this help message
 dev: ## Start development environment with hot reload
 	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 
+dev-d: ## Start development environment with hot reload in detached mode
+	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+
 backend-only: ## Start only backend services (for frontend development)
 	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build api worker beat redis db
 

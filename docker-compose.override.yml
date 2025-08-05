@@ -23,10 +23,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: runtime-dev
     ports:
       - "127.0.0.1:5173:5173"
     environment:
       - DOCKER_ENV=true
+      - VITE_API_URL=http://localhost:8080
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html

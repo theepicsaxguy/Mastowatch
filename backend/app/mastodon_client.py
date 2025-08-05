@@ -3,20 +3,21 @@ This provides the best of both worlds: type safety where available, flexibility 
 """
 
 import hashlib
+import logging
 from typing import Any
 
 import httpx
-
 from app.clients.mastodon import AuthenticatedClient
-from app.clients.mastodon.accounts.get_account import sync as get_account_sync
-from app.clients.mastodon.accounts.get_account_statuses import sync as get_account_statuses_sync
+from app.clients.mastodon.api.accounts.get_account import sync as get_account_sync
+from app.clients.mastodon.api.accounts.get_account_statuses import sync as get_account_statuses_sync
+from app.clients.mastodon.api.reports.create_report import sync as create_report_sync
 from app.clients.mastodon.models.create_report_body import CreateReportBody
-from app.clients.mastodon.reports.create_report import sync as create_report_sync
 from app.config import get_settings
 from app.metrics import api_call_seconds, http_errors
 from app.rate_limit import throttle_if_needed, update_from_headers
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class MastoClient:
@@ -61,7 +62,6 @@ class MastoClient:
 
         url = f"{self._base_url}{path}"
         with api_call_seconds.labels(endpoint=path).time():
-
             response = httpx.request(
                 method,
                 url,
@@ -109,12 +109,19 @@ class MastoClient:
         bucket = f"{base}:oauth"
         throttle_if_needed(bucket)
         headers = {"Accept": "application/json", "User-Agent": settings_local.USER_AGENT}
+
+        # Debug logging to help troubleshoot OAuth issues
+        logger.info(
+            f"OAuth token exchange attempt - redirect_uri: {redirect_uri}, client_id: {settings_local.OAUTH_CLIENT_ID[:10]}..."
+        )
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             with api_call_seconds.labels(endpoint="/oauth/token").time():
                 response = await client.post(f"{base}/oauth/token", data=data, headers=headers)
         update_from_headers(bucket, response.headers)
         if response.status_code >= 400:
             http_errors.labels(endpoint="/oauth/token", code=str(response.status_code)).inc()
+            logger.error(f"OAuth token exchange failed: {response.status_code} - {response.text}")
         response.raise_for_status()
         return response.json()
 

@@ -83,8 +83,11 @@ export function loginWithPopup(): Promise<AuthResponse> {
         reject(new Error('OAuth login was cancelled'));
       }
     }, 1000);
+    
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== apiBase && event.origin !== window.location.origin) return;
+      // Only listen to events from the popup
+      if (event.source !== popup) return;
+      
       if (event.data.type === 'oauth-success') {
         clearInterval(checkClosed);
         popup.close();
