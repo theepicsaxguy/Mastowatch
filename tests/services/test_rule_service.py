@@ -202,10 +202,18 @@ class TestRuleService(unittest.TestCase):
         self.assertIn("disabled_rules", stats)
         self.assertIn("cache_status", stats)
 
-        # We have 3 total rules (2 enabled, 1 disabled)
         self.assertEqual(stats["total_rules"], 3)
         self.assertEqual(stats["enabled_rules"], 2)
         self.assertEqual(stats["disabled_rules"], 1)
+
+    def test_rule_cache_ttl_override(self):
+        from app.services import rule_service as rs_module
+
+        with patch.object(rs_module.settings, "RULE_CACHE_TTL", 5):
+            service = rs_module.RuleService()
+            with patch.object(service, "_load_rules_from_database", return_value=([], {}, "")):
+                service.get_active_rules()
+                self.assertEqual(service._cache.ttl_seconds, 5)
 
 
 if __name__ == "__main__":

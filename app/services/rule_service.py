@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import text
 
+from app.config import get_settings
 from app.db import SessionLocal
 from app.models import Rule
 from app.schemas import Violation
@@ -13,6 +14,7 @@ from app.services.detectors.behavioral_detector import BehavioralDetector
 from app.services.detectors.keyword_detector import KeywordDetector
 from app.services.detectors.regex_detector import RegexDetector
 
+settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -24,7 +26,7 @@ class RuleCache:
     config: dict[str, Any]
     ruleset_sha256: str
     cached_at: datetime
-    ttl_seconds: int = 60  # Cache for 60 seconds
+    ttl_seconds: int = settings.RULE_CACHE_TTL
 
     def is_expired(self) -> bool:
         """Check if the cache has expired"""
@@ -41,9 +43,9 @@ class RuleService:
     - Rule statistics and metadata tracking
     """
 
-    def __init__(self, cache_ttl_seconds: int = 60):
+    def __init__(self, cache_ttl_seconds: int | None = None):
         self._cache: RuleCache | None = None
-        self._cache_ttl = cache_ttl_seconds
+        self._cache_ttl = cache_ttl_seconds or settings.RULE_CACHE_TTL
         self.detectors = {
             "regex": RegexDetector(),
             "keyword": KeywordDetector(),

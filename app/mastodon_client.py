@@ -38,7 +38,7 @@ class MastoClient:
             base_url=self._base_url,
             token=token,
             headers={"User-Agent": self._ua},
-            timeout=30.0,
+            timeout=settings.HTTP_TIMEOUT,
         )
 
     def _parse_next_cursor(self, link_header: str | None) -> str | None:
@@ -63,7 +63,13 @@ class MastoClient:
 
         url = f"{self._base_url}{path}"
         with api_call_seconds.labels(endpoint=path).time():
-            response = httpx.request(method, url, headers=headers, timeout=30.0, **kwargs)
+            response = httpx.request(
+                method,
+                url,
+                headers=headers,
+                timeout=settings.HTTP_TIMEOUT,
+                **kwargs,
+            )
 
         update_from_headers(self._bucket_key, response.headers)
         if response.status_code >= 400:
