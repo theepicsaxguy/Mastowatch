@@ -220,9 +220,10 @@ alembic history        # Show migration history
 The frontend now includes:
 - **Real-time configuration** with immediate feedback
 - **Error handling** with user-friendly alerts
-- **System status monitoring** with service health indicators  
+- **System status monitoring** with service health indicators
 - **Analytics dashboard** with account and report metrics
 - **Persistence validation** ensuring settings are properly saved
+- **AutoMod configuration** at `/config/automod` for DRY_RUN overrides, default actions, and defederation limits
 
 ### Frontend Development Commands
 ```bash
