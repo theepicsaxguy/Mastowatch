@@ -129,6 +129,24 @@ class TestRuleService(unittest.TestCase):
                 # Should have no violations
                 self.assertEqual(len(violations), 0)
 
+    def test_evaluate_account_compound_and(self):
+        account = {"acct": "compound@example.com", "username": "spamuser", "note": "bio"}
+        statuses = [{"id": "1", "content": "casino games"}]
+        self.rule_service.create_rule(
+            name="compound_rule",
+            detector_type="regex",
+            pattern="spam",
+            boolean_operator="AND",
+            secondary_pattern="casino",
+            weight=1.0,
+            action_type="report",
+            trigger_threshold=1.0,
+        )
+        self.rule_service.invalidate_cache()
+        violations = self.rule_service.evaluate_account(account, statuses)
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0].actions[0]["type"], "report")
+
     def test_cache_invalidation(self):
         """Test that cache invalidation works correctly."""
         # Get rules to populate cache
