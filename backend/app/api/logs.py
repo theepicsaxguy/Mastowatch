@@ -15,7 +15,7 @@ def list_logs(
     rule_id: int | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     user: User = Depends(require_admin_hybrid),
-    session: Session = Depends(SessionLocal),
+    session: Session = Depends(get_db),
 ):
     """List audit log entries."""
     query = session.query(AuditLog).order_by(AuditLog.timestamp.desc())
