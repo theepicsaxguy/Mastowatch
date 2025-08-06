@@ -1,17 +1,17 @@
+"""Account scanning utilities."""
+
 import hashlib
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
-from sqlalchemy import func, and_, desc
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-from app.db import SessionLocal
-from app.models import Account, ScanSession, ContentScan, DomainAlert
-from app.mastodon_client import MastoClient
 from app.config import get_settings
+from app.db import SessionLocal
+from app.mastodon_client import MastoClient
+from app.models import Account, ContentScan, DomainAlert, ScanSession
 from app.services.rule_service import rule_service
+from sqlalchemy import and_, desc, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -24,10 +24,10 @@ class ScanProgress:
     session_id: int
     session_type: str
     accounts_processed: int
-    total_accounts: Optional[int]
-    current_cursor: Optional[str]
+    total_accounts: int | None
+    current_cursor: str | None
     started_at: datetime
-    estimated_completion: Optional[datetime] = None
+    estimated_completion: datetime | None = None
 
 
 class EnhancedScanningSystem:
@@ -38,7 +38,7 @@ class EnhancedScanningSystem:
         self.rule_service = rule_service
         self.settings = get_settings()
 
-    def start_scan_session(self, session_type: str, metadata: Optional[Dict] = None) -> int:
+    def start_scan_session(self, session_type: str, metadata: dict | None = None) -> int:
         """Start a new scanning session"""
         with SessionLocal() as session:
             # Check if there's already an active session of this type
@@ -75,7 +75,7 @@ class EnhancedScanningSystem:
                 session.commit()
                 logger.info(f"Scan session {session_id} marked as {status}")
 
-    def get_scan_progress(self, session_id: int) -> Optional[ScanProgress]:
+    def get_scan_progress(self, session_id: int) -> ScanProgress | None:
         """Get progress information for a scan session"""
         with SessionLocal() as session:
             scan_session = session.query(ScanSession).filter(ScanSession.id == session_id).first()
@@ -91,7 +91,7 @@ class EnhancedScanningSystem:
                 started_at=scan_session.started_at,
             )
 
-    def should_scan_account(self, account_id: str, account_data: Dict) -> bool:
+    def should_scan_account(self, account_id: str, account_data: dict) -> bool:
         """Determine if an account needs scanning based on content changes"""
         content_hash = self._calculate_content_hash(account_data)
 
@@ -116,13 +116,12 @@ class EnhancedScanningSystem:
 
             return True
 
-    def scan_account_efficiently(self, account_data: Dict, session_id: int) -> Optional[Dict]:
+    def scan_account_efficiently(self, account_data: dict, session_id: int) -> dict | None:
         """Efficiently scan an account with deduplication and caching"""
         account_id = account_data.get("id")
         if not account_id:
             return None
 
-        # Check if we should scan this account
         if not self.should_scan_account(account_id, account_data):
             return None
 
@@ -133,6 +132,13 @@ class EnhancedScanningSystem:
             statuses = admin_client.get_account_statuses(
                 account_id=account_id, limit=self.settings.MAX_STATUSES_TO_FETCH
             )
+            media_statuses = admin_client.get_account_statuses(
+                account_id=account_id,
+                limit=self.settings.MAX_STATUSES_TO_FETCH,
+                only_media=True,
+            )
+            seen = {s.get("id") for s in statuses}
+            statuses.extend([s for s in media_statuses if s.get("id") not in seen])
 
             violations = self.rule_service.evaluate_account(account_data, statuses)
             score = sum(v.score for v in violations)
@@ -149,15 +155,6 @@ class EnhancedScanningSystem:
             _, config, ruleset_sha = self.rule_service.get_active_rules()
 
             with SessionLocal() as db_session:
-                content_scan = ContentScan(
-                    content_hash=content_hash,
-                    mastodon_account_id=account_id,
-                    scan_type="account",
-                    scan_result=scan_result,
-                    rules_version=ruleset_sha,
-                    needs_rescan=False,
-                )
-
                 stmt = pg_insert(ContentScan).values(
                     content_hash=content_hash,
                     mastodon_account_id=account_id,
@@ -178,13 +175,11 @@ class EnhancedScanningSystem:
                 )
                 db_session.execute(stmt)
 
-                # Update session progress
                 scan_session = db_session.query(ScanSession).filter(ScanSession.id == session_id).first()
                 if scan_session:
                     scan_session.accounts_processed += 1
                     scan_session.last_account_id = account_id
 
-                # Update account record
                 account_record = db_session.query(Account).filter(Account.mastodon_account_id == account_id).first()
                 if account_record:
                     account_record.content_hash = content_hash
@@ -205,8 +200,8 @@ class EnhancedScanningSystem:
             return None
 
     def get_next_accounts_to_scan(
-        self, session_type: str, limit: int = 50, cursor: Optional[str] = None
-    ) -> Tuple[List[Dict], Optional[str]]:
+        self, session_type: str, limit: int = 50, cursor: str | None = None
+    ) -> tuple[list[dict], str | None]:
         """Get next batch of accounts to scan with cursor-based pagination"""
         try:
             admin_client = MastoClient(self.settings.ADMIN_TOKEN)
@@ -226,7 +221,7 @@ class EnhancedScanningSystem:
             logger.error(f"Error fetching {session_type} accounts: {e}")
             return [], None
 
-    def scan_federated_content(self, domains: Optional[List[str]] = None) -> Dict[str, int]:
+    def scan_federated_content(self, domains: list[str] | None = None) -> dict[str, int]:
         """Scan content across federated domains"""
         session_id = self.start_scan_session("federated", {"target_domains": domains})
         results = {"scanned_domains": 0, "scanned_accounts": 0, "violations_found": 0}
@@ -252,7 +247,7 @@ class EnhancedScanningSystem:
 
         return results
 
-    def _scan_domain_content(self, domain: str, session_id: int) -> Dict[str, int]:
+    def _scan_domain_content(self, domain: str, session_id: int) -> dict[str, int]:
         """Scan content for a specific domain"""
         results = {"accounts": 0, "violations": 0}
 
@@ -308,7 +303,7 @@ class EnhancedScanningSystem:
                         f"Domain {domain} marked for defederation after {domain_alert.violation_count} violations"
                     )
 
-    def _calculate_content_hash(self, account_data: Dict) -> str:
+    def _calculate_content_hash(self, account_data: dict) -> str:
         """Calculate hash of account content for change detection"""
         # Include key fields that would indicate content changes
         content_fields = {
@@ -323,14 +318,14 @@ class EnhancedScanningSystem:
         content_str = str(sorted(content_fields.items()))
         return hashlib.sha256(content_str.encode()).hexdigest()
 
-    def _extract_domain(self, account_data: Dict) -> Optional[str]:
+    def _extract_domain(self, account_data: dict) -> str | None:
         """Extract domain from account data"""
         acct = account_data.get("acct", "")
         if "@" in acct:
             return acct.split("@")[-1]
         return "local"
 
-    def _get_current_rules_snapshot(self) -> Dict:
+    def _get_current_rules_snapshot(self) -> dict:
         """Get current rules configuration for session tracking"""
         rules_list, config, ruleset_sha256 = self.rule_service.get_active_rules()
         return {
@@ -339,7 +334,7 @@ class EnhancedScanningSystem:
             "rule_count": len(rules_list),
         }
 
-    def _get_active_domains(self) -> List[str]:
+    def _get_active_domains(self) -> list[str]:
         """Get list of active domains for federated scanning"""
         with SessionLocal() as session:
             domains = (
@@ -354,7 +349,7 @@ class EnhancedScanningSystem:
 
             return [domain[0] for domain in domains]
 
-    def get_domain_alerts(self, limit: int = 50) -> List[Dict]:
+    def get_domain_alerts(self, limit: int = 50) -> list[dict]:
         """Get current domain alerts and defederation status"""
         with SessionLocal() as session:
             alerts = session.query(DomainAlert).order_by(desc(DomainAlert.violation_count)).limit(limit).all()

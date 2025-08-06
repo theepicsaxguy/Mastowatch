@@ -1,11 +1,13 @@
 """Test cases for detector modules."""
 
 import unittest
+from hashlib import sha256
 from unittest.mock import Mock
 
 from app.schemas import Violation
 from app.services.detectors.behavioral_detector import BehavioralDetector
 from app.services.detectors.keyword_detector import KeywordDetector
+from app.services.detectors.media_detector import MediaDetector
 from app.services.detectors.regex_detector import RegexDetector
 
 
@@ -306,6 +308,67 @@ class TestBehavioralDetector(unittest.TestCase):
 
         # Invalid pattern should not cause crashes
         self.assertEqual(len(violations), 0)
+
+
+class TestMediaDetector(unittest.TestCase):
+    """Test suite for MediaDetector."""
+
+    def setUp(self):
+        """Initialize detector."""
+        self.detector = MediaDetector()
+
+    def test_alt_text_match(self):
+        """Detect pattern in attachment alt text."""
+        rule = Mock()
+        rule.pattern = "kitten"
+        rule.name = "alt_text_rule"
+        rule.detector_type = "media"
+        rule.weight = 1.0
+        account_data = {}
+        statuses = [
+            {
+                "id": "1",
+                "media_attachments": [{"description": "cute kitten", "mime_type": "image/jpeg", "url": "http://a"}],
+            }
+        ]
+        violations = self.detector.evaluate(rule, account_data, statuses)
+        self.assertEqual(len(violations), 1)
+
+    def test_mime_type_match(self):
+        """Detect pattern in MIME type."""
+        rule = Mock()
+        rule.pattern = "image/png"
+        rule.name = "mime_rule"
+        rule.detector_type = "media"
+        rule.weight = 1.0
+        account_data = {}
+        statuses = [
+            {
+                "id": "1",
+                "media_attachments": [{"description": "", "mime_type": "image/png", "url": "http://b"}],
+            }
+        ]
+        violations = self.detector.evaluate(rule, account_data, statuses)
+        self.assertEqual(len(violations), 1)
+
+    def test_hash_match(self):
+        """Detect pattern in URL hash."""
+        url = "http://example.com/image.png"
+        pattern = sha256(url.encode()).hexdigest()
+        rule = Mock()
+        rule.pattern = pattern
+        rule.name = "hash_rule"
+        rule.detector_type = "media"
+        rule.weight = 1.0
+        account_data = {}
+        statuses = [
+            {
+                "id": "1",
+                "media_attachments": [{"description": "", "mime_type": "image/png", "url": url}],
+            }
+        ]
+        violations = self.detector.evaluate(rule, account_data, statuses)
+        self.assertEqual(len(violations), 1)
 
 
 if __name__ == "__main__":

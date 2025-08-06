@@ -14,6 +14,7 @@ Analyze accounts/statuses and **file reports via API** so human moderators act i
 - ✅ **CI/CD**: Automated testing, static analysis, and code formatting
 - ✅ **Audit Logs**: Enforcement actions recorded with rule context and API responses
 - ✅ **User Notifications**: Warnings and suspensions include messages sent through Mastodon
+- ✅ **Media-aware Scanning**: Analyzes attachments for alt text, MIME types, and URL hashes
 
 ## Quick start
 

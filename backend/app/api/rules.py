@@ -3,15 +3,14 @@
 import logging
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import desc
-from sqlalchemy.orm import Session
-
 from app.db import SessionLocal
 from app.models import Analysis, Rule
 from app.oauth import User, require_admin_hybrid
 from app.scanning import EnhancedScanningSystem
 from app.services.rule_service import rule_service
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -61,7 +60,7 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
                     },
                 )
 
-        valid_detector_types = ["regex", "keyword", "behavioral"]
+        valid_detector_types = ["regex", "keyword", "behavioral", "media"]
         if rule_data["detector_type"] not in valid_detector_types:
             raise HTTPException(
                 status_code=400,
@@ -91,7 +90,9 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
                 status_code=400,
                 detail={
                     "error": f"Invalid weight: {str(e)}",
-                    "guidelines": "Weight should be 0.1-0.3 (mild), 0.4-0.6 (moderate), 0.7-0.9 (strong), 1.0+ (very strong)",
+                    "guidelines": (
+                        "Weight should be 0.1-0.3 (mild), 0.4-0.6 (moderate), " "0.7-0.9 (strong), 1.0+ (very strong)"
+                    ),
                     "help": "Use GET /rules/help for weight guidelines and examples",
                 },
             ) from e
@@ -218,6 +219,27 @@ def get_rule_creation_help():
                         "action_type": "suspend",
                         "trigger_threshold": 5.0,
                         "description": "Detects accounts posting more than 5 times in an hour.",
+                    }
+                ],
+            },
+            "media": {
+                "description": "Examines media attachments for alt text, MIME types, or URL hashes.",
+                "fields": [
+                    "pattern",
+                    "weight",
+                    "action_type",
+                    "trigger_threshold",
+                    "description",
+                ],
+                "examples": [
+                    {
+                        "name": "Disallowed Image Type",
+                        "detector_type": "media",
+                        "pattern": "image/gif",
+                        "weight": 1.0,
+                        "action_type": "report",
+                        "trigger_threshold": 1.0,
+                        "description": "Flags GIF attachments.",
                     }
                 ],
             },
