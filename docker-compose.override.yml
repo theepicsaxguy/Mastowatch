@@ -1,6 +1,18 @@
+# Development overrides for MastoWatch
+# 
+# For environment variable documentation, see: docs/ENVIRONMENT.md
+# 
+# This file contains development-specific configurations and safe default values.
+# It automatically applies when running `docker-compose up` in development.
+
 services:
   db:
     ports: ["127.0.0.1:5432:5432"]
+    environment:
+      # Development database credentials (safe for local development)
+      POSTGRES_DB: mastowatch
+      POSTGRES_USER: mastowatch
+      POSTGRES_PASSWORD: mastowatch
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -13,11 +25,79 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    environment:
+      # Development database and Redis
+      DATABASE_URL: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch
+      REDIS_URL: redis://redis:6379/0
+      
+      # Development safety settings - see docs/ENVIRONMENT.md
+      DRY_RUN: "true"
+      PANIC_STOP: "false"
+      SKIP_STARTUP_VALIDATION: "false"
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:5173"]'
+      
+      # Development tokens (replace with actual values from your test instance)
+      INSTANCE_BASE: "${INSTANCE_BASE:-https://your-test-instance.example.com}"
+      BOT_TOKEN: "${BOT_TOKEN:-REPLACE_WITH_YOUR_DEV_BOT_TOKEN}"
+      ADMIN_TOKEN: "${ADMIN_TOKEN:-REPLACE_WITH_YOUR_DEV_ADMIN_TOKEN}"
+      API_KEY: "${API_KEY:-dev_api_key_change_in_production}"
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:-dev_webhook_secret_change_in_production}"
+      
+      # Optional OAuth (can be left empty for development)
+      OAUTH_CLIENT_ID: "${OAUTH_CLIENT_ID:-}"
+      OAUTH_CLIENT_SECRET: "${OAUTH_CLIENT_SECRET:-}"
+      OAUTH_REDIRECT_URI: "${OAUTH_REDIRECT_URI:-http://localhost:3000/auth/callback}"
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic.ini:/app/alembic.ini
       - ./backend/migrations:/app/migrations
     command: ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8080"]
+
+  worker:
+    environment:
+      # Development database and Redis
+      DATABASE_URL: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch
+      REDIS_URL: redis://redis:6379/0
+      
+      # Development safety settings - see docs/ENVIRONMENT.md
+      DRY_RUN: "true"
+      PANIC_STOP: "false"
+      
+      # Development tokens (inherit from environment or use defaults)
+      INSTANCE_BASE: "${INSTANCE_BASE:-https://your-test-instance.example.com}"
+      BOT_TOKEN: "${BOT_TOKEN:-REPLACE_WITH_YOUR_DEV_BOT_TOKEN}"
+      ADMIN_TOKEN: "${ADMIN_TOKEN:-REPLACE_WITH_YOUR_DEV_ADMIN_TOKEN}"
+      API_KEY: "${API_KEY:-dev_api_key_change_in_production}"
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:-dev_webhook_secret_change_in_production}"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+
+  beat:
+    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO", "--scheduler=celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler"]
+    environment:
+      # Development database and Redis
+      DATABASE_URL: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch
+      REDIS_URL: redis://redis:6379/0
+      
+      # Development safety settings - see docs/ENVIRONMENT.md
+      DRY_RUN: "true"
+      PANIC_STOP: "false"
+      
+      # Development tokens (inherit from environment or use defaults)
+      INSTANCE_BASE: "${INSTANCE_BASE:-https://your-test-instance.example.com}"
+      BOT_TOKEN: "${BOT_TOKEN:-REPLACE_WITH_YOUR_DEV_BOT_TOKEN}"
+      ADMIN_TOKEN: "${ADMIN_TOKEN:-REPLACE_WITH_YOUR_DEV_ADMIN_TOKEN}"
+      API_KEY: "${API_KEY:-dev_api_key_change_in_production}"
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:-dev_webhook_secret_change_in_production}"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+
+  migrate:
+    environment:
+      # Development database connection
+      DATABASE_URL: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch
 
   frontend:
     build:

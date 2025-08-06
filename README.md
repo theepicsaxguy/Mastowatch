@@ -31,26 +31,24 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up
 
 ## Configuration
 
-Set these in `.env` (copied from `.env.example`):
+**📖 For complete environment variable documentation, see: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)**
 
-### Required Settings
-* `INSTANCE_BASE`: your instance base URL
+### Quick Setup
+
+1. Copy the environment template: `cp .env.example .env`
+2. Edit `.env` with your actual values
+3. For production: Set required tokens and secrets
+4. For development: The override file provides safe defaults
+
+### Minimum Required Settings
+
+* `INSTANCE_BASE`: your Mastodon instance base URL
 * `BOT_TOKEN`: token with `write:reports` scope
 * `ADMIN_TOKEN`: token with admin read scopes
-* `API_KEY`: random string for API authentication
-* `WEBHOOK_SECRET`: random string for webhook signature validation
-
-### OAuth Admin Login (Required for Web UI)
-* `OAUTH_CLIENT_ID`: OAuth application client ID
-* `OAUTH_CLIENT_SECRET`: OAuth application client secret
-* `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `https://your.instance/admin/callback`)
-* `OAUTH_SCOPE`: OAuth scopes for admin login (default: `read:accounts`)
-* `SESSION_SECRET_KEY`: Random secret for session cookies
-
-### Optional Settings
-* `DRY_RUN`: `true` to log without sending reports (default: `false`)
-* `PANIC_STOP`: `true` to halt all processing (default: `false`)
-* `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
+* `API_KEY`: secure random string for API authentication
+* `WEBHOOK_SECRET`: secure random string for webhook signature validation
+* `DATABASE_URL`: PostgreSQL connection string
+* `REDIS_URL`: Redis connection string
 * `USER_AGENT`: user agent for Mastodon requests (default: `MastoWatch/<VERSION> (+moderation-sidecar)`)
 * `HTTP_TIMEOUT`: seconds before Mastodon requests time out (default: `30`)
 * `VERSION`: application version (default: `0.1.0`)
