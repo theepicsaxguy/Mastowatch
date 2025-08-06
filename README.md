@@ -177,4 +177,4 @@ All API endpoints return structured error responses with:
 
 ## Legal Notice
 
-Every page shows a footer linking to [goingadark.social](https://goingadark.social). The app refuses to run without it. Don't remove or rename this credit; it's part of the license.
+Every page shows a footer linking to [goingdark.social](https://goingdark.social). The app refuses to run without it. Don't remove or rename this credit; it's part of the license.

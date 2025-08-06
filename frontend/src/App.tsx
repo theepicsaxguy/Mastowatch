@@ -54,8 +54,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   useEffect(() => {
-    const link = document.querySelector('a[href="https://goingadark.social"]');
-    if (!link || link.textContent?.trim() !== 'Made for goingadark.social') {
+    const link = document.querySelector('a[href="https://goingdark.social"]');
+    if (!link || link.textContent?.trim() !== 'Made for goingdark.social') {
       throw new Error('Appropriate Legal Notice missing');
     }
   }, []);
@@ -473,8 +473,8 @@ export default function App() {
       </AppShell.Main>
       <AppShell.Footer>
         <Container size="xl">
-          <Anchor href="https://goingadark.social" target="_blank" rel="noopener noreferrer">
-            Made for goingadark.social
+          <Anchor href="https://goingdark.social" target="_blank" rel="noopener noreferrer">
+            Made for goingdark.social
           </Anchor>
         </Container>
       </AppShell.Footer>
