@@ -35,6 +35,9 @@ type Health = {
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
 
+const LEGAL_NOTICE_URL = 'https://goingdark.social';
+const LEGAL_NOTICE_TEXT = 'Made for goingdark.social';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [health, setHealth] = useState<Health | null>(null);
@@ -54,8 +57,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   useEffect(() => {
-    const link = document.querySelector('a[href="https://goingadark.social"]');
-    if (!link || link.textContent?.trim() !== 'Made for goingadark.social') {
+    const link = document.querySelector(`a[href="${LEGAL_NOTICE_URL}"]`);
+    if (!link || link.textContent?.trim() !== LEGAL_NOTICE_TEXT) {
       throw new Error('Appropriate Legal Notice missing');
     }
   }, []);
@@ -473,8 +476,8 @@ export default function App() {
       </AppShell.Main>
       <AppShell.Footer>
         <Container size="xl">
-          <Anchor href="https://goingadark.social" target="_blank" rel="noopener noreferrer">
-            Made for goingadark.social
+          <Anchor href={LEGAL_NOTICE_URL} target="_blank" rel="noopener noreferrer">
+            {LEGAL_NOTICE_TEXT}
           </Anchor>
         </Container>
       </AppShell.Footer>
