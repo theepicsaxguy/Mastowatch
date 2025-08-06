@@ -169,7 +169,7 @@ All API endpoints return structured error responses with:
 
 ## Notes
 
-* Celery Beat intervals are configurable via environment variables.
+* Celery Beat uses a database-backed schedule via `celery-sqlalchemy-scheduler`, and intervals are configurable through environment variables.
 * All endpoints use structured JSON logging with request IDs for troubleshooting.
 * Alembic migrations run via the `migrate` service. Note that `alembic.ini` leaves `sqlalchemy.url` empty; the `DATABASE_URL` environment variable is used instead.
 * Add Prometheus to scrape `/metrics` as desired.
