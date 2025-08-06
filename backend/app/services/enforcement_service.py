@@ -4,7 +4,9 @@ import logging
 from typing import Any
 
 from app.config import get_settings
+from app.db import SessionLocal
 from app.mastodon_client import MastoClient
+from app.models import AuditLog
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -16,12 +18,54 @@ class EnforcementService:
     def __init__(self, mastodon_client: MastoClient):
         self.mastodon_client = mastodon_client
 
-    def _post_action(self, account_id: str, payload: dict[str, Any]) -> None:
+    def _log_action(
+        self,
+        *,
+        action_type: str,
+        account_id: str,
+        rule_id: int | None,
+        evidence: dict[str, Any] | None,
+        api_response: Any,
+    ) -> None:
+        with SessionLocal() as session:
+            session.add(
+                AuditLog(
+                    action_type=action_type,
+                    triggered_by_rule_id=rule_id,
+                    target_account_id=account_id,
+                    evidence=evidence,
+                    api_response=api_response,
+                )
+            )
+            session.commit()
+
+    def _post_action(
+        self,
+        account_id: str,
+        payload: dict[str, Any],
+        *,
+        rule_id: int | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> None:
         if settings.DRY_RUN:
             logger.info("DRY RUN: %s %s", account_id, payload.get("type"))
+            self._log_action(
+                action_type=payload.get("type", ""),
+                account_id=account_id,
+                rule_id=rule_id,
+                evidence=evidence,
+                api_response={"dry_run": True},
+            )
             return
         path = f"/api/v1/admin/accounts/{account_id}/action"
-        self.mastodon_client._make_request("POST", path, json=payload)
+        resp = self.mastodon_client._make_request("POST", path, json=payload)
+        self._log_action(
+            action_type=payload.get("type", ""),
+            account_id=account_id,
+            rule_id=rule_id,
+            evidence=evidence,
+            api_response=resp.json(),
+        )
 
     def warn_account(
         self,
@@ -29,6 +73,8 @@ class EnforcementService:
         *,
         text: str | None = None,
         warning_preset_id: str | None = None,
+        rule_id: int | None = None,
+        evidence: dict[str, Any] | None = None,
     ) -> None:
         """Send an admin warning."""
         payload: dict[str, Any] = {"type": "none"}
@@ -36,7 +82,7 @@ class EnforcementService:
             payload["text"] = text
         if warning_preset_id:
             payload["warning_preset_id"] = warning_preset_id
-        self._post_action(account_id, payload)
+        self._post_action(account_id, payload, rule_id=rule_id, evidence=evidence)
 
     def silence_account(
         self,
@@ -44,6 +90,8 @@ class EnforcementService:
         *,
         text: str | None = None,
         warning_preset_id: str | None = None,
+        rule_id: int | None = None,
+        evidence: dict[str, Any] | None = None,
     ) -> None:
         """Silence an account."""
         payload: dict[str, Any] = {"type": "silence"}
@@ -51,7 +99,7 @@ class EnforcementService:
             payload["text"] = text
         if warning_preset_id:
             payload["warning_preset_id"] = warning_preset_id
-        self._post_action(account_id, payload)
+        self._post_action(account_id, payload, rule_id=rule_id, evidence=evidence)
 
     def suspend_account(
         self,
@@ -59,6 +107,8 @@ class EnforcementService:
         *,
         text: str | None = None,
         warning_preset_id: str | None = None,
+        rule_id: int | None = None,
+        evidence: dict[str, Any] | None = None,
     ) -> None:
         """Suspend an account."""
         payload: dict[str, Any] = {"type": "suspend"}
@@ -66,20 +116,60 @@ class EnforcementService:
             payload["text"] = text
         if warning_preset_id:
             payload["warning_preset_id"] = warning_preset_id
-        self._post_action(account_id, payload)
+        self._post_action(account_id, payload, rule_id=rule_id, evidence=evidence)
 
-    def unsilence_account(self, account_id: str) -> None:
+    def unsilence_account(
+        self,
+        account_id: str,
+        *,
+        rule_id: int | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> None:
         """Lift a previously applied silence."""
         if settings.DRY_RUN:
             logger.info("DRY RUN: unsilence %s", account_id)
+            self._log_action(
+                action_type="unsilence",
+                account_id=account_id,
+                rule_id=rule_id,
+                evidence=evidence,
+                api_response={"dry_run": True},
+            )
             return
         path = f"/api/v1/admin/accounts/{account_id}/unsilence"
-        self.mastodon_client._make_request("POST", path)
+        resp = self.mastodon_client._make_request("POST", path)
+        self._log_action(
+            action_type="unsilence",
+            account_id=account_id,
+            rule_id=rule_id,
+            evidence=evidence,
+            api_response=resp.json(),
+        )
 
-    def unsuspend_account(self, account_id: str) -> None:
+    def unsuspend_account(
+        self,
+        account_id: str,
+        *,
+        rule_id: int | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> None:
         """Lift a previously applied suspension."""
         if settings.DRY_RUN:
             logger.info("DRY RUN: unsuspend %s", account_id)
+            self._log_action(
+                action_type="unsuspend",
+                account_id=account_id,
+                rule_id=rule_id,
+                evidence=evidence,
+                api_response={"dry_run": True},
+            )
             return
         path = f"/api/v1/admin/accounts/{account_id}/unsuspend"
-        self.mastodon_client._make_request("POST", path)
+        resp = self.mastodon_client._make_request("POST", path)
+        self._log_action(
+            action_type="unsuspend",
+            account_id=account_id,
+            rule_id=rule_id,
+            evidence=evidence,
+            api_response=resp.json(),
+        )

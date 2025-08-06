@@ -22,6 +22,7 @@ MastoWatch now includes comprehensive production-readiness features:
 - **Health endpoints** returning proper HTTP status codes (503 for service failures)
 - **Prometheus metrics** with detailed application metrics
 - **Analytics dashboard** with real-time system status
+- **Audit logs** for enforcement actions accessible via `/logs`
 
 ## Quick Start
 

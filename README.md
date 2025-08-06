@@ -12,6 +12,8 @@ Analyze accounts/statuses and **file reports via API** so human moderators act i
 - ✅ **Frontend**: Enhanced settings interface with error states and real-time configuration
 - ✅ **Testing**: Comprehensive edge case test coverage (22 test scenarios)
 - ✅ **CI/CD**: Automated testing, static analysis, and code formatting
+- ✅ **Audit Logs**: Enforcement actions recorded with rule context and API responses
+- ✅ **User Notifications**: Warnings and suspensions include messages sent through Mastodon
 
 ## Quick start
 
@@ -143,6 +145,7 @@ Endpoints:
 #### Analytics & Data (requires admin login)
 * `GET /analytics/overview` - System analytics overview with account/report metrics
 * `GET /analytics/timeline?days=N` - Timeline analytics for the past N days (1-365)
+* `GET /logs` - Enforcement audit log entries
 
 #### Authentication
 * `GET /admin/login` - Initiate OAuth login flow for admin access

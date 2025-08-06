@@ -1,13 +1,9 @@
 import logging
 import time
 from datetime import datetime, timedelta
+from typing import Any
 
 import redis
-from celery import shared_task
-from sqlalchemy import insert, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.sql import func
-
 from app.config import get_settings
 from app.db import SessionLocal
 from app.mastodon_client import MastoClient
@@ -25,6 +21,10 @@ from app.scanning import EnhancedScanningSystem
 from app.services.enforcement_service import EnforcementService
 from app.services.rule_service import rule_service
 from app.util import make_dedupe_key
+from celery import shared_task
+from sqlalchemy import insert, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.sql import func
 
 settings = get_settings()
 
@@ -277,6 +277,12 @@ def analyze_and_maybe_report(payload: dict):
             hits = [(f"{v.rule_type}/{v.rule_name}", v.score, v.evidence or {}) for v in violations]
             violated_rule_names = {v.rule_name for v in violations}
 
+        rule_evidence_map: dict[str, dict[str, Any]] = {}
+        for rk, _, ev in hits:
+            name = rk.split("/", 1)[1] if "/" in rk else rk
+            if name not in rule_evidence_map:
+                rule_evidence_map[name] = ev
+
         accounts_scanned.inc()
         analysis_latency.observe(max(0.0, time.time() - started))
 
@@ -316,12 +322,15 @@ def analyze_and_maybe_report(payload: dict):
             rule = rule_map.get(name)
             if not rule:
                 continue
+            evidence = rule_evidence_map.get(name)
             action = rule.action_type
             if action == "warn" and "warn" not in performed:
                 enforcement_service.warn_account(
                     acct_id,
                     text=rule.action_warning_text,
                     warning_preset_id=rule.warning_preset_id,
+                    rule_id=rule.id,
+                    evidence=evidence,
                 )
                 performed.add("warn")
             elif action == "silence":
@@ -330,6 +339,8 @@ def analyze_and_maybe_report(payload: dict):
                         acct_id,
                         text=rule.action_warning_text,
                         warning_preset_id=rule.warning_preset_id,
+                        rule_id=rule.id,
+                        evidence=evidence,
                     )
                     performed.add("silence")
                 if not settings.DRY_RUN and rule.action_duration_seconds:
@@ -340,6 +351,8 @@ def analyze_and_maybe_report(payload: dict):
                         acct_id,
                         text=rule.action_warning_text,
                         warning_preset_id=rule.warning_preset_id,
+                        rule_id=rule.id,
+                        evidence=evidence,
                     )
                     performed.add("suspend")
                 if not settings.DRY_RUN and rule.action_duration_seconds:

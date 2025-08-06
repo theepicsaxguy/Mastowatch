@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -26,9 +27,9 @@ os.environ.update(
 # Add the app directory to the path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi.testclient import TestClient
-
+from app.models import AuditLog
 from app.oauth import User
+from fastapi.testclient import TestClient
 
 
 def create_mock_admin_user():
@@ -174,6 +175,33 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("analyses", data)
         self.assertIn("reports", data)
 
+    @patch("app.api.logs.SessionLocal")
+    @patch("app.api.logs.require_admin_hybrid")
+    def test_logs_endpoint(self, mock_auth, mock_session_local):
+        """Test audit log retrieval."""
+        mock_auth.return_value = create_mock_admin_user()
+        session = MagicMock()
+        log = AuditLog(
+            id=1,
+            action_type="suspend",
+            triggered_by_rule_id=2,
+            target_account_id="acct1",
+            timestamp=datetime.utcnow(),
+            evidence={"k": "v"},
+            api_response={"ok": True},
+        )
+        query = MagicMock()
+        query.order_by.return_value = query
+        query.filter.return_value = query
+        query.limit.return_value.all.return_value = [log]
+        session.query.return_value = query
+        mock_session_local.return_value.__enter__.return_value = session
+        response = self.client.get("/logs")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]["action_type"], "suspend")
+        self.assertEqual(data[0]["triggered_by_rule_id"], 2)
+
     @patch("app.api.rules.require_admin_hybrid")
     def test_get_current_rules_new_endpoint(self, mock_auth):
         """Test current rules endpoint with new API structure."""
@@ -311,6 +339,11 @@ class TestAPIEndpoints(unittest.TestCase):
         response = self.client.post("/api/v1/config/dry_run?enable=false")
         self.assertEqual(response.status_code, 401)
         response = self.client.post("/api/v1/config/panic_stop?enable=true")
+        self.assertEqual(response.status_code, 401)
+
+    def test_unauthorized_logs_endpoint(self):
+        """Logs endpoint requires authentication."""
+        response = self.client.get("/logs")
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_webhook(self):
