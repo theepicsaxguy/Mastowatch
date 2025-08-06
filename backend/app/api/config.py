@@ -112,11 +112,20 @@ def set_automod_config(
     service: ConfigService = service_dep,
 ):
     """Update AutoMod settings."""
+    allowed_actions = {"report", "suspend", "ignore"}  # Add/modify as needed
     if (
         settings.defederation_threshold is not None
         and settings.defederation_threshold < 0
     ):
         raise HTTPException(status_code=400, detail="Threshold must be non-negative")
+    if (
+        settings.default_action is not None
+        and settings.default_action not in allowed_actions
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"default_action must be one of {sorted(allowed_actions)}"
+        )
     return service.set_automod_config(
         dry_run_override=settings.dry_run_override,
         default_action=settings.default_action,
