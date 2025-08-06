@@ -140,6 +140,8 @@ Endpoints:
 * `DELETE /rules/{id}` - Delete a rule
 * `POST /rules/{id}/toggle` - Enable or disable a rule
 
+Rules may combine two patterns using `boolean_operator` (`AND` or `OR`) with a `secondary_pattern`.
+
 #### Analytics & Data (requires admin login)
 * `GET /analytics/overview` - System analytics overview with account/report metrics
 * `GET /analytics/timeline?days=N` - Timeline analytics for the past N days (1-365)

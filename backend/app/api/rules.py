@@ -61,7 +61,6 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
                     },
                 )
 
-        # Validate detector_type
         valid_detector_types = ["regex", "keyword", "behavioral"]
         if rule_data["detector_type"] not in valid_detector_types:
             raise HTTPException(
@@ -71,6 +70,15 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
                     "valid_types": valid_detector_types,
                     "help": "Use GET /rules/help to see examples for each rule type",
                 },
+            )
+
+        boolean_operator = rule_data.get("boolean_operator")
+        secondary_pattern = rule_data.get("secondary_pattern")
+        if boolean_operator and boolean_operator not in ["AND", "OR"]:
+            raise HTTPException(status_code=400, detail="boolean_operator must be AND or OR")
+        if (boolean_operator and not secondary_pattern) or (secondary_pattern and not boolean_operator):
+            raise HTTPException(
+                status_code=400, detail="boolean_operator and secondary_pattern must be provided together"
             )
 
         # Validate weight
@@ -92,6 +100,8 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
         if rule_data["detector_type"] == "regex":
             try:
                 re.compile(rule_data["pattern"])
+                if secondary_pattern:
+                    re.compile(secondary_pattern)
             except re.error as e:
                 raise HTTPException(
                     status_code=400,
@@ -112,6 +122,8 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
             name=rule_data["name"],
             detector_type=rule_data["detector_type"],
             pattern=rule_data["pattern"],
+            boolean_operator=boolean_operator,
+            secondary_pattern=secondary_pattern,
             weight=rule_data["weight"],
             action_type=rule_data["action_type"],
             trigger_threshold=rule_data["trigger_threshold"],
@@ -140,7 +152,15 @@ def get_rule_creation_help():
         "rule_types": {
             "regex": {
                 "description": "Matches against text content using regular expressions.",
-                "fields": ["pattern", "weight", "action_type", "trigger_threshold", "description"],
+                "fields": [
+                    "pattern",
+                    "boolean_operator",
+                    "secondary_pattern",
+                    "weight",
+                    "action_type",
+                    "trigger_threshold",
+                    "description",
+                ],
                 "examples": [
                     {
                         "name": "Spam URL Regex",
@@ -157,6 +177,8 @@ def get_rule_creation_help():
                 "description": "Matches against text content for specific keywords.",
                 "fields": [
                     "pattern (comma-separated keywords)",
+                    "boolean_operator",
+                    "secondary_pattern",
                     "weight",
                     "action_type",
                     "trigger_threshold",
@@ -180,6 +202,8 @@ def get_rule_creation_help():
                 "description": "Matches against account behavior metrics.",
                 "fields": [
                     "pattern (behavior type, e.g., 'rapid_posting')",
+                    "boolean_operator",
+                    "secondary_pattern",
                     "weight",
                     "action_type",
                     "trigger_threshold",

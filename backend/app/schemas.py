@@ -1,5 +1,5 @@
 from typing import Any, Dict, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Evidence(BaseModel):
@@ -12,6 +12,7 @@ class Violation(BaseModel):
     rule_name: str
     score: float
     evidence: Evidence
+    actions: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class AccountsPage(BaseModel):

@@ -271,7 +271,13 @@ class TestEnhancedScanningSystem(unittest.TestCase):
             self.mock_client_instance.get.return_value = mock_response
 
             self.mock_rule_service.evaluate_account.return_value = [
-                Violation(rule_name="test_rule", rule_type="t", score=0.8, evidence={})
+                Violation(
+                    rule_name="test_rule",
+                    rule_type="t",
+                    score=0.8,
+                    evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                    actions=[{"type": "report"}],
+                )
             ]
 
             result = self.scanning_system.scan_account_efficiently(account_data, 1)
@@ -423,7 +429,13 @@ class TestEnhancedScanningSystem(unittest.TestCase):
 
         with patch.object(self.scanning_system, "should_scan_account", return_value=True):
             self.mock_rule_service.evaluate_account.return_value = [
-                Violation(rule_name="spam_rule", rule_type="t", score=1.5, evidence={})
+                Violation(
+                    rule_name="spam_rule",
+                    rule_type="t",
+                    score=1.5,
+                    evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                    actions=[{"type": "report"}],
+                )
             ]
 
             mock_response = MagicMock()

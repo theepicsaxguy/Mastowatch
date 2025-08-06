@@ -62,6 +62,11 @@ class Rule(Base):
     # Change rule_type to detector_type
     detector_type = Column(Text, nullable=False)  # e.g., 'regex', 'keyword', 'behavioral'
     pattern = Column(Text, nullable=False)
+    boolean_operator = Column(
+        sa_Enum("AND", "OR", name="boolean_operator_enum", create_type=False),
+        nullable=True,
+    )
+    secondary_pattern = Column(Text, nullable=True)
     weight = Column(Numeric, nullable=False)
     enabled = Column(Boolean, nullable=False, default=True)
     # New columns for action types and duration

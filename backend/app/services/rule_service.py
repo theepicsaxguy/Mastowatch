@@ -9,7 +9,7 @@ from sqlalchemy import text
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import Rule
-from app.schemas import Violation
+from app.schemas import Evidence, Violation
 from app.services.detectors.behavioral_detector import BehavioralDetector
 from app.services.detectors.keyword_detector import KeywordDetector
 from app.services.detectors.regex_detector import RegexDetector
@@ -76,9 +76,18 @@ class RuleService:
             # Create a hash from all the rule data for versioning
             rule_data = []
             for rule in db_rules:
-                rule_data.append(
-                    f"{rule.id}:{rule.pattern}:{rule.weight}:{rule.enabled}:{rule.detector_type}:{rule.action_type}:{rule.trigger_threshold}"
-                )
+                rule_components = [
+                    str(rule.id),
+                    rule.pattern,
+                    rule.secondary_pattern or "",
+                    rule.boolean_operator or "",
+                    str(rule.weight),
+                    str(rule.enabled),
+                    rule.detector_type,
+                    rule.action_type,
+                    str(rule.trigger_threshold),
+                ]
+                rule_data.append(":".join(rule_components))
 
             ruleset_content = "|".join(sorted(rule_data))
             ruleset_sha256 = hashlib.sha256(ruleset_content.encode()).hexdigest()
@@ -114,6 +123,8 @@ class RuleService:
         weight: float,
         action_type: str,
         trigger_threshold: float,
+        boolean_operator: str | None = None,
+        secondary_pattern: str | None = None,
         action_duration_seconds: int | None = None,
         action_warning_text: str | None = None,
         warning_preset_id: str | None = None,
@@ -127,6 +138,8 @@ class RuleService:
             name: Human-readable name for the rule
             detector_type: Type of detector (regex, keyword, behavioral)
             pattern: Pattern for the rule
+            boolean_operator: Operator for compound patterns
+            secondary_pattern: Second pattern for compound evaluation
             weight: Weight/score assigned when rule matches
             action_type: Type of action to take (report, silence, suspend, etc.)
             trigger_threshold: Score threshold to trigger the rule
@@ -146,6 +159,8 @@ class RuleService:
                 name=name,
                 detector_type=detector_type,
                 pattern=pattern,
+                boolean_operator=boolean_operator,
+                secondary_pattern=secondary_pattern,
                 weight=weight,
                 action_type=action_type,
                 trigger_threshold=trigger_threshold,
@@ -296,26 +311,52 @@ class RuleService:
             }
 
     def evaluate_account(self, account_data: dict[str, Any], statuses: list[dict[str, Any]]) -> list[Violation]:
-        """Evaluates an account and its statuses against all active rules.
-
-        Args:
-            account_data: Dictionary containing account information.
-            statuses: List of dictionaries, each representing a status from the account.
-
-        Returns:
-            A list of Violation objects for rules that were triggered.
-
-        """
+        """Evaluates an account and its statuses against all active rules."""
         violations: list[Violation] = []
         rules, _, _ = self.get_active_rules()
         for rule in rules:
             detector = self.detectors.get(rule.detector_type)
             if not detector:
-                logger.warning("No detector found for type: %s", rule.detector_type)
                 continue
-            for violation in detector.evaluate(rule, account_data, statuses):
-                if violation.score >= rule.trigger_threshold:
-                    violations.append(violation)
+            primary = detector.evaluate(rule, account_data, statuses)
+            actions = [
+                {
+                    "type": rule.action_type,
+                    "duration": rule.action_duration_seconds,
+                    "warning_text": rule.action_warning_text,
+                    "warning_preset_id": rule.warning_preset_id,
+                }
+            ]
+            if rule.boolean_operator and rule.secondary_pattern:
+                temp_rule = Rule(
+                    name=rule.name,
+                    detector_type=rule.detector_type,
+                    pattern=rule.secondary_pattern,
+                    weight=rule.weight,
+                )
+                secondary = detector.evaluate(temp_rule, account_data, statuses)
+                if rule.boolean_operator == "AND":
+                    if primary and secondary and rule.weight >= rule.trigger_threshold:
+                        evidence = Evidence(
+                            matched_terms=[t for v in primary + secondary for t in v.evidence.matched_terms],
+                            matched_status_ids=[i for v in primary + secondary for i in v.evidence.matched_status_ids],
+                            metrics={k: v for viol in primary + secondary for k, v in viol.evidence.metrics.items()},
+                        )
+                        violations.append(
+                            Violation(rule_name=rule.name, score=rule.weight, evidence=evidence, actions=actions)
+                        )
+                else:
+                    for v in primary + secondary:
+                        if v.score >= rule.trigger_threshold:
+                            violations.append(
+                                Violation(rule_name=rule.name, score=v.score, evidence=v.evidence, actions=actions)
+                            )
+            else:
+                for v in primary:
+                    if v.score >= rule.trigger_threshold:
+                        violations.append(
+                            Violation(rule_name=rule.name, score=v.score, evidence=v.evidence, actions=actions)
+                        )
         return violations
 
     def invalidate_cache(self):
