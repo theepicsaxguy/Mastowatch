@@ -205,6 +205,8 @@ class TestAPIEndpoints(unittest.TestCase):
                 "name": "test_rule",
                 "detector_type": "regex",
                 "pattern": "test_pattern",
+                "boolean_operator": "AND",
+                "secondary_pattern": "other",
                 "weight": 1.0,
                 "action_type": "report",
                 "trigger_threshold": 1.0,
