@@ -171,4 +171,6 @@ All API endpoints return structured error responses with:
 * Add Prometheus to scrape `/metrics` as desired.
 * Foreign keys ensure data integrity; performance indexes optimize common queries.
 
-```
+## Legal Notice
+
+Every page shows a footer linking to [goingadark.social](https://goingadark.social). The app refuses to run without it. Don't remove or rename this credit; it's part of the license.
