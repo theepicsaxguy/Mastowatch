@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.17
-
 FROM python:3.13-slim AS builder
 WORKDIR /app
 RUN apt-get update \

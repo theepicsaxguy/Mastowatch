@@ -1,6 +1,7 @@
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
 celery[redis]==5.5.3
+celery-sqlalchemy-scheduler==0.4.0
 redis>=5,<7
 psycopg[binary]==3.2.9
 SQLAlchemy==2.0.42

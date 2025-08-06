@@ -1,5 +1,13 @@
-# Shared environment variables
+# Production Docker Compose Configuration for MastoWatch
+# 
+# For environment variable documentation, see: docs/ENVIRONMENT.md
+# 
+# This file contains production defaults. Use docker-compose.override.yml
+# for development-specific configurations.
+
+# Shared environment variables for backend services
 x-backend-env: &backend-env
+  # Required Configuration - Set these in your deployment environment
   INSTANCE_BASE: "${INSTANCE_BASE}"
   ADMIN_TOKEN: "${ADMIN_TOKEN}"
   BOT_TOKEN: "${BOT_TOKEN}"
@@ -7,9 +15,26 @@ x-backend-env: &backend-env
   REDIS_URL: "${REDIS_URL}"
   API_KEY: "${API_KEY}"
   WEBHOOK_SECRET: "${WEBHOOK_SECRET}"
-  DRY_RUN: "${DRY_RUN:-true}"
+  
+  # Safety Controls
+  DRY_RUN: "${DRY_RUN:-false}"  # Production default: disabled
   PANIC_STOP: "${PANIC_STOP:-false}"
-  CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:3000"]}'
+  SKIP_STARTUP_VALIDATION: "${SKIP_STARTUP_VALIDATION:-false}"
+  
+  # Frontend Integration
+  CORS_ORIGINS: '${CORS_ORIGINS:-["https://your-domain.com"]}'
+  
+  # Optional OAuth Configuration
+  OAUTH_CLIENT_ID: "${OAUTH_CLIENT_ID:-}"
+  OAUTH_CLIENT_SECRET: "${OAUTH_CLIENT_SECRET:-}"
+  OAUTH_REDIRECT_URI: "${OAUTH_REDIRECT_URI:-}"
+  
+  # Performance Tuning
+  POLL_ADMIN_ACCOUNTS_INTERVAL: "${POLL_ADMIN_ACCOUNTS_INTERVAL:-30}"
+  POLL_ADMIN_ACCOUNTS_LOCAL_INTERVAL: "${POLL_ADMIN_ACCOUNTS_LOCAL_INTERVAL:-30}"
+  QUEUE_STATS_INTERVAL: "${QUEUE_STATS_INTERVAL:-60}"
+  BATCH_SIZE: "${BATCH_SIZE:-100}"
+  MAX_PAGES_PER_POLL: "${MAX_PAGES_PER_POLL:-10}"
 
 services:
   api:
@@ -18,7 +43,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    env_file: [.env]
     environment:
       <<: *backend-env
     depends_on:
@@ -55,7 +79,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
-    env_file: [.env]
     environment:
       <<: *backend-env
     depends_on:
@@ -77,8 +100,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
-    env_file: [.env]
+    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO", "--scheduler=celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler"]
     environment:
       <<: *backend-env
     depends_on:
@@ -100,7 +122,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: ["alembic", "upgrade", "heads"]
-    env_file: [.env]
     environment:
       <<: *backend-env
     depends_on:
@@ -110,11 +131,13 @@ services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_DB: mastowatch
-      POSTGRES_USER: mastowatch
-      POSTGRES_PASSWORD: mastowatch
+      POSTGRES_DB: "${POSTGRES_DB:-mastowatch}"
+      POSTGRES_USER: "${POSTGRES_USER:-mastowatch}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mastowatch -d mastowatch"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mastowatch} -d ${POSTGRES_DB:-mastowatch}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -122,3 +145,9 @@ services:
   redis:
     image: redis:8
     command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
