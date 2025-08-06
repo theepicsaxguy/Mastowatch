@@ -23,6 +23,7 @@ x-backend-env: &backend-env
   
   # Frontend Integration
   CORS_ORIGINS: '${CORS_ORIGINS:-["https://your-domain.com"]}'
+  UI_ORIGIN: "${UI_ORIGIN}"
   
   # Optional OAuth Configuration
   OAUTH_CLIENT_ID: "${OAUTH_CLIENT_ID:-}"
