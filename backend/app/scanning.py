@@ -137,8 +137,8 @@ class EnhancedScanningSystem:
                 limit=self.settings.MAX_STATUSES_TO_FETCH,
                 only_media=True,
             )
-            seen = {s.get("id") for s in statuses}
-            statuses.extend([s for s in media_statuses if s.get("id") not in seen])
+            seen = {s["id"] for s in statuses if "id" in s}
+            statuses.extend([s for s in media_statuses if ("id" not in s) or (s["id"] not in seen)])
 
             violations = self.rule_service.evaluate_account(account_data, statuses)
             score = sum(v.score for v in violations)

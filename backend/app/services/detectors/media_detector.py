@@ -23,15 +23,17 @@ class MediaDetector(BaseDetector):
                 hash_value = sha256(url.encode()).hexdigest() if url else ""
                 matched_terms: list[str] = []
                 metrics: dict[str, Any] = {}
-                if pattern in alt_text:
-                    matched_terms.append(alt_text)
-                    metrics["alt_text"] = alt_text
-                if pattern in mime:
-                    matched_terms.append(mime)
-                    metrics["mime_type"] = mime
-                if pattern == hash_value:
-                    matched_terms.append(hash_value)
-                    metrics["hash"] = hash_value
+                if not is_hash_pattern:
+                    if pattern in alt_text:
+                        matched_terms.append(alt_text)
+                        metrics["alt_text"] = alt_text
+                    if pattern in mime:
+                        matched_terms.append(mime)
+                        metrics["mime_type"] = mime
+                else:
+                    if pattern == hash_value:
+                        matched_terms.append(hash_value)
+                        metrics["hash"] = hash_value
                 if matched_terms:
                     violations.append(
                         Violation(
