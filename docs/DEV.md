@@ -126,18 +126,14 @@ WEBHOOK_SECRET=test_webhook_secret_123  # For webhook signature tests
 ```
 
 ### Static Analysis & Code Quality
+Use the Makefile targets to keep the codebase clean and consistent:
+
 ```bash
-# Auto-format code
-black app tests
-
-# Organize imports  
-isort app tests
-
-# Check critical linting issues
-flake8 app tests --select=E9,F63,F7,F82
-
-# Security scanning
-bandit -r app
+make format       # Format code with Black
+make lint         # Lint with Ruff
+make typecheck    # Run MyPy
+make test         # Run tests
+make check        # Run all of the above
 ```
 
 ### Pull Request Image Builds
