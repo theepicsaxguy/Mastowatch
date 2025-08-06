@@ -10,6 +10,7 @@ MastoWatch now includes comprehensive production-readiness features:
 - **Real-time settings interface** with error states and validation
 - **CI/CD integration** with automated testing and static analysis
 - **Security features** including webhook signature validation and API authentication
+- **Optional enforcement** to warn, silence, or suspend accounts with timed actions automatically undone
 
 ### 🧪 Testing Infrastructure
 - **Edge case testing**: 22 comprehensive test scenarios covering webhooks, health checks, and configuration

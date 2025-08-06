@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime, timedelta
 
 import redis
 from celery import shared_task
@@ -72,6 +73,7 @@ def _persist_account(a: dict):
         db.execute(stmt)
         db.commit()
 
+
 def _poll_accounts(origin: str, cursor_name: str):
     if _should_pause():
         logging.warning(f"PANIC_STOP enabled; skipping {origin} account poll")
@@ -102,9 +104,7 @@ def _poll_accounts(origin: str, cursor_name: str):
                 try:
                     _persist_account(account_data)
 
-                    scan_result = enhanced_scanner.scan_account_efficiently(
-                        account_data.get("account", {}), session_id
-                    )
+                    scan_result = enhanced_scanner.scan_account_efficiently(account_data.get("account", {}), session_id)
 
                     if scan_result:
                         accounts_processed += 1
@@ -259,17 +259,23 @@ def analyze_and_maybe_report(payload: dict):
         if not acct_id:
             return
 
-        # Check if we already have a cached scan result
+        admin_client = _get_admin_client()
+        enforcement_service = EnforcementService(mastodon_client=admin_client)
+
         cached_result = payload.get("scan_result")
+        violated_rule_names: set[str] = set()
         if cached_result:
             score = cached_result.get("score", 0)
-            hits = [(hit["rule"], hit["weight"], hit["evidence"]) for hit in cached_result.get("rule_hits", [])]
+            hits = [(h["rule"], h["weight"], h["evidence"]) for h in cached_result.get("rule_hits", [])]
+            for rk, _, _ in hits:
+                name = rk.split("/", 1)[1] if "/" in rk else rk
+                violated_rule_names.add(name)
         else:
-            admin = _get_admin_client()
-            statuses = admin.get_account_statuses(account_id=acct_id, limit=settings.MAX_STATUSES_TO_FETCH)
+            statuses = admin_client.get_account_statuses(account_id=acct_id, limit=settings.MAX_STATUSES_TO_FETCH)
             violations = rule_service.evaluate_account(acct, statuses)
             score = sum(v.score for v in violations)
             hits = [(f"{v.rule_type}/{v.rule_name}", v.score, v.evidence or {}) for v in violations]
+            violated_rule_names = {v.rule_name for v in violations}
 
         accounts_scanned.inc()
         analysis_latency.observe(max(0.0, time.time() - started))
@@ -277,7 +283,6 @@ def analyze_and_maybe_report(payload: dict):
         if not hits:
             return
 
-        # Store analysis results
         with SessionLocal() as db:
             for rk, w, ev in hits:
                 db.execute(
@@ -288,8 +293,58 @@ def analyze_and_maybe_report(payload: dict):
                 analyses_flagged.labels(rule=rk).inc()
             db.commit()
 
-        # Check if score meets reporting threshold
         rules, config, ruleset_sha = rule_service.get_active_rules()
+        rule_map = {r.name: r for r in rules}
+
+        def schedule(action: str, duration: int) -> None:
+            expires = datetime.utcnow() + timedelta(seconds=duration)
+            with SessionLocal() as db:
+                existing = (
+                    db.query(ScheduledAction)
+                    .filter_by(mastodon_account_id=acct_id, action_to_reverse=action)
+                    .one_or_none()
+                )
+                if existing:
+                    if expires > existing.expires_at:
+                        existing.expires_at = expires
+                else:
+                    db.add(ScheduledAction(mastodon_account_id=acct_id, action_to_reverse=action, expires_at=expires))
+                db.commit()
+
+        performed: set[str] = set()
+        for name in violated_rule_names:
+            rule = rule_map.get(name)
+            if not rule:
+                continue
+            action = rule.action_type
+            if action == "warn" and "warn" not in performed:
+                enforcement_service.warn_account(
+                    acct_id,
+                    text=rule.action_warning_text,
+                    warning_preset_id=rule.warning_preset_id,
+                )
+                performed.add("warn")
+            elif action == "silence":
+                if "silence" not in performed:
+                    enforcement_service.silence_account(
+                        acct_id,
+                        text=rule.action_warning_text,
+                        warning_preset_id=rule.warning_preset_id,
+                    )
+                    performed.add("silence")
+                if not settings.DRY_RUN and rule.action_duration_seconds:
+                    schedule("silence", rule.action_duration_seconds)
+            elif action == "suspend":
+                if "suspend" not in performed:
+                    enforcement_service.suspend_account(
+                        acct_id,
+                        text=rule.action_warning_text,
+                        warning_preset_id=rule.warning_preset_id,
+                    )
+                    performed.add("suspend")
+                if not settings.DRY_RUN and rule.action_duration_seconds:
+                    schedule("suspend", rule.action_duration_seconds)
+
         if float(score) < float(config.get("report_threshold", 1.0)):
             return
 
