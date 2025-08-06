@@ -1,10 +1,10 @@
+"""Rule management service."""
+
 import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
-
-from sqlalchemy import text
 
 from app.config import get_settings
 from app.db import SessionLocal
@@ -12,7 +12,9 @@ from app.models import Rule
 from app.schemas import Evidence, Violation
 from app.services.detectors.behavioral_detector import BehavioralDetector
 from app.services.detectors.keyword_detector import KeywordDetector
+from app.services.detectors.media_detector import MediaDetector
 from app.services.detectors.regex_detector import RegexDetector
+from sqlalchemy import text
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -50,6 +52,7 @@ class RuleService:
             "regex": RegexDetector(),
             "keyword": KeywordDetector(),
             "behavioral": BehavioralDetector(),
+            "media": MediaDetector(),
         }
 
     def get_active_rules(self, force_refresh: bool = False) -> tuple[list[Rule], dict[str, Any], str]:
@@ -71,7 +74,7 @@ class RuleService:
         """Load rules from database and update cache"""
         with SessionLocal() as session:
             # Get all enabled rules
-            db_rules = session.query(Rule).filter(Rule.enabled == True).all()
+            db_rules = session.query(Rule).filter(Rule.enabled.is_(True)).all()
 
             # Create a hash from all the rule data for versioning
             rule_data = []
