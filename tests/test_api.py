@@ -347,9 +347,9 @@ class TestAPIEndpoints(unittest.TestCase):
             "id": "report_123",
             "account": {"id": "account_123"},
             "target_account": {"id": "target_account_123"},
-        }
+        } 
         webhook_secret = os.environ["WEBHOOK_SECRET"]
-        body = str(payload).encode("utf-8")
+        body = json.dumps(payload).encode("utf-8")
         signature = (
             "sha256="
             + hmac.new(webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
