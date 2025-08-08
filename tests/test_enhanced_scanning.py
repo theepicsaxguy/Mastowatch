@@ -6,30 +6,9 @@
 - Session management and progress tracking
 """
 
-import os
-import sys
 import unittest
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-# Set test environment before any imports
-os.environ.update(
-    {
-        "SKIP_STARTUP_VALIDATION": "1",
-        "INSTANCE_BASE": "https://test.mastodon.social",
-        "ADMIN_TOKEN": "test_admin_token_123456789",
-        "BOT_TOKEN": "test_bot_token_123456789",
-        "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5433/mastowatch_test",
-        "REDIS_URL": "redis://localhost:6380/1",
-        "DEFEDERATION_THRESHOLD": "10",
-        "CONTENT_CACHE_TTL": "24",
-        "FEDERATED_SCAN_ENABLED": "true",
-    }
-)
-
-# Add the app directory to the path so we can import the app modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.schemas import Violation
 

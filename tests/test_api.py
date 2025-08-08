@@ -4,28 +4,9 @@ import hashlib
 import hmac
 import json
 import os
-import sys
 import unittest
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-# Set test environment before any imports
-os.environ.update(
-    {
-        "SKIP_STARTUP_VALIDATION": "1",
-        "INSTANCE_BASE": "https://test.mastodon.social",
-        "ADMIN_TOKEN": "test_admin_token_123",
-        "BOT_TOKEN": "test_bot_token_123",
-        "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5433/test",
-        "REDIS_URL": "redis://localhost:6380/1",
-        "API_KEY": "test_api_key_123",
-        "WEBHOOK_SECRET": "test_webhook_secret",
-    }
-)
-
-# Add the app directory to the path so we can import the app modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.models import AuditLog
 from app.oauth import User
