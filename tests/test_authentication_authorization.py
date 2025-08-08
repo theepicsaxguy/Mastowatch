@@ -8,32 +8,8 @@
 import hashlib
 import hmac
 import json
-import os
-import sys
 import unittest
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-
-# Set test environment before any imports
-os.environ.update(
-    {
-        "SKIP_STARTUP_VALIDATION": "1",
-        "INSTANCE_BASE": "https://test.mastodon.social",
-        "ADMIN_TOKEN": "test_admin_token_123456789",
-        "BOT_TOKEN": "test_bot_token_123456789",
-        "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5433/mastowatch_test",
-        "REDIS_URL": "redis://localhost:6380/1",
-        "OAUTH_CLIENT_ID": "test_oauth_client_id",
-        "OAUTH_CLIENT_SECRET": "test_oauth_client_secret",
-        "SESSION_SECRET_KEY": "test_session_secret_key_123456789",
-        "OAUTH_REDIRECT_URI": "http://localhost:8080/admin/callback",
-        "OAUTH_POPUP_REDIRECT_URI": "http://localhost:8080/admin/popup-callback",
-        "OAUTH_SCOPE": "read:accounts",
-    }
-)
-
-# Add the app directory to the path so we can import the app modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient
 
@@ -57,7 +33,7 @@ class TestAuthenticationAuthorization(unittest.TestCase):
         self.mock_db.return_value.__enter__.return_value = self.mock_db_session
 
         # Mock OAuth config
-        self.oauth_patcher = patch("app.main.get_oauth_config")
+        self.oauth_patcher = patch("app.api.auth.get_oauth_config")
         self.mock_oauth_config = self.oauth_patcher.start()
         self.mock_oauth_instance = MagicMock()
         self.mock_oauth_instance.configured = True

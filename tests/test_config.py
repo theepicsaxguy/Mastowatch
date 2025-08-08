@@ -1,10 +1,5 @@
 import os
-import sys
 import unittest
-from pathlib import Path
-
-# Add the app directory to the path so we can import the app modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import Settings
 

@@ -10,6 +10,7 @@ import os
 import sys
 import tempfile
 import types
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,8 +18,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR / "backend"))
+
 mastodon_pkg = types.ModuleType("app.clients.mastodon")
 mastodon_pkg.__path__ = []
+
+api_pkg = types.ModuleType("app.clients.mastodon.api")
+api_pkg.__path__ = []
 
 client_mod = types.ModuleType("app.clients.mastodon.client")
 
@@ -38,10 +45,10 @@ client_mod.Client = Client
 mastodon_pkg.AuthenticatedClient = AuthenticatedClient
 mastodon_pkg.Client = Client
 
-accounts_pkg = types.ModuleType("app.clients.mastodon.accounts")
+accounts_pkg = types.ModuleType("app.clients.mastodon.api.accounts")
 accounts_pkg.__path__ = []
 
-get_account_mod = types.ModuleType("app.clients.mastodon.accounts.get_account")
+get_account_mod = types.ModuleType("app.clients.mastodon.api.accounts.get_account")
 
 
 def _get_account_sync(*_, **__):
@@ -50,7 +57,9 @@ def _get_account_sync(*_, **__):
 
 get_account_mod.sync = _get_account_sync
 
-get_account_statuses_mod = types.ModuleType("app.clients.mastodon.accounts.get_account_statuses")
+get_account_statuses_mod = types.ModuleType(
+    "app.clients.mastodon.api.accounts.get_account_statuses"
+)
 
 
 def _get_account_statuses_sync(*_, **__):
@@ -62,7 +71,9 @@ get_account_statuses_mod.sync = _get_account_statuses_sync
 models_pkg = types.ModuleType("app.clients.mastodon.models")
 models_pkg.__path__ = []
 
-create_report_body_mod = types.ModuleType("app.clients.mastodon.models.create_report_body")
+create_report_body_mod = types.ModuleType(
+    "app.clients.mastodon.models.create_report_body"
+)
 
 
 class CreateReportBody:  # noqa: D401
@@ -87,10 +98,12 @@ class CreateReportBody:  # noqa: D401
 
 create_report_body_mod.CreateReportBody = CreateReportBody
 
-reports_pkg = types.ModuleType("app.clients.mastodon.reports")
+reports_pkg = types.ModuleType("app.clients.mastodon.api.reports")
 reports_pkg.__path__ = []
 
-create_report_mod = types.ModuleType("app.clients.mastodon.reports.create_report")
+create_report_mod = types.ModuleType(
+    "app.clients.mastodon.api.reports.create_report"
+)
 
 
 def _create_report_sync(*_, **__):
@@ -102,14 +115,15 @@ create_report_mod.sync = _create_report_sync
 sys.modules.update(
     {
         "app.clients.mastodon": mastodon_pkg,
+        "app.clients.mastodon.api": api_pkg,
         "app.clients.mastodon.client": client_mod,
-        "app.clients.mastodon.accounts": accounts_pkg,
-        "app.clients.mastodon.accounts.get_account": get_account_mod,
-        "app.clients.mastodon.accounts.get_account_statuses": get_account_statuses_mod,
+        "app.clients.mastodon.api.accounts": accounts_pkg,
+        "app.clients.mastodon.api.accounts.get_account": get_account_mod,
+        "app.clients.mastodon.api.accounts.get_account_statuses": get_account_statuses_mod,
         "app.clients.mastodon.models": models_pkg,
         "app.clients.mastodon.models.create_report_body": create_report_body_mod,
-        "app.clients.mastodon.reports": reports_pkg,
-        "app.clients.mastodon.reports.create_report": create_report_mod,
+        "app.clients.mastodon.api.reports": reports_pkg,
+        "app.clients.mastodon.api.reports.create_report": create_report_mod,
     }
 )
 
@@ -123,6 +137,14 @@ os.environ["ADMIN_TOKEN"] = "test_admin_token"
 os.environ["API_KEY"] = "test_api_key"
 os.environ["WEBHOOK_SECRET"] = "test_webhook_secret"
 os.environ["REDIS_URL"] = "redis://localhost:6379/15"  # Use test Redis DB
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["UI_ORIGIN"] = "http://localhost:3000"
+os.environ["OAUTH_CLIENT_ID"] = "test_oauth_client_id"
+os.environ["OAUTH_CLIENT_SECRET"] = "test_oauth_client_secret"
+os.environ["SESSION_SECRET_KEY"] = "test_session_secret_key_123456789"
+os.environ["OAUTH_REDIRECT_URI"] = "http://localhost:8080/admin/callback"
+os.environ["OAUTH_POPUP_REDIRECT_URI"] = "http://localhost:8080/admin/popup-callback"
+os.environ["OAUTH_SCOPE"] = "read:accounts"
 
 from app.config import Settings
 from app.db import Base, get_db
@@ -219,6 +241,8 @@ def mock_redis():
     mock_redis.set.return_value = True
     mock_redis.exists.return_value = False
     return mock_redis
+
+
 
 
 @pytest.fixture
