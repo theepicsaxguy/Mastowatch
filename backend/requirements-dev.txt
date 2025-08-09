@@ -1,5 +1,5 @@
 black==25.1.0
 mypy==1.17.1
-types-PyYAML==6.0.12.20250516
+types-PyYAML==6.0.12.20250809
 openapi-python-client==0.25.3
 ruff==0.12.7
