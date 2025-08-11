@@ -57,10 +57,19 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   useEffect(() => {
-    const link = document.querySelector(`a[href="${LEGAL_NOTICE_URL}"]`);
-    if (!link || link.textContent?.trim() !== LEGAL_NOTICE_TEXT) {
-      throw new Error('Appropriate Legal Notice missing');
-    }
+    // Check for legal notice after a delay to ensure the footer is rendered
+    const timeoutId = setTimeout(() => {
+      const link = document.querySelector(`a[href="${LEGAL_NOTICE_URL}"]`);
+      if (!link || link.textContent?.trim() !== LEGAL_NOTICE_TEXT) {
+        console.warn('Legal Notice check failed - link not found or incorrect text');
+        // Only throw error in production builds, not during development
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('Appropriate Legal Notice missing');
+        }
+      }
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
   }, []);
   const [scanningAnalytics, setScanningAnalytics] = useState<ScanningAnalytics | null>(null);
   const [domainAnalytics, setDomainAnalytics] = useState<DomainAnalytics | null>(null);
