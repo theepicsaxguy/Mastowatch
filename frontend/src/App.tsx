@@ -57,10 +57,19 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   useEffect(() => {
-    const link = document.querySelector(`a[href="${LEGAL_NOTICE_URL}"]`);
-    if (!link || link.textContent?.trim() !== LEGAL_NOTICE_TEXT) {
-      throw new Error('Appropriate Legal Notice missing');
-    }
+    // Check for legal notice after a delay to ensure the footer is rendered
+    const timeoutId = setTimeout(() => {
+      const link = document.querySelector(`a[href="${LEGAL_NOTICE_URL}"]`);
+      if (!link || link.textContent?.trim() !== LEGAL_NOTICE_TEXT) {
+        console.warn('Legal Notice check failed - link not found or incorrect text');
+        // Only throw error in production builds, not during development
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('Appropriate Legal Notice missing');
+        }
+      }
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
   }, []);
   const [scanningAnalytics, setScanningAnalytics] = useState<ScanningAnalytics | null>(null);
   const [domainAnalytics, setDomainAnalytics] = useState<DomainAnalytics | null>(null);
@@ -77,6 +86,35 @@ export default function App() {
 
   async function checkAuth() {
     try {
+      // Check if we're returning from an OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      const oauthSuccess = urlParams.get('oauth_success');
+      const accessToken = urlParams.get('access_token');
+      
+      if (oauthSuccess === 'true' && accessToken) {
+        // Establish session using the access token from OAuth callback
+        try {
+          const response = await fetch('/admin/establish-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ access_token: accessToken })
+          });
+          
+          if (response.ok) {
+            // Clear the URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            // Continue with normal auth check
+          } else {
+            console.error('Failed to establish session from OAuth callback');
+          }
+        } catch (error) {
+          console.error('Error establishing session from OAuth callback:', error);
+        }
+      }
+      
       const user = await getCurrentUser();
       setCurrentUser(user);
     } catch (error) {
@@ -278,9 +316,8 @@ export default function App() {
   async function updateDryRun(next: boolean) {
     setSaving(true);
     try {
-      await apiFetch('/config/dry_run', {
-        method: 'POST',
-        body: JSON.stringify({ dry_run: next, updated_by: 'dashboard' })
+      await apiFetch(`/config/dry_run?enable=${next}`, {
+        method: 'POST'
       });
       setHealth((h) => (h ? { ...h, dry_run: next } : h));
     } finally {
@@ -291,9 +328,8 @@ export default function App() {
   async function updatePanic(next: boolean) {
     setSaving(true);
     try {
-      await apiFetch('/config/panic_stop', {
-        method: 'POST',
-        body: JSON.stringify({ panic_stop: next, updated_by: 'dashboard' })
+      await apiFetch(`/config/panic_stop?enable=${next}`, {
+        method: 'POST'
       });
       setHealth((h) => (h ? { ...h, panic_stop: next } : h));
     } finally {
@@ -764,7 +800,7 @@ function RulesTab({ rules, onReload }: {
   const [selectedRuleForInfo, setSelectedRuleForInfo] = useState<Rule | null>(null);
   const [newRule, setNewRule] = useState({
     name: '',
-    rule_type: 'username_regex' as Rule['rule_type'],
+    rule_type: 'regex' as Rule['rule_type'],
     pattern: '',
     weight: 0.5
   });
@@ -785,14 +821,21 @@ function RulesTab({ rules, onReload }: {
   async function handleCreateRule() {
     try {
       setLoading(true);
+      
+      // Map frontend rule_type to backend detector_type
+      let detector_type = newRule.rule_type; // Use rule_type directly as it now matches detector_type
+      
       await createRule({
         name: newRule.name,
-        rule_type: newRule.rule_type,
+        detector_type: detector_type,
         pattern: newRule.pattern,
         weight: newRule.weight,
-        enabled: true
+        action_type: 'report', // Default action
+        trigger_threshold: 1.0, // Default threshold
+        enabled: true,
+        rule_type: detector_type // Add rule_type for frontend compatibility
       });
-      setNewRule({ name: '', rule_type: 'username_regex', pattern: '', weight: 0.5 });
+      setNewRule({ name: '', rule_type: 'regex', pattern: '', weight: 0.5 });
       setShowCreateModal(false);
       await loadRulesList();
       onReload();
@@ -894,13 +937,14 @@ function RulesTab({ rules, onReload }: {
         <Divider my="md" />
         
         <Grid>
-          {['username_regex', 'display_name_regex', 'content_regex'].map((ruleType) => (
+          {['regex', 'keyword', 'behavioral', 'media'].map((ruleType) => (
             <Grid.Col span={4} key={ruleType}>
               <Card withBorder padding="sm">
                 <Title order={5} mb="sm">
-                  {ruleType === 'username_regex' ? 'Username Rules' :
-                   ruleType === 'display_name_regex' ? 'Display Name Rules' :
-                   'Content Rules'}
+                  {ruleType === 'regex' ? 'Regex Rules' :
+                   ruleType === 'keyword' ? 'Keyword Rules' :
+                   ruleType === 'behavioral' ? 'Behavioral Rules' :
+                   'Media Rules'}
                 </Title>
                 <Stack gap="xs">
                   {(groupedRules[ruleType] || []).map((rule) => (
@@ -993,9 +1037,10 @@ function RulesTab({ rules, onReload }: {
             value={newRule.rule_type}
             onChange={(value) => setNewRule({...newRule, rule_type: value as Rule['rule_type']})}
             data={[
-              { value: 'username_regex', label: 'Username Regex' },
-              { value: 'display_name_regex', label: 'Display Name Regex' },
-              { value: 'content_regex', label: 'Content Regex' }
+              { value: 'regex', label: 'Regex Rules' },
+              { value: 'keyword', label: 'Keyword Rules' },
+              { value: 'behavioral', label: 'Behavioral Rules' },
+              { value: 'media', label: 'Media Rules' }
             ]}
           />
           <TextInput
@@ -1115,7 +1160,7 @@ function RulesTab({ rules, onReload }: {
               </Text>
             </div>
             
-            {selectedRuleForInfo.rule_type === 'username_regex' && (
+            {selectedRuleForInfo.rule_type === 'regex' && (
               <div>
                 <Text fw={500} mb="xs">Username Pattern Examples</Text>
                 <Stack gap="xs">
@@ -1127,7 +1172,7 @@ function RulesTab({ rules, onReload }: {
               </div>
             )}
             
-            {selectedRuleForInfo.rule_type === 'display_name_regex' && (
+            {selectedRuleForInfo.rule_type === 'keyword' && (
               <div>
                 <Text fw={500} mb="xs">Display Name Pattern Examples</Text>
                 <Stack gap="xs">
@@ -1139,7 +1184,7 @@ function RulesTab({ rules, onReload }: {
               </div>
             )}
             
-            {selectedRuleForInfo.rule_type === 'content_regex' && (
+            {selectedRuleForInfo.rule_type === 'behavioral' && (
               <div>
                 <Text fw={500} mb="xs">Content Pattern Examples</Text>
                 <Stack gap="xs">

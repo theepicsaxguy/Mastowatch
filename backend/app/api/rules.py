@@ -2,8 +2,9 @@
 
 import logging
 import re
+from typing import Any
 
-from app.db import SessionLocal
+from app.db import get_db
 from app.models import Analysis, Rule
 from app.oauth import User, require_admin_hybrid
 from app.scanning import EnhancedScanningSystem
@@ -22,29 +23,70 @@ MAX_RULE_WEIGHT = 5.0
 @router.get("/rules/current", tags=["rules"])
 def get_current_rules(user: User = Depends(require_admin_hybrid)):
     """Get current rule configuration including database rules."""
-    all_rules, config, _ = rule_service.get_active_rules()
+    rules_list, config, _ = rule_service.get_active_rules()
+
+    # Convert rules list to dictionary format for backwards compatibility
+    rules_dict = {}
+    for rule in rules_list:
+        rules_dict[rule.name] = {
+            "id": rule.id,
+            "detector_type": rule.detector_type,
+            "pattern": rule.pattern,
+            "weight": rule.weight,
+            "enabled": rule.enabled,
+            "action_type": rule.action_type,
+            "trigger_threshold": rule.trigger_threshold,
+        }
+
     return {
-        "rules": {**all_rules, "report_threshold": config.get("report_threshold", 1.0)},
+        "rules": {**rules_dict, "report_threshold": config.get("report_threshold", 1.0)},
         "report_threshold": config.get("report_threshold", 1.0),
     }
 
 
 @router.get("/rules", tags=["rules"])
-def list_rules(user: User = Depends(require_admin_hybrid)):
-    """List all rules."""
-    all_rules, _, _ = rule_service.get_active_rules()
+def list_rules(user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
+    """List all rules (both enabled and disabled)."""
+    # Get ALL rules for the admin interface, not just active ones
+    all_rules = session.query(Rule).order_by(Rule.created_at.desc()).all()
     response = []
 
-    # Convert to flat list for easier frontend consumption
-    for rule_type, type_rules in all_rules.items():
-        for rule in type_rules:
-            response.append({**rule, "rule_type": rule_type})
+    # Convert rules to flat list for easier frontend consumption
+    for rule in all_rules:
+        response.append(
+            {
+                "id": rule.id,
+                "name": rule.name,
+                "detector_type": rule.detector_type,
+                "pattern": rule.pattern,
+                "boolean_operator": rule.boolean_operator,
+                "secondary_pattern": rule.secondary_pattern,
+                "weight": rule.weight,
+                "enabled": rule.enabled,
+                "action_type": rule.action_type,
+                "action_duration_seconds": rule.action_duration_seconds,
+                "action_warning_text": rule.action_warning_text,
+                "warning_preset_id": rule.warning_preset_id,
+                "trigger_threshold": rule.trigger_threshold,
+                "trigger_count": rule.trigger_count,
+                "last_triggered_at": rule.last_triggered_at.isoformat() if rule.last_triggered_at else None,
+                "last_triggered_content": rule.last_triggered_content,
+                "created_by": rule.created_by,
+                "updated_by": rule.updated_by,
+                "description": rule.description,
+                "created_at": rule.created_at.isoformat() if rule.created_at else None,
+                "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+                "rule_type": rule.detector_type,  # For backwards compatibility
+            }
+        )
 
     return {"rules": response}
 
 
 @router.post("/rules", tags=["rules"])
-def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)):
+def create_rule(
+    rule_data: dict[str, Any], user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)
+):
     """Create a new rule."""
     try:
         # Validate required fields
@@ -91,7 +133,7 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
                 detail={
                     "error": f"Invalid weight: {str(e)}",
                     "guidelines": (
-                        "Weight should be 0.1-0.3 (mild), 0.4-0.6 (moderate), " "0.7-0.9 (strong), 1.0+ (very strong)"
+                        "Weight should be 0.1-0.3 (mild), 0.4-0.6 (moderate), 0.7-0.9 (strong), 1.0+ (very strong)"
                     ),
                     "help": "Use GET /rules/help for weight guidelines and examples",
                 },
@@ -303,7 +345,7 @@ def get_rule_creation_help():
 
 @router.put("/rules/{rule_id}", tags=["rules"])
 def update_rule(
-    rule_id: int, rule_data: dict, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)
+    rule_id: int, rule_data: dict, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)
 ):
     """Update an existing rule."""
     try:
@@ -322,7 +364,7 @@ def update_rule(
 
 
 @router.delete("/rules/{rule_id}", tags=["rules"])
-def delete_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)):
+def delete_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
     """Delete a rule."""
     try:
         if not rule_service.delete_rule(rule_id):
@@ -339,7 +381,7 @@ def delete_rule(rule_id: int, user: User = Depends(require_admin_hybrid), sessio
 
 
 @router.post("/rules/{rule_id}/toggle", tags=["rules"])
-def toggle_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)):
+def toggle_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
     """Toggle rule enabled/disabled status."""
     try:
         # First get the current rule to determine the new state
@@ -375,7 +417,7 @@ def bulk_toggle_rules(
     rule_ids: list[int],
     enabled: bool,
     user: User = Depends(require_admin_hybrid),
-    session: Session = Depends(SessionLocal),
+    session: Session = Depends(get_db),
 ):
     """Toggle multiple rules at once."""
     try:
@@ -400,9 +442,7 @@ def bulk_toggle_rules(
 
 
 @router.get("/rules/{rule_id}/details", tags=["rules"])
-def get_rule_details(
-    rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)
-):
+def get_rule_details(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
     """Get detailed information about a specific rule."""
     try:
         rule = session.query(Rule).filter(Rule.id == rule_id).first()

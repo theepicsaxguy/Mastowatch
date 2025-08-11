@@ -306,10 +306,41 @@ class RuleService:
             total_rules = session.query(Rule).count()
             enabled_rules = session.query(Rule).filter(Rule.enabled.is_(True)).count()
 
+            # Get top triggered rules (ordered by trigger count)
+            top_triggered_rules = (
+                session.query(Rule).filter(Rule.trigger_count > 0).order_by(Rule.trigger_count.desc()).limit(10).all()
+            )
+
+            # Get recently triggered rules (ordered by last triggered time)
+            recent_activity = (
+                session.query(Rule)
+                .filter(Rule.last_triggered_at.isnot(None))
+                .order_by(Rule.last_triggered_at.desc())
+                .limit(10)
+                .all()
+            )
+
             return {
                 "total_rules": total_rules,
                 "enabled_rules": enabled_rules,
                 "disabled_rules": total_rules - enabled_rules,
+                "top_triggered_rules": [
+                    {
+                        "name": rule.name,
+                        "trigger_count": rule.trigger_count or 0,
+                        "rule_type": rule.detector_type,
+                        "last_triggered_at": rule.last_triggered_at.isoformat() if rule.last_triggered_at else None,
+                    }
+                    for rule in top_triggered_rules
+                ],
+                "recent_activity": [
+                    {
+                        "name": rule.name,
+                        "rule_type": rule.detector_type,
+                        "last_triggered_at": rule.last_triggered_at.isoformat() if rule.last_triggered_at else None,
+                    }
+                    for rule in recent_activity
+                ],
                 "cache_status": self.get_cache_status(),
             }
 

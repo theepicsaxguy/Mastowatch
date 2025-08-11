@@ -1,13 +1,12 @@
 import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import desc, func
-
 from app.db import SessionLocal
 from app.models import Account, Analysis, ContentScan, Report
 from app.oauth import User, require_admin_hybrid
 from app.services.rule_service import rule_service
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc, func
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -257,7 +256,6 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
     """Get real-time scanning analytics and job tracking"""
     try:
         import redis
-
         from app.config import get_settings
         from app.models import ScanSession
         from app.scanning import EnhancedScanningSystem
@@ -307,34 +305,30 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
             ).first()
 
             return {
-                "active_jobs": [],  # Placeholder for actual active Celery jobs if needed
-                "scan_sessions": [
+                "active_sessions": [
                     {
                         "id": session.id,
                         "session_type": session.session_type,
                         "accounts_processed": session.accounts_processed,
                         "total_accounts": session.total_accounts,
                         "started_at": session.started_at.isoformat(),
-                        "status": session.status,
+                        "current_cursor": getattr(session, "current_cursor", None),
                     }
                     for session in active_sessions
                 ],
-                "recent_completed_sessions": [
+                "recent_sessions": [
                     {
                         "id": session.id,
                         "session_type": session.session_type,
                         "accounts_processed": session.accounts_processed,
+                        "started_at": session.started_at.isoformat() if session.started_at else None,
                         "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+                        "status": "completed",  # These are all completed sessions
                     }
                     for session in recent_sessions
                 ],
-                "queue_length": queue_length,
-                "last_federated_scan": last_federated_scan_record[0].isoformat()
-                if last_federated_scan_record
-                else None,
-                "last_domain_check": last_domain_check_record[0].isoformat() if last_domain_check_record else None,
-                "content_scans": {
-                    "total": content_scan_stats.total_scans or 0,
+                "content_scan_stats": {
+                    "total_scans": content_scan_stats.total_scans or 0,
                     "needs_rescan": content_scan_stats.needs_rescan or 0,
                     "last_scan": content_scan_stats.last_scan.isoformat() if content_scan_stats.last_scan else None,
                 },
@@ -369,12 +363,27 @@ def get_domain_analytics(_: User = Depends(require_admin_hybrid)):
                 .all()
             )
 
+            # Calculate summary statistics
+            total_domains = len(domain_stats)
+            defederated_domains = sum(1 for alert in domain_alerts if alert.is_defederated)
+            high_risk_domains = len(
+                [alert for alert in domain_alerts if not alert.is_defederated and alert.violation_count > 0]
+            )
+            monitored_domains = total_domains
+
             return {
+                "summary": {
+                    "total_domains": total_domains,
+                    "defederated_domains": defederated_domains,
+                    "high_risk_domains": high_risk_domains,
+                    "monitored_domains": monitored_domains,
+                },
                 "domain_alerts": [
                     {
                         "domain": alert.domain,
                         "violation_count": alert.violation_count,
                         "last_violation_at": alert.last_violation_at.isoformat() if alert.last_violation_at else None,
+                        "defederation_threshold": 10,  # Default threshold, could be configurable
                         "is_defederated": alert.is_defederated,
                         "defederated_at": alert.defederated_at.isoformat() if alert.defederated_at else None,
                     }

@@ -21,11 +21,13 @@ export async function getCurrentUser(): Promise<User | null> {
   const baseDelay = 1000;
   
   const apiBase = (import.meta as any).env?.VITE_API_URL;
+  const isDevelopment = (import.meta as any).env?.DEV;
+  const useProxy = isDevelopment && !apiBase?.includes('://');
   
   while (retryCount < maxRetries) {
     try {
       // Use session-based auth only, no Bearer token
-      const url = `${apiBase}/api/v1/me`;
+      const url = useProxy ? '/api/v1/me' : `${apiBase}/api/v1/me`;
       const res = await fetch(url, {
         method: 'GET',
         headers: {
@@ -60,9 +62,12 @@ export async function logout(): Promise<void> {
   localStorage.removeItem('auth_token');
   
   const apiBase = (import.meta as any).env?.VITE_API_URL;
+  const isDevelopment = (import.meta as any).env?.DEV;
+  const useProxy = isDevelopment && !apiBase?.includes('://');
   
   try {
-    const res = await fetch(`${apiBase}/admin/logout`, {
+    const url = useProxy ? '/admin/logout' : `${apiBase}/admin/logout`;
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -90,14 +95,23 @@ export function clearStoredToken(): void {
   localStorage.removeItem('auth_token');
 }
 
-const apiBase = (import.meta as any).env?.VITE_API_URL;
+// Helper function to determine API base URL
+function getApiBase(): string {
+  const configuredApiBase = (import.meta as any).env?.VITE_API_URL;
+  const isDevelopment = (import.meta as any).env?.DEV;
+  const useProxy = isDevelopment && !configuredApiBase?.includes('://');
+  
+  return useProxy ? '' : configuredApiBase;
+}
 
 export function redirectToLogin(): void {
+  const apiBase = getApiBase();
   window.location.href = `${apiBase}/admin/login`;
 }
 
 export function loginWithPopup(): Promise<AuthResponse> {
   return new Promise((resolve, reject) => {
+    const apiBase = getApiBase();
     const popup = window.open(
       `${apiBase}/admin/login?popup=true`,
       'oauth-login',
@@ -123,9 +137,33 @@ export function loginWithPopup(): Promise<AuthResponse> {
         popup.close();
         window.removeEventListener('message', handleMessage);
         const authResponse = event.data.auth as AuthResponse;
-        // Don't store access token since we're using session cookies
-        // setStoredToken(authResponse.access_token);
-        resolve(authResponse);
+        
+        // Establish session in main window using the access token
+        const apiBase = getApiBase();
+        const isDevelopment = (import.meta as any).env?.DEV;
+        const useProxy = isDevelopment && !apiBase?.includes('://');
+        const url = useProxy ? '/admin/establish-session' : `${apiBase}/admin/establish-session`;
+        
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies
+          body: JSON.stringify({ access_token: authResponse.access_token })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to establish session');
+          }
+          return response.json();
+        })
+        .then(() => {
+          resolve(authResponse);
+        })
+        .catch(error => {
+          reject(new Error(`Failed to establish session: ${error.message}`));
+        });
       } else if (event.data.type === 'oauth-error') {
         clearInterval(checkClosed);
         popup.close();
