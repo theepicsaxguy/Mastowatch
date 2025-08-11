@@ -22,9 +22,23 @@ MAX_RULE_WEIGHT = 5.0
 @router.get("/rules/current", tags=["rules"])
 def get_current_rules(user: User = Depends(require_admin_hybrid)):
     """Get current rule configuration including database rules."""
-    all_rules, config, _ = rule_service.get_active_rules()
+    rules_list, config, _ = rule_service.get_active_rules()
+    
+    # Convert rules list to dictionary format for backwards compatibility
+    rules_dict = {}
+    for rule in rules_list:
+        rules_dict[rule.name] = {
+            "id": rule.id,
+            "detector_type": rule.detector_type,
+            "pattern": rule.pattern,
+            "weight": rule.weight,
+            "enabled": rule.enabled,
+            "action_type": rule.action_type,
+            "trigger_threshold": rule.trigger_threshold,
+        }
+    
     return {
-        "rules": {**all_rules, "report_threshold": config.get("report_threshold", 1.0)},
+        "rules": {**rules_dict, "report_threshold": config.get("report_threshold", 1.0)},
         "report_threshold": config.get("report_threshold", 1.0),
     }
 
@@ -32,13 +46,37 @@ def get_current_rules(user: User = Depends(require_admin_hybrid)):
 @router.get("/rules", tags=["rules"])
 def list_rules(user: User = Depends(require_admin_hybrid)):
     """List all rules."""
-    all_rules, _, _ = rule_service.get_active_rules()
+    rules_list, _, _ = rule_service.get_active_rules()
     response = []
 
-    # Convert to flat list for easier frontend consumption
-    for rule_type, type_rules in all_rules.items():
-        for rule in type_rules:
-            response.append({**rule, "rule_type": rule_type})
+    # Convert rules to flat list for easier frontend consumption
+    for rule in rules_list:
+        response.append(
+            {
+                "id": rule.id,
+                "name": rule.name,
+                "detector_type": rule.detector_type,
+                "pattern": rule.pattern,
+                "boolean_operator": rule.boolean_operator,
+                "secondary_pattern": rule.secondary_pattern,
+                "weight": rule.weight,
+                "enabled": rule.enabled,
+                "action_type": rule.action_type,
+                "action_duration_seconds": rule.action_duration_seconds,
+                "action_warning_text": rule.action_warning_text,
+                "warning_preset_id": rule.warning_preset_id,
+                "trigger_threshold": rule.trigger_threshold,
+                "trigger_count": rule.trigger_count,
+                "last_triggered_at": rule.last_triggered_at.isoformat() if rule.last_triggered_at else None,
+                "last_triggered_content": rule.last_triggered_content,
+                "created_by": rule.created_by,
+                "updated_by": rule.updated_by,
+                "description": rule.description,
+                "created_at": rule.created_at.isoformat() if rule.created_at else None,
+                "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+                "rule_type": rule.detector_type,  # For backwards compatibility
+            }
+        )
 
     return {"rules": response}
 
@@ -91,7 +129,7 @@ def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), ses
                 detail={
                     "error": f"Invalid weight: {str(e)}",
                     "guidelines": (
-                        "Weight should be 0.1-0.3 (mild), 0.4-0.6 (moderate), " "0.7-0.9 (strong), 1.0+ (very strong)"
+                        "Weight should be 0.1-0.3 (mild), 0.4-0.6 (moderate), 0.7-0.9 (strong), 1.0+ (very strong)"
                     ),
                     "help": "Use GET /rules/help for weight guidelines and examples",
                 },

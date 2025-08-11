@@ -20,7 +20,6 @@ from app.services.rule_service import rule_service
 from app.tasks.jobs import process_new_report, process_new_status
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
-
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -29,6 +28,7 @@ router = APIRouter()
 
 class EstablishSessionRequest(BaseModel):
     """Request model for establishing a session with an access token."""
+
     access_token: str
 
 
