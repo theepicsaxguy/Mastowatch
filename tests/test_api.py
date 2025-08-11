@@ -49,9 +49,7 @@ class TestAPIEndpoints(unittest.TestCase):
 
     def setUp(self):
         """Prepare test client with mocked dependencies."""
-        with patch("redis.from_url") as mock_redis, patch(
-            "app.db.SessionLocal"
-        ) as mock_db:
+        with patch("redis.from_url") as mock_redis, patch("app.db.SessionLocal") as mock_db:
             mock_redis_instance = MagicMock()
             mock_redis.return_value = mock_redis_instance
             mock_redis_instance.ping.return_value = True
@@ -111,9 +109,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_service.return_value = service
         response = self.client.post("/config/dry_run?enable=false")
         self.assertEqual(response.status_code, 200)
-        service.set_flag.assert_called_once_with(
-            "dry_run", False, updated_by="testadmin"
-        )
+        service.set_flag.assert_called_once_with("dry_run", False, updated_by="testadmin")
 
     @patch("app.api.config.get_config_service")
     @patch("app.api.config.require_admin_hybrid")
@@ -124,9 +120,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_service.return_value = service
         response = self.client.post("/config/panic_stop?enable=true")
         self.assertEqual(response.status_code, 200)
-        service.set_flag.assert_called_once_with(
-            "panic_stop", True, updated_by="testadmin"
-        )
+        service.set_flag.assert_called_once_with("panic_stop", True, updated_by="testadmin")
 
     @patch("app.api.config.get_config_service")
     @patch("app.api.config.require_admin_hybrid")
@@ -137,9 +131,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_service.return_value = service
         response = self.client.post("/config/report_threshold?threshold=2.5")
         self.assertEqual(response.status_code, 200)
-        service.set_threshold.assert_called_once_with(
-            "report_threshold", 2.5, updated_by="testadmin"
-        )
+        service.set_threshold.assert_called_once_with("report_threshold", 2.5, updated_by="testadmin")
 
     @patch("app.api.config.get_config_service")
     @patch("app.api.config.require_admin_hybrid")
@@ -333,9 +325,7 @@ class TestAPIEndpoints(unittest.TestCase):
             instance.get_next_accounts_to_scan.return_value = ([{"id": "1"}], "next123")
             response = self.client.get("/scan/accounts?session_type=remote&limit=1")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(
-                response.json(), {"accounts": [{"id": "1"}], "next_cursor": "next123"}
-            )
+            self.assertEqual(response.json(), {"accounts": [{"id": "1"}], "next_cursor": "next123"})
 
     # NEW WEBHOOK TESTS
 
@@ -349,11 +339,8 @@ class TestAPIEndpoints(unittest.TestCase):
             "target_account": {"id": "target_account_123"},
         }
         webhook_secret = os.environ["WEBHOOK_SECRET"]
-        body = str(payload).encode("utf-8")
-        signature = (
-            "sha256="
-            + hmac.new(webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-        )
+        body = json.dumps(payload).encode("utf-8")
+        signature = "sha256=" + hmac.new(webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
         response = self.client.post(
             "/webhooks/mastodon_events",
             json=payload,
@@ -375,10 +362,7 @@ class TestAPIEndpoints(unittest.TestCase):
         }
         webhook_secret = os.environ["WEBHOOK_SECRET"]
         body = json.dumps(payload).encode("utf-8")
-        signature = (
-            "sha256="
-            + hmac.new(webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-        )
+        signature = "sha256=" + hmac.new(webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
         response = self.client.post(
             "/webhooks/mastodon_events",
             json=payload,
