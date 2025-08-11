@@ -109,7 +109,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_auth.return_value = create_mock_admin_user()
         service = MagicMock()
         mock_service.return_value = service
-        response = self.client.post("/api/v1/config/dry_run?enable=false")
+        response = self.client.post("/config/dry_run?enable=false")
         self.assertEqual(response.status_code, 200)
         service.set_flag.assert_called_once_with(
             "dry_run", False, updated_by="testadmin"
@@ -122,7 +122,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_auth.return_value = create_mock_admin_user()
         service = MagicMock()
         mock_service.return_value = service
-        response = self.client.post("/api/v1/config/panic_stop?enable=true")
+        response = self.client.post("/config/panic_stop?enable=true")
         self.assertEqual(response.status_code, 200)
         service.set_flag.assert_called_once_with(
             "panic_stop", True, updated_by="testadmin"
@@ -135,7 +135,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_auth.return_value = create_mock_admin_user()
         service = MagicMock()
         mock_service.return_value = service
-        response = self.client.post("/api/v1/config/report_threshold?threshold=2.5")
+        response = self.client.post("/config/report_threshold?threshold=2.5")
         self.assertEqual(response.status_code, 200)
         service.set_threshold.assert_called_once_with(
             "report_threshold", 2.5, updated_by="testadmin"
@@ -153,7 +153,7 @@ class TestAPIEndpoints(unittest.TestCase):
             "defederation_threshold": 3,
         }
         mock_service.return_value = service
-        response = self.client.get("/api/v1/config/automod")
+        response = self.client.get("/config/automod")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["dry_run_override"], True)
@@ -164,7 +164,7 @@ class TestAPIEndpoints(unittest.TestCase):
             "default_action": "report",
             "defederation_threshold": 7,
         }
-        response = self.client.post("/api/v1/config/automod", json=payload)
+        response = self.client.post("/config/automod", json=payload)
         self.assertEqual(response.status_code, 200)
         service.set_automod_config.assert_called_once_with(
             dry_run_override=False,
@@ -184,7 +184,7 @@ class TestAPIEndpoints(unittest.TestCase):
         }.get(key)
         mock_service.return_value = service
         headers = {"X-API-Key": os.environ["API_KEY"]}
-        response = self.client.get("/api/v1/config", headers=headers)
+        response = self.client.get("/config", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertNotIn("ADMIN_TOKEN", data)
@@ -391,23 +391,23 @@ class TestAPIEndpoints(unittest.TestCase):
 
     def test_unauthorized_analytics(self):
         """Test that analytics endpoints require authentication."""
-        response = self.client.get("/api/v1/analytics/overview")
+        response = self.client.get("/analytics/overview")
         self.assertEqual(response.status_code, 401)
-        response = self.client.get("/api/v1/analytics/timeline")
+        response = self.client.get("/analytics/timeline")
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_rules_endpoints(self):
         """Test that rules endpoints require authentication."""
-        response = self.client.get("/api/v1/rules/")
+        response = self.client.get("/rules/")
         self.assertEqual(response.status_code, 401)
-        response = self.client.post("/api/v1/rules/", json={"name": "test"})
+        response = self.client.post("/rules/", json={"name": "test"})
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_config_endpoints(self):
         """Test that config endpoints require authentication."""
-        response = self.client.post("/api/v1/config/dry_run?enable=false")
+        response = self.client.post("/config/dry_run?enable=false")
         self.assertEqual(response.status_code, 401)
-        response = self.client.post("/api/v1/config/panic_stop?enable=true")
+        response = self.client.post("/config/panic_stop?enable=true")
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_logs_endpoint(self):
