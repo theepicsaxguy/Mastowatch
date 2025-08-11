@@ -1,15 +1,15 @@
-"""Scanning API router for content scanning operations."""
+"""API router for content scanning operations."""
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
-
 from app.auth import require_api_key
 from app.db import SessionLocal
-from app.models import ContentScan
+from app.models import ContentScan, DomainAlert
+from app.oauth import User, require_admin_hybrid
 from app.scanning import EnhancedScanningSystem
 from app.schemas import AccountsPage
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 
 router = APIRouter()
 
@@ -85,7 +85,7 @@ def trigger_federated_scan(target_domains: list[str] | None = None, api_key_vali
 
 
 @router.post("/scanning/domain-check", tags=["scanning"])
-def trigger_domain_check(api_key_valid: bool = Depends(require_api_key)):
+def trigger_domain_check(user: User = Depends(require_admin_hybrid)):
     """Trigger domain violation checking."""
     try:
         from app.tasks.jobs import check_domain_violations

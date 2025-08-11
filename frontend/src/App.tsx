@@ -821,11 +821,20 @@ function RulesTab({ rules, onReload }: {
   async function handleCreateRule() {
     try {
       setLoading(true);
+      
+      // Map frontend rule_type to backend detector_type
+      let detector_type = 'regex'; // default
+      if (newRule.rule_type === 'username_regex' || newRule.rule_type === 'display_name_regex' || newRule.rule_type === 'content_regex') {
+        detector_type = 'regex';
+      }
+      
       await createRule({
         name: newRule.name,
-        rule_type: newRule.rule_type,
+        detector_type: detector_type,
         pattern: newRule.pattern,
         weight: newRule.weight,
+        action_type: 'report', // Default action
+        trigger_threshold: 1.0, // Default threshold
         enabled: true
       });
       setNewRule({ name: '', rule_type: 'username_regex', pattern: '', weight: 0.5 });
