@@ -1,17 +1,16 @@
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
-from freezegun import freeze_time
 
+from app.auth import require_api_key
 from app.config import get_settings
 from app.main import app
+from app.oauth import require_admin_hybrid
 
 
-# Mock settings for testing
 def get_test_settings():
     settings = get_settings()
-    settings.REDIS_URL = "redis://localhost:6379/9"  # Use a separate Redis DB for testing
     settings.API_KEY = "test-api-key"
     return settings
 
@@ -21,116 +20,51 @@ app.dependency_overrides[get_settings] = get_test_settings
 client = TestClient(app)
 
 
+def mock_require_admin_hybrid():
+    return type("User", (), {"username": "test_admin", "is_admin": True})()
+
+
+app.dependency_overrides[require_admin_hybrid] = mock_require_admin_hybrid
+app.dependency_overrides[require_api_key] = lambda: True
+
+
 def test_invalidate_scan_cache_and_status():
-    """Test cache invalidation and status reporting"""
-    # Mock Redis client
-    mock_redis_client = {}  # Simulate Redis store
+    with patch("app.api.scanning.EnhancedScanningSystem") as MockScanner, patch(
+        "app.api.scanning.SessionLocal"
+    ) as MockSessionLocal:
+        scanner_instance = MockScanner.return_value
 
-    class MockRedis:
-        def from_url(self, url, decode_responses):
-            return self
+        mock_db = MagicMock()
+        query_total = MagicMock()
+        query_total.scalar.return_value = 10
+        query_needs = MagicMock()
+        query_needs.filter.return_value.scalar.return_value = 2
+        query_last = MagicMock()
+        query_last.scalar.return_value = datetime(2024, 1, 1)
+        mock_db.query.side_effect = [query_total, query_needs, query_last]
 
-        def setex(self, key, ttl, value):
-            mock_redis_client[key] = value
+        session_context = MagicMock()
+        session_context.__enter__.return_value = mock_db
+        session_context.__exit__.return_value = None
+        MockSessionLocal.return_value = session_context
 
-        def get(self, key):
-            return mock_redis_client.get(key)
-
-    with patch("app.main.redis", new=MockRedis()):
-        # 1. Call invalidate-cache endpoint
         response = client.post(
             "/scanning/invalidate-cache",
-            headers={
-                "X-API-Key": "test-api-key",
-                "Authorization": "Bearer test-admin-token",  # Mock admin auth
-            },
-            json={"rule_changes": True},
+            headers={"X-API-Key": "test-api-key", "Authorization": "Bearer test-admin-token"},
+            params={"rule_changes": True},
         )
         assert response.status_code == 200
-        assert response.json()["message"] == "Scan cache invalidated successfully"
-        assert response.json()["rule_changes"] == True
-        assert response.json()["frontend_refresh_recommended"] == True
+        assert response.json()["message"] == "Content cache invalidated"
+        assert response.json()["rule_changes"] is True
+        scanner_instance.invalidate_content_scans.assert_called_once_with(rule_changes=True, time_based=False)
 
-        # 2. Call cache-status immediately and assert refresh is needed
         response = client.get(
             "/scanning/cache-status",
-            headers={
-                "X-API-Key": "test-api-key",
-                "Authorization": "Bearer test-admin-token",  # Mock admin auth
-            },
+            headers={"X-API-Key": "test-api-key", "Authorization": "Bearer test-admin-token"},
         )
+        data = response.json()
         assert response.status_code == 200
-        assert response.json()["cache_status"] == "invalidated"
-        assert response.json()["refresh_recommended"] == True
-        assert response.json()["last_invalidation"]["rule_changes"] == True
-
-        # 3. Advance time by 6 minutes (360 seconds) - cache invalidation event expires after 300 seconds
-        with freeze_time(datetime.utcnow() + timedelta(minutes=6)):
-            response = client.get(
-                "/scanning/cache-status",
-                headers={
-                    "X-API-Key": "test-api-key",
-                    "Authorization": "Bearer test-admin-token",  # Mock admin auth
-                },
-            )
-            assert response.status_code == 200
-            assert response.json()["cache_status"] == "valid"
-            assert response.json()["refresh_recommended"] == False
-            assert response.json()["last_invalidation"] is None
-
-
-# Mock the require_admin_hybrid dependency for testing purposes
-# This allows us to bypass actual authentication for unit tests
-def mock_require_admin_hybrid():
-    return type("User", (object,), {"username": "test_admin", "is_admin": True})()
-
-
-app.dependency_overrides["require_admin_hybrid"] = mock_require_admin_hybrid
-
-
-# Mock the get_db_session dependency for testing purposes
-def mock_get_db_session():
-    class MockSession:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-        def query(self, *args, **kwargs):
-            return self
-
-        def filter(self, *args, **kwargs):
-            return self
-
-        def first(self):
-            return None
-
-        def all(self):
-            return []
-
-        def execute(self, *args, **kwargs):
-            return self
-
-        def scalar_one_or_none(self):
-            return None
-
-        def commit(self):
-            pass
-
-        def rollback(self):
-            pass
-
-        def refresh(self, *args, **kwargs):
-            pass
-
-        def add(self, *args, **kwargs):
-            pass
-
-        def update(self, *args, **kwargs):
-            pass
-
-    return MockSession()
-
-
-app.dependency_overrides["get_db_session"] = mock_get_db_session
+        assert data["total_cached_scans"] == 10
+        assert data["needs_rescan"] == 2
+        assert data["cache_hit_rate"] == 0.8
+        assert data["last_scan"] == datetime(2024, 1, 1).isoformat()
