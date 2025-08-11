@@ -81,6 +81,8 @@ services:
       # Development database and Redis
       DATABASE_URL: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch
       REDIS_URL: redis://redis:6379/0
+      # Ensure celery_sqlalchemy_scheduler uses Postgres instead of SQLite
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch
       
       # Development safety settings - see docs/ENVIRONMENT.md
       DRY_RUN: "true"

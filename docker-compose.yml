@@ -104,6 +104,10 @@ services:
     command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO", "--scheduler=celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler"]
     environment:
       <<: *backend-env
+      # Ensure celery_sqlalchemy_scheduler uses Postgres instead of defaulting to a local SQLite file
+      SQLALCHEMY_DATABASE_URI: "${DATABASE_URL}"
+      # Also set the beat-specific URL that the scheduler might look for
+      CELERY_BEAT_SQLALCHEMY_URL: "${DATABASE_URL}"
     depends_on:
       db:
         condition: service_healthy
