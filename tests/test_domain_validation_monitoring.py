@@ -23,6 +23,7 @@ os.environ.update(
         "BOT_TOKEN": "test_bot_token_123456789",
         "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5433/mastowatch_test",
         "REDIS_URL": "redis://localhost:6380/1",
+        "API_KEY": "test_api_key",
         "DEFEDERATION_THRESHOLD": "10",
         "CONTENT_CACHE_TTL": "24",
         "FEDERATED_SCAN_ENABLED": "true",
@@ -105,7 +106,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Simulate connection refused error
         self.mock_domain_check.delay.side_effect = Exception("Connection refused to localhost:8080")
 
-        response = self.client.post("/scanning/domain-check")
+        response = self.client.post("/scanning/domain-check", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 500)
 
         data = response.json()
@@ -119,7 +120,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Simulate hostname error
         self.mock_domain_check.delay.side_effect = Exception("hostname defaulting to 'localhost'")
 
-        response = self.client.post("/scanning/domain-check")
+        response = self.client.post("/scanning/domain-check", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 500)
 
     @patch("app.main.require_admin_hybrid")
@@ -130,7 +131,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Simulate 500 error
         self.mock_scanning_instance.get_domain_alerts.side_effect = Exception("500 Internal Server Error")
 
-        response = self.client.post("/scanning/domain-check")
+        response = self.client.post("/scanning/domain-check", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 500)
 
     @patch("app.main.require_admin_hybrid")
@@ -141,7 +142,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Simulate network timeout
         self.mock_domain_check.delay.side_effect = TimeoutError("Domain validation timeout")
 
-        response = self.client.post("/scanning/domain-check")
+        response = self.client.post("/scanning/domain-check", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 500)
 
     # ========== FEDERATED SCANNING ERROR HANDLING TESTS ==========
@@ -160,7 +161,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
 
         self.mock_federated_scan.delay.side_effect = FederatedScan422Error()
 
-        response = self.client.post("/scanning/federated")
+        response = self.client.post("/scanning/federated", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 500)
 
     @patch("app.main.require_admin_hybrid")
@@ -171,7 +172,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Simulate data processing error
         self.mock_federated_scan.delay.side_effect = Exception("Error processing received data")
 
-        response = self.client.post("/scanning/federated")
+        response = self.client.post("/scanning/federated", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 500)
 
     @patch("app.main.require_admin_hybrid")
@@ -182,7 +183,11 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Test with specific domains that cause errors
         target_domains = ["problematic.domain", "error.example"]
 
-        response = self.client.post("/scanning/federated", json={"domains": target_domains})
+        response = self.client.post(
+            "/scanning/federated",
+            json={"domains": target_domains},
+            headers={"X-API-Key": "test_api_key"},
+        )
 
         # Should still return success even if task enqueueing fails
         self.assertIn(response.status_code, [200, 500])
@@ -195,7 +200,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Mock successful federated scan
         self.mock_federated_scan.delay.return_value = self.mock_federated_task
 
-        response = self.client.post("/scanning/federated")
+        response = self.client.post("/scanning/federated", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -398,7 +403,11 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         """Test cache invalidation effectively marks content for re-scanning"""
         mock_auth.return_value = self.create_mock_admin_user()
 
-        response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": True})
+        response = self.client.post(
+            "/scanning/invalidate-cache",
+            json={"rule_changes": True},
+            headers={"X-API-Key": "test_api_key"},
+        )
         self.assertEqual(response.status_code, 200)
 
         # Verify invalidation was triggered
@@ -414,7 +423,11 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         """Test cache invalidation for general cache refresh"""
         mock_auth.return_value = self.create_mock_admin_user()
 
-        response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": False})
+        response = self.client.post(
+            "/scanning/invalidate-cache",
+            json={"rule_changes": False},
+            headers={"X-API-Key": "test_api_key"},
+        )
         self.assertEqual(response.status_code, 200)
 
         # Verify time-based invalidation
@@ -429,7 +442,11 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         mock_auth.return_value = self.create_mock_admin_user()
 
         # Test cache invalidation triggers frontend refresh indicators
-        response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": True})
+        response = self.client.post(
+            "/scanning/invalidate-cache",
+            json={"rule_changes": True},
+            headers={"X-API-Key": "test_api_key"},
+        )
         self.assertEqual(response.status_code, 200)
 
         # Test subsequent analytics call shows updated data
@@ -495,7 +512,11 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         mock_auth.return_value = self.create_mock_admin_user()
 
         # Test cache invalidation improves sync
-        response = self.client.post("/scanning/invalidate-cache", json={"rule_changes": False})
+        response = self.client.post(
+            "/scanning/invalidate-cache",
+            json={"rule_changes": False},
+            headers={"X-API-Key": "test_api_key"},
+        )
         self.assertEqual(response.status_code, 200)
 
         # Mock improved sync after invalidation
@@ -533,7 +554,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
             mock_client_instance.get.return_value = mock_response
 
             # Trigger federated scan
-            response = self.client.post("/scanning/federated")
+            response = self.client.post("/scanning/federated", headers={"X-API-Key": "test_api_key"})
             self.assertEqual(response.status_code, 200)
 
     def test_generated_client_error_handling(self):
@@ -622,7 +643,7 @@ class TestDomainValidationMonitoring(unittest.TestCase):
         # Test primary scanning failure with fallback
         self.mock_federated_scan.delay.side_effect = Exception("Primary scanning system failed")
 
-        response = self.client.post("/scanning/federated")
+        response = self.client.post("/scanning/federated", headers={"X-API-Key": "test_api_key"})
         self.assertEqual(response.status_code, 500)
 
         # System should log error but not crash
