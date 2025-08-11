@@ -38,10 +38,13 @@ client_mod.Client = Client
 mastodon_pkg.AuthenticatedClient = AuthenticatedClient
 mastodon_pkg.Client = Client
 
-accounts_pkg = types.ModuleType("app.clients.mastodon.accounts")
+api_pkg = types.ModuleType("app.clients.mastodon.api")
+api_pkg.__path__ = []
+
+accounts_pkg = types.ModuleType("app.clients.mastodon.api.accounts")
 accounts_pkg.__path__ = []
 
-get_account_mod = types.ModuleType("app.clients.mastodon.accounts.get_account")
+get_account_mod = types.ModuleType("app.clients.mastodon.api.accounts.get_account")
 
 
 def _get_account_sync(*_, **__):
@@ -50,7 +53,7 @@ def _get_account_sync(*_, **__):
 
 get_account_mod.sync = _get_account_sync
 
-get_account_statuses_mod = types.ModuleType("app.clients.mastodon.accounts.get_account_statuses")
+get_account_statuses_mod = types.ModuleType("app.clients.mastodon.api.accounts.get_account_statuses")
 
 
 def _get_account_statuses_sync(*_, **__):
@@ -87,10 +90,10 @@ class CreateReportBody:  # noqa: D401
 
 create_report_body_mod.CreateReportBody = CreateReportBody
 
-reports_pkg = types.ModuleType("app.clients.mastodon.reports")
+reports_pkg = types.ModuleType("app.clients.mastodon.api.reports")
 reports_pkg.__path__ = []
 
-create_report_mod = types.ModuleType("app.clients.mastodon.reports.create_report")
+create_report_mod = types.ModuleType("app.clients.mastodon.api.reports.create_report")
 
 
 def _create_report_sync(*_, **__):
@@ -103,13 +106,14 @@ sys.modules.update(
     {
         "app.clients.mastodon": mastodon_pkg,
         "app.clients.mastodon.client": client_mod,
-        "app.clients.mastodon.accounts": accounts_pkg,
-        "app.clients.mastodon.accounts.get_account": get_account_mod,
-        "app.clients.mastodon.accounts.get_account_statuses": get_account_statuses_mod,
+        "app.clients.mastodon.api": api_pkg,
+        "app.clients.mastodon.api.accounts": accounts_pkg,
+        "app.clients.mastodon.api.accounts.get_account": get_account_mod,
+        "app.clients.mastodon.api.accounts.get_account_statuses": get_account_statuses_mod,
         "app.clients.mastodon.models": models_pkg,
         "app.clients.mastodon.models.create_report_body": create_report_body_mod,
-        "app.clients.mastodon.reports": reports_pkg,
-        "app.clients.mastodon.reports.create_report": create_report_mod,
+        "app.clients.mastodon.api.reports": reports_pkg,
+        "app.clients.mastodon.api.reports.create_report": create_report_mod,
     }
 )
 

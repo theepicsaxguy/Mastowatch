@@ -12,6 +12,9 @@ Analyze accounts/statuses and **file reports via API** so human moderators act i
 - ✅ **Frontend**: Enhanced settings interface with error states and real-time configuration
 - ✅ **Testing**: Comprehensive edge case test coverage (22 test scenarios)
 - ✅ **CI/CD**: Automated testing, static analysis, and code formatting
+- ✅ **Audit Logs**: Enforcement actions recorded with rule context and API responses
+- ✅ **User Notifications**: Warnings and suspensions include messages sent through Mastodon
+- ✅ **Media-aware Scanning**: Analyzes attachments for alt text, MIME types, and URL hashes
 
 ## Quick start
 
@@ -29,26 +32,24 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up
 
 ## Configuration
 
-Set these in `.env` (copied from `.env.example`):
+**📖 For complete environment variable documentation, see: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)**
 
-### Required Settings
-* `INSTANCE_BASE`: your instance base URL
+### Quick Setup
+
+1. Copy the environment template: `cp .env.example .env`
+2. Edit `.env` with your actual values
+3. For production: Set required tokens and secrets
+4. For development: The override file provides safe defaults
+
+### Minimum Required Settings
+
+* `INSTANCE_BASE`: your Mastodon instance base URL
 * `BOT_TOKEN`: token with `write:reports` scope
 * `ADMIN_TOKEN`: token with admin read scopes
-* `API_KEY`: random string for API authentication
-* `WEBHOOK_SECRET`: random string for webhook signature validation
-
-### OAuth Admin Login (Required for Web UI)
-* `OAUTH_CLIENT_ID`: OAuth application client ID
-* `OAUTH_CLIENT_SECRET`: OAuth application client secret
-* `OAUTH_REDIRECT_URI`: OAuth callback URL (e.g., `https://your.instance/admin/callback`)
-* `OAUTH_SCOPE`: OAuth scopes for admin login (default: `read:accounts`)
-* `SESSION_SECRET_KEY`: Random secret for session cookies
-
-### Optional Settings
-* `DRY_RUN`: `true` to log without sending reports (default: `false`)
-* `PANIC_STOP`: `true` to halt all processing (default: `false`)
-* `MAX_PAGES_PER_POLL`: admin polling pages per batch (default: 3)
+* `API_KEY`: secure random string for API authentication
+* `WEBHOOK_SECRET`: secure random string for webhook signature validation
+* `DATABASE_URL`: PostgreSQL connection string
+* `REDIS_URL`: Redis connection string
 * `USER_AGENT`: user agent for Mastodon requests (default: `MastoWatch/<VERSION> (+moderation-sidecar)`)
 * `HTTP_TIMEOUT`: seconds before Mastodon requests time out (default: `30`)
 * `VERSION`: application version (default: `0.1.0`)
@@ -140,9 +141,12 @@ Endpoints:
 * `DELETE /rules/{id}` - Delete a rule
 * `POST /rules/{id}/toggle` - Enable or disable a rule
 
+Rules may combine two patterns using `boolean_operator` (`AND` or `OR`) with a `secondary_pattern`.
+
 #### Analytics & Data (requires admin login)
 * `GET /analytics/overview` - System analytics overview with account/report metrics
 * `GET /analytics/timeline?days=N` - Timeline analytics for the past N days (1-365)
+* `GET /logs` - Enforcement audit log entries
 
 #### Authentication
 * `GET /admin/login` - Initiate OAuth login flow for admin access
@@ -165,10 +169,12 @@ All API endpoints return structured error responses with:
 
 ## Notes
 
-* Celery Beat intervals are configurable via environment variables.
+* Celery Beat uses a database-backed schedule via `celery-sqlalchemy-scheduler`, and intervals are configurable through environment variables.
 * All endpoints use structured JSON logging with request IDs for troubleshooting.
 * Alembic migrations run via the `migrate` service. Note that `alembic.ini` leaves `sqlalchemy.url` empty; the `DATABASE_URL` environment variable is used instead.
 * Add Prometheus to scrape `/metrics` as desired.
 * Foreign keys ensure data integrity; performance indexes optimize common queries.
 
-```
+## Legal Notice
+
+Every page shows a footer linking to [goingdark.social](https://goingdark.social). The app refuses to run without it. Don't remove or rename this credit; it's part of the license.

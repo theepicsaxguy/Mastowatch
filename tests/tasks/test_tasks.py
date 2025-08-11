@@ -32,8 +32,20 @@ class TestCeleryTasks(unittest.TestCase):
 
         # Mock rule service evaluation
         mock_rule_service.evaluate_account.return_value = [
-            Violation(rule_name="rule1", rule_type="t1", score=0.5, evidence={}),
-            Violation(rule_name="rule2", rule_type="t2", score=0.3, evidence={}),
+            Violation(
+                rule_name="rule1",
+                rule_type="t1",
+                score=0.5,
+                evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                actions=[{"type": "report"}],
+            ),
+            Violation(
+                rule_name="rule2",
+                rule_type="t2",
+                score=0.3,
+                evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                actions=[{"type": "report"}],
+            ),
         ]
 
         mock_db_session = MagicMock()
@@ -151,7 +163,13 @@ class TestCeleryTasks(unittest.TestCase):
 
         # Mock rule service to return high score
         mock_rule_service.evaluate_account.return_value = [
-            Violation(rule_name="high_risk_rule", rule_type="t", score=2.5, evidence={})
+            Violation(
+                rule_name="high_risk_rule",
+                rule_type="t",
+                score=2.5,
+                evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                actions=[{"type": "report"}],
+            )
         ]
         mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
 
@@ -187,7 +205,13 @@ class TestCeleryTasks(unittest.TestCase):
 
         # Mock rule service to return low score
         mock_rule_service.evaluate_account.return_value = [
-            Violation(rule_name="low_risk_rule", rule_type="t", score=0.5, evidence={})
+            Violation(
+                rule_name="low_risk_rule",
+                rule_type="t",
+                score=0.5,
+                evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                actions=[{"type": "report"}],
+            )
         ]
         mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
 

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AppShell, Group, Text, Container, Card, Stack, Badge, Button, Switch,
-  ActionIcon, Tooltip, Divider, Skeleton, Grid, Table, Modal, Alert, 
+  ActionIcon, Tooltip, Divider, Skeleton, Grid, Table, Modal, Alert,
   Tabs, Select, Progress, Code, ScrollArea, TextInput, Title, Menu,
-  NumberInput
+  NumberInput, Anchor
 } from '@mantine/core';
 import { IconRefresh, IconEye, IconChartBar, IconUsers, IconFlag, IconSettings, IconRuler, IconInfoCircle, IconLogout, IconLogin, IconUser, IconPlus, IconTrash, IconEdit, IconToggleLeft, IconToggleRight, IconRadar, IconShield, IconTrendingUp } from '@tabler/icons-react';
 import { 
@@ -35,6 +35,9 @@ type Health = {
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
 
+const LEGAL_NOTICE_URL = 'https://goingdark.social';
+const LEGAL_NOTICE_TEXT = 'Made for goingdark.social';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [health, setHealth] = useState<Health | null>(null);
@@ -53,7 +56,12 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
-  // Enhanced analytics states
+  useEffect(() => {
+    const link = document.querySelector(`a[href="${LEGAL_NOTICE_URL}"]`);
+    if (!link || link.textContent?.trim() !== LEGAL_NOTICE_TEXT) {
+      throw new Error('Appropriate Legal Notice missing');
+    }
+  }, []);
   const [scanningAnalytics, setScanningAnalytics] = useState<ScanningAnalytics | null>(null);
   const [domainAnalytics, setDomainAnalytics] = useState<DomainAnalytics | null>(null);
   const [ruleStatistics, setRuleStatistics] = useState<RuleStatistics | null>(null);
@@ -85,7 +93,6 @@ export default function App() {
       const user = await login();
       if (user) {
         setCurrentUser(user);
-        // Trigger a refresh of all data after successful login
         await refreshAllData();
       }
     } catch (error) {
@@ -101,7 +108,6 @@ export default function App() {
       setCurrentUser(null);
     } catch (error) {
       console.error('Logout failed:', error);
-      // Clear user anyway
       setCurrentUser(null);
     }
   }
@@ -195,7 +201,6 @@ export default function App() {
     setLoading(true);
     try {
       await triggerFederatedScan(domains);
-      // Refresh analytics after triggering scan
       await loadScanningAnalytics();
     } catch (error) {
       console.error('Failed to trigger federated scan:', error);
@@ -208,7 +213,6 @@ export default function App() {
     setLoading(true);
     try {
       await triggerDomainCheck();
-      // Refresh analytics after check
       await loadDomainAnalytics();
     } catch (error) {
       console.error('Failed to trigger domain check:', error);
@@ -221,7 +225,6 @@ export default function App() {
     setLoading(true);
     try {
       await invalidateScanCache(rule_changes);
-      // Refresh analytics after cache invalidation
       await loadScanningAnalytics();
     } catch (error) {
       console.error('Failed to invalidate cache:', error);
@@ -298,7 +301,6 @@ export default function App() {
     }
   }
 
-  // Show login screen if not authenticated
   if (authLoading) {
     return (
       <Container size="sm" mt="xl">
@@ -338,6 +340,7 @@ export default function App() {
   return (
     <AppShell
       header={{ height: 56 }}
+      footer={{ height: 40 }}
       padding="md"
       withBorder={false}
     >
@@ -471,8 +474,14 @@ export default function App() {
           </Tabs>
         </Container>
       </AppShell.Main>
+      <AppShell.Footer>
+        <Container size="xl">
+          <Anchor href={LEGAL_NOTICE_URL} target="_blank" rel="noopener noreferrer">
+            {LEGAL_NOTICE_TEXT}
+          </Anchor>
+        </Container>
+      </AppShell.Footer>
 
-      {/* Account Detail Modal */}
       <Modal
         opened={!!selectedAccount}
         onClose={() => {
@@ -493,7 +502,6 @@ export default function App() {
   );
 }
 
-// Tab Components
 function OverviewTab({ overview, timeline }: { overview: OverviewMetrics | null, timeline: TimelineData | null }) {
   if (!overview) {
     return <Skeleton height={400} />;

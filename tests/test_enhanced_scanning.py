@@ -38,7 +38,7 @@ class TestEnhancedScanningSystem(unittest.TestCase):
     """Test enhanced scanning system functionality"""
 
     def setUp(self):
-        # Mock database
+        """Prepare database and client mocks."""
         self.db_patcher = patch("app.scanning.SessionLocal")
         self.mock_db = self.db_patcher.start()
         self.mock_session = MagicMock()
@@ -53,6 +53,7 @@ class TestEnhancedScanningSystem(unittest.TestCase):
         self.mock_masto_client = self.client_patcher.start()
         self.mock_client_instance = MagicMock()
         self.mock_masto_client.return_value = self.mock_client_instance
+        self.mock_client_instance.get_account_statuses.return_value = []
 
         self.rule_service_patcher = patch("app.scanning.rule_service")
         self.mock_rule_service = self.rule_service_patcher.start()
@@ -64,6 +65,7 @@ class TestEnhancedScanningSystem(unittest.TestCase):
         self.scanning_system = EnhancedScanningSystem()
 
     def tearDown(self):
+        """Stop patches."""
         self.db_patcher.stop()
         self.client_patcher.stop()
         self.rule_service_patcher.stop()
@@ -128,9 +130,8 @@ class TestEnhancedScanningSystem(unittest.TestCase):
         self.mock_session.add.return_value = None
         self.mock_session.refresh.return_value = None
 
-        session_id = self.scanning_system.start_scan_session("test_type", {"key": "value"})
+        self.scanning_system.start_scan_session("test_type", {"key": "value"})
 
-        # Verify session was created
         self.mock_session.add.assert_called_once()
         self.mock_session.commit.assert_called_once()
 
@@ -271,7 +272,13 @@ class TestEnhancedScanningSystem(unittest.TestCase):
             self.mock_client_instance.get.return_value = mock_response
 
             self.mock_rule_service.evaluate_account.return_value = [
-                Violation(rule_name="test_rule", rule_type="t", score=0.8, evidence={})
+                Violation(
+                    rule_name="test_rule",
+                    rule_type="t",
+                    score=0.8,
+                    evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                    actions=[{"type": "report"}],
+                )
             ]
 
             result = self.scanning_system.scan_account_efficiently(account_data, 1)
@@ -375,7 +382,10 @@ class TestEnhancedScanningSystem(unittest.TestCase):
     def test_get_active_domains(self):
         """Test getting list of active domains for scanning"""
         # Mock domain query results
-        self.mock_session.query.return_value.filter.return_value.distinct.return_value.limit.return_value.all.return_value = [
+        query_chain = (
+            self.mock_session.query.return_value.filter.return_value.distinct.return_value.limit.return_value.all
+        )
+        query_chain.return_value = [
             ("example.com",),
             ("test.org",),
             ("sample.net",),
@@ -423,16 +433,30 @@ class TestEnhancedScanningSystem(unittest.TestCase):
 
         with patch.object(self.scanning_system, "should_scan_account", return_value=True):
             self.mock_rule_service.evaluate_account.return_value = [
-                Violation(rule_name="spam_rule", rule_type="t", score=1.5, evidence={})
+                Violation(
+                    rule_name="spam_rule",
+                    rule_type="t",
+                    score=1.5,
+                    evidence={"matched_terms": [], "matched_status_ids": [], "metrics": {}},
+                    actions=[{"type": "report"}],
+                )
             ]
 
-            mock_response = MagicMock()
-            mock_response.json.return_value = [{"content": "spam content"}]
-            self.mock_client_instance.get.return_value = mock_response
+            def statuses_side_effect(account_id, limit, only_media=False):
+                return [{"id": "1", "content": "spam content", "media_attachments": []}]
+
+            self.mock_client_instance.get_account_statuses.side_effect = statuses_side_effect
 
             with patch.object(self.scanning_system, "_track_domain_violation") as mock_track:
-                result = self.scanning_system.scan_account_efficiently(account_data, 1)
-
+                self.scanning_system.scan_account_efficiently(account_data, 1)
+                self.mock_client_instance.get_account_statuses.assert_any_call(
+                    account_id="test_account_123", limit=self.scanning_system.settings.MAX_STATUSES_TO_FETCH
+                )
+                self.mock_client_instance.get_account_statuses.assert_any_call(
+                    account_id="test_account_123",
+                    limit=self.scanning_system.settings.MAX_STATUSES_TO_FETCH,
+                    only_media=True,
+                )
                 mock_track.assert_called_once_with("bad.example")
 
 

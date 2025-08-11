@@ -10,6 +10,7 @@ MastoWatch now includes comprehensive production-readiness features:
 - **Real-time settings interface** with error states and validation
 - **CI/CD integration** with automated testing and static analysis
 - **Security features** including webhook signature validation and API authentication
+- **Optional enforcement** to warn, silence, or suspend accounts with timed actions automatically undone
 
 ### 🧪 Testing Infrastructure
 - **Edge case testing**: 22 comprehensive test scenarios covering webhooks, health checks, and configuration
@@ -21,6 +22,7 @@ MastoWatch now includes comprehensive production-readiness features:
 - **Health endpoints** returning proper HTTP status codes (503 for service failures)
 - **Prometheus metrics** with detailed application metrics
 - **Analytics dashboard** with real-time system status
+- **Audit logs** for enforcement actions accessible via `/logs`
 
 ## Quick Start
 
@@ -124,18 +126,14 @@ WEBHOOK_SECRET=test_webhook_secret_123  # For webhook signature tests
 ```
 
 ### Static Analysis & Code Quality
+Use the Makefile targets to keep the codebase clean and consistent:
+
 ```bash
-# Auto-format code
-black app tests
-
-# Organize imports  
-isort app tests
-
-# Check critical linting issues
-flake8 app tests --select=E9,F63,F7,F82
-
-# Security scanning
-bandit -r app
+make format       # Format code with Black
+make lint         # Lint with Ruff
+make typecheck    # Run MyPy
+make test         # Run tests
+make check        # Run all of the above
 ```
 
 ### Pull Request Image Builds
@@ -222,9 +220,10 @@ alembic history        # Show migration history
 The frontend now includes:
 - **Real-time configuration** with immediate feedback
 - **Error handling** with user-friendly alerts
-- **System status monitoring** with service health indicators  
+- **System status monitoring** with service health indicators
 - **Analytics dashboard** with account and report metrics
 - **Persistence validation** ensuring settings are properly saved
+- **AutoMod configuration** at `/config/automod` for DRY_RUN overrides, default actions, and defederation limits
 
 ### Frontend Development Commands
 ```bash

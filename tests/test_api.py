@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -26,9 +27,9 @@ os.environ.update(
 # Add the app directory to the path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi.testclient import TestClient
-
+from app.models import AuditLog
 from app.oauth import User
+from fastapi.testclient import TestClient
 
 
 def create_mock_admin_user():
@@ -106,7 +107,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_auth.return_value = create_mock_admin_user()
         service = MagicMock()
         mock_service.return_value = service
-        response = self.client.post("/api/v1/config/dry_run?enable=false")
+        response = self.client.post("/config/dry_run?enable=false")
         self.assertEqual(response.status_code, 200)
         service.set_flag.assert_called_once_with("dry_run", False, updated_by="testadmin")
 
@@ -117,7 +118,7 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_auth.return_value = create_mock_admin_user()
         service = MagicMock()
         mock_service.return_value = service
-        response = self.client.post("/api/v1/config/panic_stop?enable=true")
+        response = self.client.post("/config/panic_stop?enable=true")
         self.assertEqual(response.status_code, 200)
         service.set_flag.assert_called_once_with("panic_stop", True, updated_by="testadmin")
 
@@ -128,9 +129,41 @@ class TestAPIEndpoints(unittest.TestCase):
         mock_auth.return_value = create_mock_admin_user()
         service = MagicMock()
         mock_service.return_value = service
-        response = self.client.post("/api/v1/config/report_threshold?threshold=2.5")
+        response = self.client.post("/config/report_threshold?threshold=2.5")
         self.assertEqual(response.status_code, 200)
         service.set_threshold.assert_called_once_with("report_threshold", 2.5, updated_by="testadmin")
+
+    @patch("app.api.config.get_config_service")
+    @patch("app.api.config.require_admin_hybrid")
+    def test_automod_config_endpoint(self, mock_auth, mock_service):
+        """Manage automod settings via service."""
+        mock_auth.return_value = create_mock_admin_user()
+        service = MagicMock()
+        service.get_config.return_value = {
+            "dry_run_override": True,
+            "default_action": "suspend",
+            "defederation_threshold": 3,
+        }
+        mock_service.return_value = service
+        response = self.client.get("/config/automod")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["dry_run_override"], True)
+        self.assertEqual(data["default_action"], "suspend")
+        self.assertEqual(data["defederation_threshold"], 3)
+        payload = {
+            "dry_run_override": False,
+            "default_action": "report",
+            "defederation_threshold": 7,
+        }
+        response = self.client.post("/config/automod", json=payload)
+        self.assertEqual(response.status_code, 200)
+        service.set_automod_config.assert_called_once_with(
+            dry_run_override=False,
+            default_action="report",
+            defederation_threshold=7,
+            updated_by="testadmin",
+        )
 
     @patch("app.api.config.get_config_service")
     def test_get_config_returns_non_sensitive_fields(self, mock_service):
@@ -143,7 +176,7 @@ class TestAPIEndpoints(unittest.TestCase):
         }.get(key)
         mock_service.return_value = service
         headers = {"X-API-Key": os.environ["API_KEY"]}
-        response = self.client.get("/api/v1/config", headers=headers)
+        response = self.client.get("/config", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertNotIn("ADMIN_TOKEN", data)
@@ -174,13 +207,44 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("analyses", data)
         self.assertIn("reports", data)
 
+    @patch("app.api.logs.SessionLocal")
+    @patch("app.api.logs.require_admin_hybrid")
+    def test_logs_endpoint(self, mock_auth, mock_session_local):
+        """Test audit log retrieval."""
+        mock_auth.return_value = create_mock_admin_user()
+        session = MagicMock()
+        log = AuditLog(
+            id=1,
+            action_type="suspend",
+            triggered_by_rule_id=2,
+            target_account_id="acct1",
+            timestamp=datetime.utcnow(),
+            evidence={"k": "v"},
+            api_response={"ok": True},
+        )
+        query = MagicMock()
+        query.order_by.return_value = query
+        query.filter.return_value = query
+        query.limit.return_value.all.return_value = [log]
+        session.query.return_value = query
+        mock_session_local.return_value.__enter__.return_value = session
+        response = self.client.get("/logs")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]["action_type"], "suspend")
+        self.assertEqual(data[0]["triggered_by_rule_id"], 2)
+
     @patch("app.api.rules.require_admin_hybrid")
     def test_get_current_rules_new_endpoint(self, mock_auth):
         """Test current rules endpoint with new API structure."""
         mock_auth.return_value = create_mock_admin_user()
 
         with patch("app.api.rules.rule_service") as mock_rule_service:
-            mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
+            mock_rule_service.get_active_rules.return_value = (
+                [],
+                {"report_threshold": 1.0},
+                "test_sha",
+            )
 
             response = self.client.get("/rules/")
             self.assertEqual(response.status_code, 200)
@@ -205,6 +269,8 @@ class TestAPIEndpoints(unittest.TestCase):
                 "name": "test_rule",
                 "detector_type": "regex",
                 "pattern": "test_pattern",
+                "boolean_operator": "AND",
+                "secondary_pattern": "other",
                 "weight": 1.0,
                 "action_type": "report",
                 "trigger_threshold": 1.0,
@@ -252,6 +318,7 @@ class TestAPIEndpoints(unittest.TestCase):
 
     @patch("app.api.scanning.require_api_key")
     def test_get_next_accounts_to_scan_endpoint(self, mock_api_key):
+        """Fetch the next accounts to scan."""
         mock_api_key.return_value = True
         with patch("app.api.scanning.EnhancedScanningSystem") as mock_scanner:
             instance = mock_scanner.return_value
@@ -266,14 +333,21 @@ class TestAPIEndpoints(unittest.TestCase):
     def test_webhook_report_created(self, mock_process_report):
         """Test webhook handling for report.created events."""
         mock_process_report.delay.return_value = MagicMock(id="task_123")
-        payload = {"id": "report_123", "account": {"id": "account_123"}, "target_account": {"id": "target_account_123"}}
+        payload = {
+            "id": "report_123",
+            "account": {"id": "account_123"},
+            "target_account": {"id": "target_account_123"},
+        }
         webhook_secret = os.environ["WEBHOOK_SECRET"]
-        body = str(payload).encode("utf-8")
+        body = json.dumps(payload).encode("utf-8")
         signature = "sha256=" + hmac.new(webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
         response = self.client.post(
             "/webhooks/mastodon_events",
             json=payload,
-            headers={"X-Hub-Signature-256": signature, "X-Mastodon-Event": "report.created"},
+            headers={
+                "X-Hub-Signature-256": signature,
+                "X-Mastodon-Event": "report.created",
+            },
         )
         self.assertEqual(response.status_code, 200)
 
@@ -281,36 +355,48 @@ class TestAPIEndpoints(unittest.TestCase):
     def test_webhook_status_created(self, mock_process_status):
         """Test webhook handling for status.created events."""
         mock_process_status.delay.return_value = MagicMock(id="task_456")
-        payload = {"id": "status_123", "account": {"id": "account_123"}, "content": "test status content"}
+        payload = {
+            "id": "status_123",
+            "account": {"id": "account_123"},
+            "content": "test status content",
+        }
         webhook_secret = os.environ["WEBHOOK_SECRET"]
         body = json.dumps(payload).encode("utf-8")
         signature = "sha256=" + hmac.new(webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
         response = self.client.post(
             "/webhooks/mastodon_events",
             json=payload,
-            headers={"X-Hub-Signature-256": signature, "X-Mastodon-Event": "status.created"},
+            headers={
+                "X-Hub-Signature-256": signature,
+                "X-Mastodon-Event": "status.created",
+            },
         )
         self.assertEqual(response.status_code, 200)
 
     def test_unauthorized_analytics(self):
         """Test that analytics endpoints require authentication."""
-        response = self.client.get("/api/v1/analytics/overview")
+        response = self.client.get("/analytics/overview")
         self.assertEqual(response.status_code, 401)
-        response = self.client.get("/api/v1/analytics/timeline")
+        response = self.client.get("/analytics/timeline")
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_rules_endpoints(self):
         """Test that rules endpoints require authentication."""
-        response = self.client.get("/api/v1/rules/")
+        response = self.client.get("/rules/")
         self.assertEqual(response.status_code, 401)
-        response = self.client.post("/api/v1/rules/", json={"name": "test"})
+        response = self.client.post("/rules/", json={"name": "test"})
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_config_endpoints(self):
         """Test that config endpoints require authentication."""
-        response = self.client.post("/api/v1/config/dry_run?enable=false")
+        response = self.client.post("/config/dry_run?enable=false")
         self.assertEqual(response.status_code, 401)
-        response = self.client.post("/api/v1/config/panic_stop?enable=true")
+        response = self.client.post("/config/panic_stop?enable=true")
+        self.assertEqual(response.status_code, 401)
+
+    def test_unauthorized_logs_endpoint(self):
+        """Logs endpoint requires authentication."""
+        response = self.client.get("/logs")
         self.assertEqual(response.status_code, 401)
 
     def test_unauthorized_webhook(self):

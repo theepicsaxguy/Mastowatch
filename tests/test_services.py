@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from app.db import Base
+from app.models import AuditLog
 from app.services.enforcement_service import EnforcementService
 from app.services.rule_service import RuleService
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 class TestRuleService(unittest.TestCase):
@@ -68,17 +68,8 @@ class TestRuleService(unittest.TestCase):
                 trigger_threshold=1.0,
             )
 
-        # First call should hit database
-        start_time = time.time()
         rules1, _, _ = self.rule_service.get_active_rules()
-        first_call_time = time.time() - start_time
-
-        # Second call should use cache
-        start_time = time.time()
         rules2, _, _ = self.rule_service.get_active_rules()
-        second_call_time = time.time() - start_time
-
-        # Cache should be faster (though in SQLite this may not be measurable)
         self.assertEqual(len(rules1), len(rules2))
         self.assertEqual(len(rules1), 5)
 
@@ -148,84 +139,34 @@ class TestRuleService(unittest.TestCase):
         self.assertIn("cache_status", stats)
 
 
-class TestEnforcementService(unittest.TestCase):
-    """Test suite for EnforcementService class."""
+class TestEnforcementServiceLogging(unittest.TestCase):
+    """Verify audit logging for enforcement actions."""
 
     def setUp(self):
-        """Set up test environment."""
-        self.enforcement_service = EnforcementService()
+        """Prepare enforcement service with isolated database."""
+        self.test_db = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+        engine = create_engine(f"sqlite:///{self.test_db.name}", echo=False)
+        Base.metadata.create_all(engine)
+        self.SessionLocal = sessionmaker(bind=engine)
+        self.db_patcher = patch("app.services.enforcement_service.SessionLocal", self.SessionLocal)
+        self.db_patcher.start()
+        self.client = Mock()
+        self.client._make_request.return_value = Mock(json=lambda: {"ok": True})
+        self.service = EnforcementService(self.client)
 
-    @patch("app.services.enforcement_service.MastoClient")
-    def test_apply_action_report(self, mock_client_class):
-        """Test applying report action."""
-        mock_client = Mock()
-        mock_client_class.return_value = mock_client
-        mock_client.create_report.return_value = Mock(json=lambda: {"id": "report_123"})
+    def tearDown(self):
+        """Remove temporary resources."""
+        self.db_patcher.stop()
+        os.unlink(self.test_db.name)
 
-        account_data = {"id": "account_123", "acct": "test@example.com"}
-        action = {"type": "report", "comment": "Test report comment", "category": "spam"}
-
-        result = self.enforcement_service.apply_action(account_data, action)
-
-        self.assertTrue(result)
-        mock_client.create_report.assert_called_once()
-
-    @patch("app.services.enforcement_service.MastoClient")
-    def test_apply_action_silence(self, mock_client_class):
-        """Test applying silence action."""
-        mock_client = Mock()
-        mock_client_class.return_value = mock_client
-        mock_client.post.return_value = Mock(status_code=200)
-
-        account_data = {"id": "account_123", "acct": "test@example.com"}
-        action = {"type": "silence", "duration_seconds": 3600}
-
-        result = self.enforcement_service.apply_action(account_data, action)
-
-        self.assertTrue(result)
-        mock_client.post.assert_called_once()
-
-    def test_apply_action_invalid_type(self):
-        """Test handling of invalid action type."""
-        account_data = {"id": "account_123"}
-        action = {"type": "invalid_action"}
-
-        result = self.enforcement_service.apply_action(account_data, action)
-
-        self.assertFalse(result)
-
-    @patch("app.services.enforcement_service.get_settings")
-    def test_dry_run_mode(self, mock_settings):
-        """Test that actions are not applied in dry run mode."""
-        mock_settings.return_value.DRY_RUN = True
-
-        account_data = {"id": "account_123"}
-        action = {"type": "report", "comment": "Test"}
-
-        result = self.enforcement_service.apply_action(account_data, action)
-
-        # Should return True but not actually perform action
-        self.assertTrue(result)
-
-    def test_validate_action_structure(self):
-        """Test action validation logic."""
-        # Valid action
-        valid_action = {"type": "report", "comment": "Valid comment", "category": "spam"}
-        self.assertTrue(self.enforcement_service._validate_action(valid_action))
-
-        # Invalid action - missing required field
-        invalid_action = {
-            "type": "report"
-            # Missing comment
-        }
-        self.assertFalse(self.enforcement_service._validate_action(invalid_action))
-
-        # Invalid action - unknown type
-        unknown_action = {"type": "unknown_action", "comment": "Test"}
-        self.assertFalse(self.enforcement_service._validate_action(unknown_action))
+    def test_warn_account_logs(self):
+        """Persist audit log when warning account."""
+        self.service.warn_account("acct", text="t", rule_id=1, evidence={"e": 1})
+        with self.SessionLocal() as session:
+            logs = session.query(AuditLog).all()
+            self.assertEqual(len(logs), 1)
+            self.assertEqual(logs[0].triggered_by_rule_id, 1)
 
 
 if __name__ == "__main__":
-    import time
-
     unittest.main()

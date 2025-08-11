@@ -10,6 +10,7 @@ import redis
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
 from app.api.config import router as config_router
+from app.api.logs import router as logs_router
 from app.api.rules import router as rules_router
 from app.api.scanning import router as scanning_router
 from app.config import get_settings
@@ -44,6 +45,7 @@ app.include_router(rules_router)
 app.include_router(config_router)
 app.include_router(scanning_router)
 app.include_router(auth_router)
+app.include_router(logs_router)
 
 if settings.CORS_ORIGINS:
     app.add_middleware(
