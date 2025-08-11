@@ -45,13 +45,14 @@ def get_current_rules(user: User = Depends(require_admin_hybrid)):
 
 
 @router.get("/rules", tags=["rules"])
-def list_rules(user: User = Depends(require_admin_hybrid)):
-    """List all rules."""
-    rules_list, _, _ = rule_service.get_active_rules()
+def list_rules(user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
+    """List all rules (both enabled and disabled)."""
+    # Get ALL rules for the admin interface, not just active ones
+    all_rules = session.query(Rule).order_by(Rule.created_at.desc()).all()
     response = []
 
     # Convert rules to flat list for easier frontend consumption
-    for rule in rules_list:
+    for rule in all_rules:
         response.append(
             {
                 "id": rule.id,
