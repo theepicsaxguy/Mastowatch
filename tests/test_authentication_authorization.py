@@ -14,7 +14,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# Set test environment before any imports
 os.environ.update(
     {
         "SKIP_STARTUP_VALIDATION": "1",
@@ -29,10 +28,10 @@ os.environ.update(
         "OAUTH_REDIRECT_URI": "http://localhost:8080/admin/callback",
         "OAUTH_POPUP_REDIRECT_URI": "http://localhost:8080/admin/popup-callback",
         "OAUTH_SCOPE": "read:accounts",
+        "WEBHOOK_SECRET": "test_webhook_secret_123",
     }
 )
 
-# Add the app directory to the path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient
@@ -364,16 +363,13 @@ class TestAuthenticationAuthorization(unittest.TestCase):
     def test_webhook_authentication(self):
         """Test webhook signature-based authentication"""
         payload = json.dumps({"account": {"id": "123"}, "statuses": []})
-        secret = "test_webhook_secret_123"
-        signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        signature = hmac.new(os.environ["WEBHOOK_SECRET"].encode(), payload.encode(), hashlib.sha256).hexdigest()
 
         response = self.client.post(
-            "/webhooks/status",
+            "/webhooks/mastodon_events",
             content=payload,
             headers={"X-Hub-Signature-256": f"sha256={signature}", "Content-Type": "application/json"},
         )
-
-        # Should authenticate with valid signature
         self.assertEqual(response.status_code, 200)
 
     def test_api_key_authentication(self):
