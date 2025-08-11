@@ -56,6 +56,7 @@ These variables must be set for MastoWatch to function properly:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | JSON array of allowed CORS origins |
+| `UI_ORIGIN` | `http://localhost:5173` | Base URL of the dashboard UI |
 
 ### OAuth Configuration (Admin Dashboard)
 

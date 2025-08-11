@@ -35,7 +35,8 @@ services:
       PANIC_STOP: "false"
       SKIP_STARTUP_VALIDATION: "false"
       CORS_ORIGINS: '["http://localhost:3000", "http://localhost:5173"]'
-      
+      UI_ORIGIN: "${UI_ORIGIN:-http://localhost:5173}"
+
       # Development tokens (replace with actual values from your test instance)
       INSTANCE_BASE: "${INSTANCE_BASE:-https://your-test-instance.example.com}"
       BOT_TOKEN: "${BOT_TOKEN:-REPLACE_WITH_YOUR_DEV_BOT_TOKEN}"
@@ -62,13 +63,14 @@ services:
       # Development safety settings - see docs/ENVIRONMENT.md
       DRY_RUN: "true"
       PANIC_STOP: "false"
-      
+
       # Development tokens (inherit from environment or use defaults)
       INSTANCE_BASE: "${INSTANCE_BASE:-https://your-test-instance.example.com}"
       BOT_TOKEN: "${BOT_TOKEN:-REPLACE_WITH_YOUR_DEV_BOT_TOKEN}"
       ADMIN_TOKEN: "${ADMIN_TOKEN:-REPLACE_WITH_YOUR_DEV_ADMIN_TOKEN}"
       API_KEY: "${API_KEY:-dev_api_key_change_in_production}"
       WEBHOOK_SECRET: "${WEBHOOK_SECRET:-dev_webhook_secret_change_in_production}"
+      UI_ORIGIN: "${UI_ORIGIN:-http://localhost:5173}"
     volumes:
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
@@ -90,6 +92,7 @@ services:
       ADMIN_TOKEN: "${ADMIN_TOKEN:-REPLACE_WITH_YOUR_DEV_ADMIN_TOKEN}"
       API_KEY: "${API_KEY:-dev_api_key_change_in_production}"
       WEBHOOK_SECRET: "${WEBHOOK_SECRET:-dev_webhook_secret_change_in_production}"
+      UI_ORIGIN: "${UI_ORIGIN:-http://localhost:5173}"
     volumes:
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
@@ -98,6 +101,7 @@ services:
     environment:
       # Development database connection
       DATABASE_URL: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch
+      UI_ORIGIN: "${UI_ORIGIN:-http://localhost:5173}"
 
   frontend:
     build:
