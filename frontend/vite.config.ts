@@ -65,6 +65,12 @@ export default defineConfig({
         cookieDomainRewrite: false,
         preserveHeaderKeyCase: true,
       },
+      '/scanning': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
       '/api': {
         target: proxyTarget,
         changeOrigin: true,

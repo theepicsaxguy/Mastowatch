@@ -2,8 +2,9 @@
 
 import logging
 import re
+from typing import Any
 
-from app.db import SessionLocal
+from app.db import SessionLocal, get_db
 from app.models import Analysis, Rule
 from app.oauth import User, require_admin_hybrid
 from app.scanning import EnhancedScanningSystem
@@ -23,7 +24,7 @@ MAX_RULE_WEIGHT = 5.0
 def get_current_rules(user: User = Depends(require_admin_hybrid)):
     """Get current rule configuration including database rules."""
     rules_list, config, _ = rule_service.get_active_rules()
-    
+
     # Convert rules list to dictionary format for backwards compatibility
     rules_dict = {}
     for rule in rules_list:
@@ -36,7 +37,7 @@ def get_current_rules(user: User = Depends(require_admin_hybrid)):
             "action_type": rule.action_type,
             "trigger_threshold": rule.trigger_threshold,
         }
-    
+
     return {
         "rules": {**rules_dict, "report_threshold": config.get("report_threshold", 1.0)},
         "report_threshold": config.get("report_threshold", 1.0),
@@ -82,7 +83,9 @@ def list_rules(user: User = Depends(require_admin_hybrid)):
 
 
 @router.post("/rules", tags=["rules"])
-def create_rule(rule_data: dict, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)):
+def create_rule(
+    rule_data: dict[str, Any], user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)
+):
     """Create a new rule."""
     try:
         # Validate required fields

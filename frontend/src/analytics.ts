@@ -87,10 +87,13 @@ export type RulesData = {
 export type Rule = {
   id?: number;
   name: string;
-  rule_type: 'username_regex' | 'display_name_regex' | 'content_regex';
+  rule_type: 'regex' | 'keyword' | 'behavioral' | 'media';
+  detector_type?: 'regex' | 'keyword' | 'behavioral' | 'media';
   pattern: string;
   weight: number;
   enabled: boolean;
+  action_type?: string;
+  trigger_threshold?: number;
   trigger_count?: number;
   last_triggered_at?: string | null;
   last_triggered_content?: any;

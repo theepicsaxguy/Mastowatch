@@ -312,7 +312,7 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
                         "accounts_processed": session.accounts_processed,
                         "total_accounts": session.total_accounts,
                         "started_at": session.started_at.isoformat(),
-                        "current_cursor": getattr(session, 'current_cursor', None),
+                        "current_cursor": getattr(session, "current_cursor", None),
                     }
                     for session in active_sessions
                 ],
@@ -366,7 +366,9 @@ def get_domain_analytics(_: User = Depends(require_admin_hybrid)):
             # Calculate summary statistics
             total_domains = len(domain_stats)
             defederated_domains = sum(1 for alert in domain_alerts if alert.is_defederated)
-            high_risk_domains = len([alert for alert in domain_alerts if not alert.is_defederated and alert.violation_count > 0])
+            high_risk_domains = len(
+                [alert for alert in domain_alerts if not alert.is_defederated and alert.violation_count > 0]
+            )
             monitored_domains = total_domains
 
             return {

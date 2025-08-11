@@ -800,7 +800,7 @@ function RulesTab({ rules, onReload }: {
   const [selectedRuleForInfo, setSelectedRuleForInfo] = useState<Rule | null>(null);
   const [newRule, setNewRule] = useState({
     name: '',
-    rule_type: 'username_regex' as Rule['rule_type'],
+    rule_type: 'regex' as Rule['rule_type'],
     pattern: '',
     weight: 0.5
   });
@@ -823,10 +823,7 @@ function RulesTab({ rules, onReload }: {
       setLoading(true);
       
       // Map frontend rule_type to backend detector_type
-      let detector_type = 'regex'; // default
-      if (newRule.rule_type === 'username_regex' || newRule.rule_type === 'display_name_regex' || newRule.rule_type === 'content_regex') {
-        detector_type = 'regex';
-      }
+      let detector_type = newRule.rule_type; // Use rule_type directly as it now matches detector_type
       
       await createRule({
         name: newRule.name,
@@ -835,9 +832,10 @@ function RulesTab({ rules, onReload }: {
         weight: newRule.weight,
         action_type: 'report', // Default action
         trigger_threshold: 1.0, // Default threshold
-        enabled: true
+        enabled: true,
+        rule_type: detector_type // Add rule_type for frontend compatibility
       });
-      setNewRule({ name: '', rule_type: 'username_regex', pattern: '', weight: 0.5 });
+      setNewRule({ name: '', rule_type: 'regex', pattern: '', weight: 0.5 });
       setShowCreateModal(false);
       await loadRulesList();
       onReload();
@@ -939,13 +937,14 @@ function RulesTab({ rules, onReload }: {
         <Divider my="md" />
         
         <Grid>
-          {['username_regex', 'display_name_regex', 'content_regex'].map((ruleType) => (
+          {['regex', 'keyword', 'behavioral', 'media'].map((ruleType) => (
             <Grid.Col span={4} key={ruleType}>
               <Card withBorder padding="sm">
                 <Title order={5} mb="sm">
-                  {ruleType === 'username_regex' ? 'Username Rules' :
-                   ruleType === 'display_name_regex' ? 'Display Name Rules' :
-                   'Content Rules'}
+                  {ruleType === 'regex' ? 'Regex Rules' :
+                   ruleType === 'keyword' ? 'Keyword Rules' :
+                   ruleType === 'behavioral' ? 'Behavioral Rules' :
+                   'Media Rules'}
                 </Title>
                 <Stack gap="xs">
                   {(groupedRules[ruleType] || []).map((rule) => (
@@ -1038,9 +1037,10 @@ function RulesTab({ rules, onReload }: {
             value={newRule.rule_type}
             onChange={(value) => setNewRule({...newRule, rule_type: value as Rule['rule_type']})}
             data={[
-              { value: 'username_regex', label: 'Username Regex' },
-              { value: 'display_name_regex', label: 'Display Name Regex' },
-              { value: 'content_regex', label: 'Content Regex' }
+              { value: 'regex', label: 'Regex Rules' },
+              { value: 'keyword', label: 'Keyword Rules' },
+              { value: 'behavioral', label: 'Behavioral Rules' },
+              { value: 'media', label: 'Media Rules' }
             ]}
           />
           <TextInput
@@ -1160,7 +1160,7 @@ function RulesTab({ rules, onReload }: {
               </Text>
             </div>
             
-            {selectedRuleForInfo.rule_type === 'username_regex' && (
+            {selectedRuleForInfo.rule_type === 'regex' && (
               <div>
                 <Text fw={500} mb="xs">Username Pattern Examples</Text>
                 <Stack gap="xs">
@@ -1172,7 +1172,7 @@ function RulesTab({ rules, onReload }: {
               </div>
             )}
             
-            {selectedRuleForInfo.rule_type === 'display_name_regex' && (
+            {selectedRuleForInfo.rule_type === 'keyword' && (
               <div>
                 <Text fw={500} mb="xs">Display Name Pattern Examples</Text>
                 <Stack gap="xs">
@@ -1184,7 +1184,7 @@ function RulesTab({ rules, onReload }: {
               </div>
             )}
             
-            {selectedRuleForInfo.rule_type === 'content_regex' && (
+            {selectedRuleForInfo.rule_type === 'behavioral' && (
               <div>
                 <Text fw={500} mb="xs">Content Pattern Examples</Text>
                 <Stack gap="xs">

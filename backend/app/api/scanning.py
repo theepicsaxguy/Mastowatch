@@ -4,7 +4,7 @@ from typing import Any
 
 from app.auth import require_api_key
 from app.db import SessionLocal
-from app.models import ContentScan, DomainAlert
+from app.models import ContentScan
 from app.oauth import User, require_admin_hybrid
 from app.scanning import EnhancedScanningSystem
 from app.schemas import AccountsPage

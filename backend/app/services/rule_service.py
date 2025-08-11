@@ -308,11 +308,7 @@ class RuleService:
 
             # Get top triggered rules (ordered by trigger count)
             top_triggered_rules = (
-                session.query(Rule)
-                .filter(Rule.trigger_count > 0)
-                .order_by(Rule.trigger_count.desc())
-                .limit(10)
-                .all()
+                session.query(Rule).filter(Rule.trigger_count > 0).order_by(Rule.trigger_count.desc()).limit(10).all()
             )
 
             # Get recently triggered rules (ordered by last triggered time)
