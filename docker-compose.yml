@@ -101,7 +101,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO", "--scheduler=celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler"]
+    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
     environment:
       <<: *backend-env
       # Ensure celery_sqlalchemy_scheduler uses Postgres instead of defaulting to a local SQLite file

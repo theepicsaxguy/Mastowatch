@@ -76,7 +76,7 @@ services:
       - ./backend/migrations:/app/migrations
 
   beat:
-    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO", "--scheduler=celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler"]
+    command: ["celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=INFO"]
     environment:
       # Development database and Redis
       DATABASE_URL: postgresql+psycopg://mastowatch:mastowatch@db:5432/mastowatch

@@ -1,13 +1,12 @@
 import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import desc, func
-
 from app.db import SessionLocal
 from app.models import Account, Analysis, ContentScan, Report
 from app.oauth import User, require_admin_hybrid
 from app.services.rule_service import rule_service
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc, func
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -257,7 +256,6 @@ def get_scanning_analytics(_: User = Depends(require_admin_hybrid)):
     """Get real-time scanning analytics and job tracking"""
     try:
         import redis
-
         from app.config import get_settings
         from app.models import ScanSession
         from app.scanning import EnhancedScanningSystem

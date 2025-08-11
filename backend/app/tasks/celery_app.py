@@ -21,14 +21,16 @@ celery_app.conf.update(
     worker_prefetch_multiplier=4,
     # Broker settings for reliability
     broker_transport_options={"visibility_timeout": 3600},
-    # Database scheduler configuration
-    beat_scheduler="celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler",
-    beat_schedule_filename="",  # Not used with DatabaseScheduler
+    # Use default PersistentScheduler with a writable schedule file location
+    beat_schedule_filename="/tmp/celerybeat-schedule",
+    # Use default PersistentScheduler for now due to SQLAlchemy compatibility issues
+    # beat_scheduler="celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler",
+    # beat_schedule_filename="",  # Not used with DatabaseScheduler
     # Use SQLAlchemy database URL for scheduler storage
     # Try multiple ways to set the database URL for the scheduler
-    beat_sqlalchemy_url=settings.DATABASE_URL,
-    beat_dburi=settings.DATABASE_URL,
-    sqlalchemy_url=settings.DATABASE_URL,
+    # beat_sqlalchemy_url=settings.DATABASE_URL,
+    # beat_dburi=settings.DATABASE_URL,
+    # sqlalchemy_url=settings.DATABASE_URL,
     # Task schedule definitions (will be stored in database)
     beat_schedule={
         "poll-admin-accounts": {
