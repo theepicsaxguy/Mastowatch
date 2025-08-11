@@ -130,7 +130,7 @@ services:
       - "127.0.0.1:5173:5173"
     environment:
       - DOCKER_ENV=true
-      - VITE_API_URL=http://localhost:8080
+      # Leave VITE_API_URL empty to use Vite proxy in development
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html

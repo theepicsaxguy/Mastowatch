@@ -98,9 +98,7 @@ def trigger_domain_check(user: User = Depends(require_admin_hybrid)):
 
 
 @router.post("/scanning/invalidate-cache", tags=["scanning"])
-def invalidate_content_cache(
-    rule_changes: bool = False, user: User = Depends(require_admin_hybrid)
-):
+def invalidate_content_cache(rule_changes: bool = False, user: User = Depends(require_admin_hybrid)):
     """Invalidate content scan cache."""
     try:
         scanner = EnhancedScanningSystem()
