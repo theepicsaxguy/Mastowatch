@@ -27,7 +27,7 @@ class AutoModSettings(BaseModel):
 
 @router.get("/config", response_model=dict[str, Any])
 async def get_app_config(
-    api_key_valid: bool = api_key_dep,
+    user: User = api_key_dep,
     service: ConfigService = service_dep,
 ):
     """Return non-sensitive configuration values."""
@@ -84,9 +84,7 @@ def set_report_threshold(
 ):
     """Update report threshold."""
     if threshold < 0 or threshold > MAX_THRESHOLD:
-        raise HTTPException(
-            status_code=400, detail="Threshold must be between 0 and 10"
-        )
+        raise HTTPException(status_code=400, detail="Threshold must be between 0 and 10")
     service.set_threshold("report_threshold", threshold, updated_by=user.username)
     return {"report_threshold": threshold}
 
@@ -113,19 +111,10 @@ def set_automod_config(
 ):
     """Update AutoMod settings."""
     allowed_actions = {"report", "suspend", "ignore"}  # Add/modify as needed
-    if (
-        settings.defederation_threshold is not None
-        and settings.defederation_threshold < 0
-    ):
+    if settings.defederation_threshold is not None and settings.defederation_threshold < 0:
         raise HTTPException(status_code=400, detail="Threshold must be non-negative")
-    if (
-        settings.default_action is not None
-        and settings.default_action not in allowed_actions
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=f"default_action must be one of {sorted(allowed_actions)}"
-        )
+    if settings.default_action is not None and settings.default_action not in allowed_actions:
+        raise HTTPException(status_code=400, detail=f"default_action must be one of {sorted(allowed_actions)}")
     return service.set_automod_config(
         dry_run_override=settings.dry_run_override,
         default_action=settings.default_action,

@@ -3,19 +3,20 @@
 from typing import Any
 
 from app.auth import require_api_key
-from app.db import SessionLocal
+from app.db import get_db
 from app.models import ContentScan
 from app.oauth import User, require_admin_hybrid
 from app.scanning import EnhancedScanningSystem
 from app.schemas import AccountsPage
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
 
 @router.post("/scan/start")
-async def start_scan_session(session_type: str, api_key_valid: bool = Depends(require_api_key)):
+async def start_scan_session(session_type: str, user: User = Depends(require_admin_hybrid)):
     """Start a new scan session."""
     if session_type not in ["remote", "local", "federated"]:
         raise HTTPException(status_code=400, detail="Invalid session type")
@@ -25,7 +26,7 @@ async def start_scan_session(session_type: str, api_key_valid: bool = Depends(re
 
 
 @router.post("/scan/{session_id}/complete")
-async def complete_scan_session(session_id: str, api_key_valid: bool = Depends(require_api_key)):
+async def complete_scan_session(session_id: str, user: User = Depends(require_api_key)):
     """Complete a scan session."""
     scanner = EnhancedScanningSystem()
     scanner.complete_scan_session(session_id)
@@ -34,7 +35,7 @@ async def complete_scan_session(session_id: str, api_key_valid: bool = Depends(r
 
 @router.get("/scan/accounts", response_model=AccountsPage)
 async def get_next_accounts_to_scan(
-    session_type: str, limit: int = 50, cursor: str | None = None, api_key_valid: bool = Depends(require_api_key)
+    session_type: str, limit: int = 50, cursor: str | None = None, user: User = Depends(require_api_key)
 ):
     """Get the next batch of accounts to scan."""
     scanner = EnhancedScanningSystem()
@@ -44,7 +45,7 @@ async def get_next_accounts_to_scan(
 
 @router.post("/scan/account", response_model=dict[str, Any])
 async def scan_account_efficiently(
-    account_data: dict[str, Any], session_id: str, api_key_valid: bool = Depends(require_api_key)
+    account_data: dict[str, Any], session_id: str, user: User = Depends(require_api_key)
 ):
     """Scan a single account efficiently."""
     scanner = EnhancedScanningSystem()
@@ -53,9 +54,7 @@ async def scan_account_efficiently(
 
 
 @router.get("/scan/federated", response_model=list[dict[str, Any]])
-async def scan_federated_content(
-    target_domains: list[str] | None = None, api_key_valid: bool = Depends(require_api_key)
-):
+async def scan_federated_content(target_domains: list[str] | None = None, user: User = Depends(require_api_key)):
     """Scan federated content."""
     scanner = EnhancedScanningSystem()
     results = scanner.scan_federated_content(target_domains)
@@ -63,7 +62,7 @@ async def scan_federated_content(
 
 
 @router.get("/domains/alerts")
-async def get_domain_alerts(limit: int = 100, api_key_valid: bool = Depends(require_api_key)):
+async def get_domain_alerts(limit: int = 100, user: User = Depends(require_api_key)):
     """Get domain alerts."""
     scanner = EnhancedScanningSystem()
     alerts = scanner.get_domain_alerts(limit)
@@ -71,7 +70,7 @@ async def get_domain_alerts(limit: int = 100, api_key_valid: bool = Depends(requ
 
 
 @router.post("/scanning/federated", tags=["scanning"])
-def trigger_federated_scan(target_domains: list[str] | None = None, api_key_valid: bool = Depends(require_api_key)):
+def trigger_federated_scan(target_domains: list[str] | None = None, user: User = Depends(require_api_key)):
     """Trigger federated content scanning."""
     try:
         from app.tasks.jobs import scan_federated_content
@@ -100,34 +99,33 @@ def trigger_domain_check(user: User = Depends(require_admin_hybrid)):
 
 @router.post("/scanning/invalidate-cache", tags=["scanning"])
 def invalidate_content_cache(
-    rule_changes: bool = False, time_based: bool = False, api_key_valid: bool = Depends(require_api_key)
+    rule_changes: bool = False, user: User = Depends(require_admin_hybrid)
 ):
     """Invalidate content scan cache."""
     try:
         scanner = EnhancedScanningSystem()
 
         # Invalidate cache based on parameters
-        scanner.invalidate_content_scans(rule_changes=rule_changes, time_based=time_based)
+        scanner.invalidate_content_scans(rule_changes=rule_changes)
 
-        return {"message": "Content cache invalidated", "rule_changes": rule_changes, "time_based": time_based}
+        return {"message": "Content cache invalidated", "rule_changes": rule_changes}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to invalidate cache: {str(e)}") from e
 
 
 @router.get("/scanning/cache-status", tags=["scanning"])
-def get_cache_status(api_key_valid: bool = Depends(require_api_key)):
+def get_cache_status(db: Session = Depends(get_db), user: User = Depends(require_admin_hybrid)):
     """Get content cache status and statistics."""
     try:
-        with SessionLocal() as db:
-            total_scans = db.query(func.count(ContentScan.id)).scalar() or 0
-            needs_rescan = db.query(func.count(ContentScan.id)).filter(ContentScan.needs_rescan.is_(True)).scalar() or 0
-            last_scan = db.query(func.max(ContentScan.last_scanned_at)).scalar()
+        total_scans = db.query(func.count(ContentScan.id)).scalar() or 0
+        needs_rescan = db.query(func.count(ContentScan.id)).filter(ContentScan.needs_rescan.is_(True)).scalar() or 0
+        last_scan = db.query(func.max(ContentScan.last_scanned_at)).scalar()
 
-            return {
-                "total_cached_scans": total_scans,
-                "needs_rescan": needs_rescan,
-                "cache_hit_rate": (total_scans - needs_rescan) / total_scans if total_scans > 0 else 0,
-                "last_scan": last_scan.isoformat() if last_scan else None,
-            }
+        return {
+            "total_cached_scans": total_scans,
+            "needs_rescan": needs_rescan,
+            "cache_hit_rate": (total_scans - needs_rescan) / total_scans if total_scans > 0 else 0,
+            "last_scan": last_scan.isoformat() if last_scan else None,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get cache status: {str(e)}") from e

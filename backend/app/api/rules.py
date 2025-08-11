@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any
 
-from app.db import SessionLocal, get_db
+from app.db import get_db
 from app.models import Analysis, Rule
 from app.oauth import User, require_admin_hybrid
 from app.scanning import EnhancedScanningSystem
@@ -344,7 +344,7 @@ def get_rule_creation_help():
 
 @router.put("/rules/{rule_id}", tags=["rules"])
 def update_rule(
-    rule_id: int, rule_data: dict, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)
+    rule_id: int, rule_data: dict, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)
 ):
     """Update an existing rule."""
     try:
@@ -363,7 +363,7 @@ def update_rule(
 
 
 @router.delete("/rules/{rule_id}", tags=["rules"])
-def delete_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)):
+def delete_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
     """Delete a rule."""
     try:
         if not rule_service.delete_rule(rule_id):
@@ -380,7 +380,7 @@ def delete_rule(rule_id: int, user: User = Depends(require_admin_hybrid), sessio
 
 
 @router.post("/rules/{rule_id}/toggle", tags=["rules"])
-def toggle_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)):
+def toggle_rule(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
     """Toggle rule enabled/disabled status."""
     try:
         # First get the current rule to determine the new state
@@ -416,7 +416,7 @@ def bulk_toggle_rules(
     rule_ids: list[int],
     enabled: bool,
     user: User = Depends(require_admin_hybrid),
-    session: Session = Depends(SessionLocal),
+    session: Session = Depends(get_db),
 ):
     """Toggle multiple rules at once."""
     try:
@@ -441,9 +441,7 @@ def bulk_toggle_rules(
 
 
 @router.get("/rules/{rule_id}/details", tags=["rules"])
-def get_rule_details(
-    rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(SessionLocal)
-):
+def get_rule_details(rule_id: int, user: User = Depends(require_admin_hybrid), session: Session = Depends(get_db)):
     """Get detailed information about a specific rule."""
     try:
         rule = session.query(Rule).filter(Rule.id == rule_id).first()
