@@ -180,10 +180,14 @@ def create_session_cookie(response: Response, user: User, settings) -> None:
     oauth_config = get_oauth_config()
     session_token = oauth_config.create_session_token(user.model_dump())
 
-    # Don't use secure cookies in development (HTTP)
-    is_development = str(settings.INSTANCE_BASE).startswith("http://")
+    # In development, we're always using HTTP for the local server
+    # regardless of what the INSTANCE_BASE (Mastodon server) uses
+    is_development = True  # Always use non-secure cookies in development
 
-    logger.info(f"Creating session cookie: name={settings.SESSION_COOKIE_NAME}, secure={not is_development}, domain=None, path=/")
+    logger.info(
+        f"Creating session cookie: name={settings.SESSION_COOKIE_NAME}, "
+        f"secure={not is_development}, domain=None, path=/"
+    )
 
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
@@ -191,8 +195,8 @@ def create_session_cookie(response: Response, user: User, settings) -> None:
         max_age=settings.SESSION_COOKIE_MAX_AGE,
         path="/",  # Ensure cookie is sent for all paths
         httponly=True,
-        secure=not is_development,  # Only secure in production (HTTPS)
-        samesite="lax",
+        secure=False,  # Always allow non-HTTPS in development
+        samesite="lax",  # Keep it as lax for development
     )
 
 
@@ -200,13 +204,13 @@ def clear_session_cookie(response: Response, settings) -> None:
     """Clear session cookie"""
     # Don't use secure cookies in development (HTTP)
     is_development = str(settings.INSTANCE_BASE).startswith("http://")
-    
+
     response.set_cookie(
-        key=settings.SESSION_COOKIE_NAME, 
-        value="", 
-        max_age=0, 
+        key=settings.SESSION_COOKIE_NAME,
+        value="",
+        max_age=0,
         path="/",
-        httponly=True, 
+        httponly=True,
         secure=not is_development,  # Only secure in production (HTTPS)
-        samesite="lax"
+        samesite="lax",
     )

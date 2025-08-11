@@ -1,5 +1,9 @@
 const apiBase = (import.meta as any).env?.VITE_API_URL;
 
+// In development with Vite proxy, use relative URLs to stay on same origin
+const isDevelopment = import.meta.env.DEV;
+const useProxy = isDevelopment && !apiBase?.includes('://');
+
 export function getStoredApiKey(): string | null {
   return localStorage.getItem('mw_api_key');
 }
@@ -13,7 +17,9 @@ type FetchOpts = RequestInit & { apiKey?: string };
 export async function apiFetch<T = unknown>(path: string, opts: FetchOpts = {}): Promise<T> {
   const apiKey = opts.apiKey ?? getStoredApiKey() ?? undefined;
   
-  const url = path.startsWith('http') ? path : apiBase + path;
+  // Use relative URLs in development to leverage Vite proxy, absolute URLs otherwise
+  const url = path.startsWith('http') ? path : 
+              (useProxy ? path : apiBase + path);
   
   const headers: HeadersInit = {
     'Accept': 'application/json',

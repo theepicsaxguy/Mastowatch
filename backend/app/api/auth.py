@@ -21,8 +21,15 @@ from app.tasks.jobs import process_new_report, process_new_status
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from pydantic import BaseModel
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class EstablishSessionRequest(BaseModel):
+    """Request model for establishing a session with an access token."""
+    access_token: str
 
 
 @router.get("/admin/login", tags=["auth"])
@@ -120,7 +127,12 @@ async def admin_callback(request: Request, response: Response, code: str = None,
 
         create_session_cookie(response, user, settings)
         request.session.pop("oauth_state", None)
-        return RedirectResponse(url="/dashboard", status_code=302)
+
+        # In development, we need to pass the access token to the frontend
+        # so it can establish its own session via the proxy
+        dashboard_url = settings.UI_ORIGIN or "http://localhost:5173"
+        redirect_url = f"{dashboard_url}?oauth_success=true&access_token={access_token}"
+        return RedirectResponse(url=redirect_url, status_code=302)
 
     except Exception as e:
         error_msg = str(e)
@@ -265,6 +277,40 @@ async def popup_callback(
             </body>
         </html>
         """)
+
+
+@router.post("/admin/establish-session", tags=["auth"])
+async def establish_session(request: Request, response: Response, data: EstablishSessionRequest):
+    """Establish a session using an access token received from OAuth popup."""
+    oauth_config = get_oauth_config()
+    settings = get_settings()
+
+    if not oauth_config.configured:
+        raise HTTPException(status_code=500, detail="OAuth not configured")
+
+    try:
+        user = await oauth_config.fetch_user_info(data.access_token)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid access token")
+
+        if not user.is_admin:
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+        create_session_cookie(response, user, settings)
+        return {
+            "message": "Session established successfully",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "is_admin": user.is_admin,
+                "avatar_url": user.avatar_url,
+            },
+        }
+
+    except Exception as e:
+        logger.error("Failed to establish session", extra={"error": str(e)})
+        raise HTTPException(status_code=401, detail="Failed to establish session") from e
 
 
 @router.post("/admin/logout", tags=["auth"])

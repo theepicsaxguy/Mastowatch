@@ -86,6 +86,35 @@ export default function App() {
 
   async function checkAuth() {
     try {
+      // Check if we're returning from an OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      const oauthSuccess = urlParams.get('oauth_success');
+      const accessToken = urlParams.get('access_token');
+      
+      if (oauthSuccess === 'true' && accessToken) {
+        // Establish session using the access token from OAuth callback
+        try {
+          const response = await fetch('/admin/establish-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ access_token: accessToken })
+          });
+          
+          if (response.ok) {
+            // Clear the URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            // Continue with normal auth check
+          } else {
+            console.error('Failed to establish session from OAuth callback');
+          }
+        } catch (error) {
+          console.error('Error establishing session from OAuth callback:', error);
+        }
+      }
+      
       const user = await getCurrentUser();
       setCurrentUser(user);
     } catch (error) {
@@ -287,9 +316,8 @@ export default function App() {
   async function updateDryRun(next: boolean) {
     setSaving(true);
     try {
-      await apiFetch('/config/dry_run', {
-        method: 'POST',
-        body: JSON.stringify({ dry_run: next, updated_by: 'dashboard' })
+      await apiFetch(`/config/dry_run?enable=${next}`, {
+        method: 'POST'
       });
       setHealth((h) => (h ? { ...h, dry_run: next } : h));
     } finally {
@@ -300,9 +328,8 @@ export default function App() {
   async function updatePanic(next: boolean) {
     setSaving(true);
     try {
-      await apiFetch('/config/panic_stop', {
-        method: 'POST',
-        body: JSON.stringify({ panic_stop: next, updated_by: 'dashboard' })
+      await apiFetch(`/config/panic_stop?enable=${next}`, {
+        method: 'POST'
       });
       setHealth((h) => (h ? { ...h, panic_stop: next } : h));
     } finally {

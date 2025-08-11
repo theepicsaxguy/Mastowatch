@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const apiUrl = process.env.VITE_API_URL;
+// In Docker development, proxy to the API service directly
+const proxyTarget = 'http://api:8080';
 
 export default defineConfig({
   plugins: [react()],
@@ -10,15 +11,60 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/healthz': apiUrl,
-      '/metrics': apiUrl,
-      '/config': apiUrl,
-      '/dryrun': apiUrl,
-      '/webhooks': apiUrl,
-      '/analytics': apiUrl,
-      '/rules': apiUrl,
-      '/admin': apiUrl,
-      '/api': apiUrl
+      '/healthz': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/metrics': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/config': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/dryrun': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/webhooks': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/analytics': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/rules': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/admin': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
+      '/api': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      }
     }
   },
   build: {
