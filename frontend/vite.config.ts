@@ -59,6 +59,12 @@ export default defineConfig({
         cookieDomainRewrite: false,
         preserveHeaderKeyCase: true,
       },
+      '/auth': {
+        target: proxyTarget,
+        changeOrigin: true,
+        cookieDomainRewrite: false,
+        preserveHeaderKeyCase: true,
+      },
       '/api': {
         target: proxyTarget,
         changeOrigin: true,
