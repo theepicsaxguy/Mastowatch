@@ -1,6 +1,7 @@
 """Helpers for applying and reverting moderation actions."""
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from app.config import get_settings
@@ -39,33 +40,29 @@ class EnforcementService:
             )
             session.commit()
 
-    def _post_action(
+    def _execute(
         self,
+        label: str,
+        func: Callable[..., dict[str, Any]],
         account_id: str,
-        payload: dict[str, Any],
         *,
         rule_id: int | None = None,
         evidence: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         if settings.DRY_RUN:
-            logger.info("DRY RUN: %s %s", account_id, payload.get("type"))
+            logger.info("DRY RUN: %s %s", account_id, label)
             self._log_action(
-                action_type=payload.get("type", ""),
+                action_type=label,
                 account_id=account_id,
                 rule_id=rule_id,
                 evidence=evidence,
                 api_response={"dry_run": True},
             )
             return
-        path = f"/api/v1/admin/accounts/{account_id}/action"
-        resp = self.mastodon_client._make_request("POST", path, json=payload)
-        try:
-            api_response = resp.json()
-        except Exception as e:
-            logger.error("Failed to decode JSON response for account %s: %s", account_id, str(e))
-            api_response = {"error": "Invalid JSON response", "response_text": getattr(resp, "text", None)}
+        api_response = func(account_id, **kwargs)
         self._log_action(
-            action_type=payload.get("type", ""),
+            action_type=label,
             account_id=account_id,
             rule_id=rule_id,
             evidence=evidence,
@@ -82,12 +79,15 @@ class EnforcementService:
         evidence: dict[str, Any] | None = None,
     ) -> None:
         """Send an admin warning."""
-        payload: dict[str, Any] = {"type": "none"}
-        if text:
-            payload["text"] = text
-        if warning_preset_id:
-            payload["warning_preset_id"] = warning_preset_id
-        self._post_action(account_id, payload, rule_id=rule_id, evidence=evidence)
+        self._execute(
+            "warn",
+            self.mastodon_client.warn_account,
+            account_id,
+            rule_id=rule_id,
+            evidence=evidence,
+            text=text,
+            warning_preset_id=warning_preset_id,
+        )
 
     def silence_account(
         self,
@@ -99,12 +99,15 @@ class EnforcementService:
         evidence: dict[str, Any] | None = None,
     ) -> None:
         """Silence an account."""
-        payload: dict[str, Any] = {"type": "silence"}
-        if text:
-            payload["text"] = text
-        if warning_preset_id:
-            payload["warning_preset_id"] = warning_preset_id
-        self._post_action(account_id, payload, rule_id=rule_id, evidence=evidence)
+        self._execute(
+            "silence",
+            self.mastodon_client.silence_account,
+            account_id,
+            rule_id=rule_id,
+            evidence=evidence,
+            text=text,
+            warning_preset_id=warning_preset_id,
+        )
 
     def suspend_account(
         self,
@@ -116,12 +119,15 @@ class EnforcementService:
         evidence: dict[str, Any] | None = None,
     ) -> None:
         """Suspend an account."""
-        payload: dict[str, Any] = {"type": "suspend"}
-        if text:
-            payload["text"] = text
-        if warning_preset_id:
-            payload["warning_preset_id"] = warning_preset_id
-        self._post_action(account_id, payload, rule_id=rule_id, evidence=evidence)
+        self._execute(
+            "suspend",
+            self.mastodon_client.suspend_account,
+            account_id,
+            rule_id=rule_id,
+            evidence=evidence,
+            text=text,
+            warning_preset_id=warning_preset_id,
+        )
 
     def unsilence_account(
         self,
@@ -131,29 +137,12 @@ class EnforcementService:
         evidence: dict[str, Any] | None = None,
     ) -> None:
         """Lift a previously applied silence."""
-        if settings.DRY_RUN:
-            logger.info("DRY RUN: unsilence %s", account_id)
-            self._log_action(
-                action_type="unsilence",
-                account_id=account_id,
-                rule_id=rule_id,
-                evidence=evidence,
-                api_response={"dry_run": True},
-            )
-            return
-        path = f"/api/v1/admin/accounts/{account_id}/unsilence"
-        resp = self.mastodon_client._make_request("POST", path)
-        try:
-            api_response = resp.json()
-        except (ValueError, json.decoder.JSONDecodeError) as e:
-            logger.error("Failed to decode JSON response for unsilence_account: %s", e)
-            api_response = {"error": "Invalid JSON response", "response_text": resp.text}
-        self._log_action(
-            action_type="unsilence",
-            account_id=account_id,
+        self._execute(
+            "unsilence",
+            self.mastodon_client.unsilence_account,
+            account_id,
             rule_id=rule_id,
             evidence=evidence,
-            api_response=api_response,
         )
 
     def unsuspend_account(
@@ -164,27 +153,10 @@ class EnforcementService:
         evidence: dict[str, Any] | None = None,
     ) -> None:
         """Lift a previously applied suspension."""
-        if settings.DRY_RUN:
-            logger.info("DRY RUN: unsuspend %s", account_id)
-            self._log_action(
-                action_type="unsuspend",
-                account_id=account_id,
-                rule_id=rule_id,
-                evidence=evidence,
-                api_response={"dry_run": True},
-            )
-            return
-        path = f"/api/v1/admin/accounts/{account_id}/unsuspend"
-        resp = self.mastodon_client._make_request("POST", path)
-        try:
-            api_response = resp.json()
-        except ValueError as e:
-            logger.error("Failed to decode JSON response for unsuspend_account: %s", e)
-            api_response = {"error": "Invalid JSON response"}
-        self._log_action(
-            action_type="unsuspend",
-            account_id=account_id,
+        self._execute(
+            "unsuspend",
+            self.mastodon_client.unsuspend_account,
+            account_id,
             rule_id=rule_id,
             evidence=evidence,
-            api_response=api_response,
         )

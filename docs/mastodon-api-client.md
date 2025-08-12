@@ -69,11 +69,11 @@ report = client.create_report(
 print(f"Report created with ID: {report.id}")
 ```
 
-### Admin Operations (Fallback)
+### Admin Operations
 ```python
-# Admin endpoints not in OpenAPI spec use raw HTTP
-response = client.get_admin_accounts(origin="remote", limit=100)
-accounts = response.json()
+accounts, _ = client.get_admin_accounts(origin="remote", limit=100)
+client.warn_account("123", text="Please review the rules")
+client.unsilence_account("123")
 ```
 
 ## Management Commands

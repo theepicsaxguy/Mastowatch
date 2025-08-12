@@ -151,7 +151,7 @@ class TestEnforcementServiceLogging(unittest.TestCase):
         self.db_patcher = patch("app.services.enforcement_service.SessionLocal", self.SessionLocal)
         self.db_patcher.start()
         self.client = Mock()
-        self.client._make_request.return_value = Mock(json=lambda: {"ok": True})
+        self.client.warn_account.return_value = {"ok": True}
         self.service = EnforcementService(self.client)
 
     def tearDown(self):

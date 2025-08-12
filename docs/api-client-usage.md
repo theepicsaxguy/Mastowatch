@@ -72,7 +72,7 @@ statuses = client.get_account_statuses("123", limit=10)
 ## Adding New Endpoints
 
 1. **First choice**: Use the generated client's HTTP session for the new endpoint
-2. **If complex**: Add a method to `MastoClient` that uses `_make_raw_request`
+2. **If complex**: Add a method to `MastoClient` using its private `_request` helper
 3. **Document** any endpoints not in the OpenAPI spec for future addition
 
 ## Testing

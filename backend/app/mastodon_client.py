@@ -55,7 +55,7 @@ class MastoClient:
                     return match.group(1)
         return None
 
-    def _make_request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         throttle_if_needed(self._bucket_key)
         headers = {"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}
         if "headers" in kwargs:
@@ -77,7 +77,7 @@ class MastoClient:
         response.raise_for_status()
         return response
 
-    async def _make_request_async(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    async def _request_async(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         throttle_if_needed(self._bucket_key)
         headers = {"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}
         if "headers" in kwargs:
@@ -93,11 +93,13 @@ class MastoClient:
         return response
 
     async def verify_credentials(self) -> dict[str, Any]:
-        response = await self._make_request_async("GET", "/api/v1/accounts/verify_credentials")
+        """Return account info for the current token."""
+        response = await self._request_async("GET", "/api/v1/accounts/verify_credentials")
         return response.json()
 
     @classmethod
     async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
+        """Exchange an OAuth code for an access token."""
         settings_local = get_settings()
 
         # Validate required OAuth settings
@@ -243,6 +245,86 @@ class MastoClient:
         else:
             return result.__dict__
 
+    def _account_action(
+        self,
+        account_id: str,
+        action: str,
+        *,
+        text: str | None = None,
+        warning_preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"type": action}
+        if text:
+            payload["text"] = text
+        if warning_preset_id:
+            payload["warning_preset_id"] = warning_preset_id
+        response = self._request("POST", f"/api/v1/admin/accounts/{account_id}/action", json=payload)
+        try:
+            return response.json()
+        except ValueError:
+            return {"error": "Invalid JSON response", "response_text": response.text}
+
+    def warn_account(
+        self,
+        account_id: str,
+        *,
+        text: str | None = None,
+        warning_preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Send an admin warning."""
+        return self._account_action(
+            account_id,
+            "none",
+            text=text,
+            warning_preset_id=warning_preset_id,
+        )
+
+    def silence_account(
+        self,
+        account_id: str,
+        *,
+        text: str | None = None,
+        warning_preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Silence an account."""
+        return self._account_action(
+            account_id,
+            "silence",
+            text=text,
+            warning_preset_id=warning_preset_id,
+        )
+
+    def suspend_account(
+        self,
+        account_id: str,
+        *,
+        text: str | None = None,
+        warning_preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Suspend an account."""
+        return self._account_action(
+            account_id,
+            "suspend",
+            text=text,
+            warning_preset_id=warning_preset_id,
+        )
+
+    def unsilence_account(self, account_id: str) -> dict[str, Any]:
+        """Lift a silence."""
+        response = self._request("POST", f"/api/v1/admin/accounts/{account_id}/unsilence")
+        try:
+            return response.json()
+        except ValueError:
+            return {"error": "Invalid JSON response", "response_text": response.text}
+
+    def unsuspend_account(self, account_id: str) -> dict[str, Any]:
+        """Lift a suspension."""
+        response = self._request("POST", f"/api/v1/admin/accounts/{account_id}/unsuspend")
+        try:
+            return response.json()
+        except ValueError:
+            return {"error": "Invalid JSON response", "response_text": response.text}
+
     def get_admin_accounts(
         self,
         origin: str | None = None,
@@ -259,15 +341,17 @@ class MastoClient:
         if max_id:
             params["max_id"] = max_id
 
-        response = self._make_request("GET", "/api/v1/admin/accounts", params=params)
+        response = self._request("GET", "/api/v1/admin/accounts", params=params)
         accounts = response.json()
         next_max_id = self._parse_next_cursor(response.headers.get("Link"))
         return accounts, next_max_id
 
     def get_instance_info(self) -> dict[str, Any]:
-        response = self._make_request("GET", "/api/v1/instance")
+        """Fetch instance metadata."""
+        response = self._request("GET", "/api/v1/instance")
         return response.json()
 
     def get_instance_rules(self) -> list[dict[str, Any]]:
-        response = self._make_request("GET", "/api/v1/instance/rules")
+        """Fetch instance rules."""
+        response = self._request("GET", "/api/v1/instance/rules")
         return response.json()
