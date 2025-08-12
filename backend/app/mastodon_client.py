@@ -11,7 +11,16 @@ from typing import Any
 import httpx
 from app.clients.mastodon import AuthenticatedClient
 from app.clients.mastodon.api.accounts.get_account import sync as get_account_sync
-from app.clients.mastodon.api.accounts.get_account_statuses import sync as get_account_statuses_sync
+from app.clients.mastodon.api.accounts.get_account_statuses import (
+    sync as get_account_statuses_sync,
+)
+from app.clients.mastodon.api.accounts.get_accounts_verify_credentials import (
+    asyncio as get_accounts_verify_credentials_async,
+)
+from app.clients.mastodon.api.instance.get_instance import sync as get_instance_sync
+from app.clients.mastodon.api.instance.get_instance_rules import (
+    sync as get_instance_rules_sync,
+)
 from app.clients.mastodon.api.reports.create_report import sync as create_report_sync
 from app.clients.mastodon.models.create_report_body import CreateReportBody
 from app.config import get_settings
@@ -77,27 +86,18 @@ class MastoClient:
         response.raise_for_status()
         return response
 
-    async def _make_request_async(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        throttle_if_needed(self._bucket_key)
-        headers = {"Authorization": f"Bearer {self._token}", "User-Agent": self._ua}
-        if "headers" in kwargs:
-            headers.update(kwargs.pop("headers"))
-        url = f"{self._base_url}{path}"
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            with api_call_seconds.labels(endpoint=path).time():
-                response = await client.request(method, url, headers=headers, **kwargs)
-        update_from_headers(self._bucket_key, response.headers)
-        if response.status_code >= 400:
-            http_errors.labels(endpoint=path, code=str(response.status_code)).inc()
-        response.raise_for_status()
-        return response
-
     async def verify_credentials(self) -> dict[str, Any]:
-        response = await self._make_request_async("GET", "/api/v1/accounts/verify_credentials")
-        return response.json()
+        """Verify the current token and return the associated account."""
+        result = await get_accounts_verify_credentials_async(client=self._api_client)
+        if result is None:
+            raise httpx.HTTPStatusError("Failed to verify credentials", request=None, response=None)
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        return result.__dict__
 
     @classmethod
     async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
+        """Exchange an OAuth code for an access token."""
         settings_local = get_settings()
 
         # Validate required OAuth settings
@@ -265,9 +265,23 @@ class MastoClient:
         return accounts, next_max_id
 
     def get_instance_info(self) -> dict[str, Any]:
-        response = self._make_request("GET", "/api/v1/instance")
-        return response.json()
+        """Return basic instance metadata."""
+        result = get_instance_sync(client=self._api_client)
+        if result is None:
+            raise httpx.HTTPStatusError("Failed to get instance info", request=None, response=None)
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        return result.__dict__
 
     def get_instance_rules(self) -> list[dict[str, Any]]:
-        response = self._make_request("GET", "/api/v1/instance/rules")
-        return response.json()
+        """Return the set of instance rules."""
+        result = get_instance_rules_sync(client=self._api_client)
+        if result is None:
+            return []
+        rules: list[dict[str, Any]] = []
+        for rule in result:
+            if hasattr(rule, "to_dict"):
+                rules.append(rule.to_dict())
+            else:
+                rules.append(rule.__dict__)
+        return rules
