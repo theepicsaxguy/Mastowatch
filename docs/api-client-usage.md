@@ -12,19 +12,18 @@ This project uses a generated OpenAPI client for Mastodon API interactions, ensu
 
 ```python
 from app.clients.mastodon.client import AuthenticatedClient
+from app.clients.mastodon.api.accounts.get_accounts_verify_credentials import (
+    asyncio as verify_credentials_async,
+)
 
-# For authenticated endpoints
 client = AuthenticatedClient(
     base_url=str(settings.INSTANCE_BASE),
     token=access_token,
     prefix="Bearer",
-    timeout=10.0
+    timeout=10.0,
 )
 
-# Use the client's HTTP session for consistency
-async with client.get_async_httpx_client() as http_client:
-    response = await http_client.get("/api/v1/accounts/verify_credentials")
-    data = response.json()
+account = await verify_credentials_async(client=client)
 ```
 
 ### 2. Avoid Direct httpx Usage
@@ -35,7 +34,7 @@ async with client.get_async_httpx_client() as http_client:
 # ❌ Don't do this
 import httpx
 async with httpx.AsyncClient() as client:
-    response = await client.get(f"{base_url}/api/v1/accounts/verify_credentials")
+    await client.get(f"{base_url}/api/v1/admin/accounts")
 ```
 
 **Instead:** Use the generated client's HTTP session:
@@ -46,7 +45,7 @@ from app.clients.mastodon.client import AuthenticatedClient
 
 client = AuthenticatedClient(base_url=base_url, token=token)
 async with client.get_async_httpx_client() as http_client:
-    response = await http_client.get("/api/v1/accounts/verify_credentials")
+    await http_client.get("/api/v1/admin/accounts")
 ```
 
 ### 3. High-Level Facade (Optional)
