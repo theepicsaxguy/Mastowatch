@@ -96,7 +96,9 @@ class MastoClient:
         return self._to_dict(result)
 
     @classmethod
-    async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
+    async def exchange_code_for_token(
+        cls, code: str, redirect_uri: str
+    ) -> dict[str, Any]:
         """Exchange an OAuth code for an access token."""
         settings_local = get_settings()
 
@@ -131,22 +133,34 @@ class MastoClient:
         }
 
         # Debug logging to help troubleshoot OAuth issues
-        client_id_preview = settings_local.OAUTH_CLIENT_ID[:10] if settings_local.OAUTH_CLIENT_ID else "None"
-        logger.info(f"OAuth token exchange attempt - redirect_uri: {redirect_uri}, client_id: {client_id_preview}...")
+        client_id_preview = (
+            settings_local.OAUTH_CLIENT_ID[:10]
+            if settings_local.OAUTH_CLIENT_ID
+            else "None"
+        )
+        logger.info(
+            f"OAuth token exchange attempt - redirect_uri: {redirect_uri}, client_id: {client_id_preview}..."
+        )
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             with api_call_seconds.labels(endpoint="/oauth/token").time():
-                response = await client.post(f"{base}/oauth/token", data=data, headers=headers)
+                response = await client.post(
+                    f"{base}/oauth/token", data=data, headers=headers
+                )
         update_from_headers(bucket, response.headers)
         if response.status_code >= 400:
-            http_errors.labels(endpoint="/oauth/token", code=str(response.status_code)).inc()
+            http_errors.labels(
+                endpoint="/oauth/token", code=str(response.status_code)
+            ).inc()
             # Handle potential encoding issues in error response
             try:
                 error_text = response.text
             except (UnicodeDecodeError, Exception):
                 # Fallback for compressed or binary responses
                 error_text = str(response.content)
-            logger.error(f"OAuth token exchange failed: {response.status_code} - {error_text}")
+            logger.error(
+                f"OAuth token exchange failed: {response.status_code} - {error_text}"
+            )
             logger.error(
                 f"Request data: client_id={client_id_preview}, redirect_uri={redirect_uri}, "
                 f"grant_type=authorization_code"
@@ -156,9 +170,13 @@ class MastoClient:
             return response.json()
         except Exception as e:
             logger.error(f"Failed to parse OAuth response as JSON: {e}")
-            logger.error(f"Response content type: {response.headers.get('content-type')}")
+            logger.error(
+                f"Response content type: {response.headers.get('content-type')}"
+            )
             logger.error(f"Response encoding: {response.encoding}")
-            raise ValueError("Authentication failed due to server response encoding issue") from e
+            raise ValueError(
+                "Authentication failed due to server response encoding issue"
+            ) from e
 
     def get_account(self, account_id: str) -> dict[str, Any]:
         """Get account information using generated OpenAPI client."""
@@ -168,7 +186,9 @@ class MastoClient:
             result = get_account_sync(id=account_id, client=self._api_client)
 
         if result is None:
-            raise httpx.HTTPStatusError("Account not found", request=None, response=None)
+            raise httpx.HTTPStatusError(
+                "Account not found", request=None, response=None
+            )
 
         if hasattr(result, "to_dict"):
             return result.to_dict()
@@ -188,7 +208,9 @@ class MastoClient:
         """Get account statuses using generated OpenAPI client."""
         throttle_if_needed(self._bucket_key)
 
-        with api_call_seconds.labels(endpoint=f"/api/v1/accounts/{account_id}/statuses").time():
+        with api_call_seconds.labels(
+            endpoint=f"/api/v1/accounts/{account_id}/statuses"
+        ).time():
             result = get_account_statuses_sync(
                 id=account_id,
                 client=self._api_client,
@@ -283,5 +305,5 @@ class MastoClient:
             if hasattr(rule, "to_dict"):
                 rules.append(rule.to_dict())
             else:
-            rules.append(self._to_dict(rule))
+                rules.append(self._to_dict(rule))
         return rules
