@@ -53,7 +53,9 @@ def _get_account_sync(*_, **__):
 
 get_account_mod.sync = _get_account_sync
 
-get_account_statuses_mod = types.ModuleType("app.clients.mastodon.api.accounts.get_account_statuses")
+get_account_statuses_mod = types.ModuleType(
+    "app.clients.mastodon.api.accounts.get_account_statuses"
+)
 
 
 def _get_account_statuses_sync(*_, **__):
@@ -62,10 +64,24 @@ def _get_account_statuses_sync(*_, **__):
 
 get_account_statuses_mod.sync = _get_account_statuses_sync
 
+get_accounts_verify_credentials_mod = types.ModuleType(
+    "app.clients.mastodon.api.accounts.get_accounts_verify_credentials"
+)
+
+
+def _get_accounts_verify_credentials_sync(*_, **__):
+    return None
+
+
+get_accounts_verify_credentials_mod.sync = _get_accounts_verify_credentials_sync
+get_accounts_verify_credentials_mod.asyncio = _get_accounts_verify_credentials_sync
+
 models_pkg = types.ModuleType("app.clients.mastodon.models")
 models_pkg.__path__ = []
 
-create_report_body_mod = types.ModuleType("app.clients.mastodon.models.create_report_body")
+create_report_body_mod = types.ModuleType(
+    "app.clients.mastodon.models.create_report_body"
+)
 
 
 class CreateReportBody:  # noqa: D401
@@ -110,6 +126,7 @@ sys.modules.update(
         "app.clients.mastodon.api.accounts": accounts_pkg,
         "app.clients.mastodon.api.accounts.get_account": get_account_mod,
         "app.clients.mastodon.api.accounts.get_account_statuses": get_account_statuses_mod,
+        "app.clients.mastodon.api.accounts.get_accounts_verify_credentials": get_accounts_verify_credentials_mod,
         "app.clients.mastodon.models": models_pkg,
         "app.clients.mastodon.models.create_report_body": create_report_body_mod,
         "app.clients.mastodon.api.reports": reports_pkg,
@@ -165,7 +182,9 @@ def test_engine(test_settings):
 @pytest.fixture(scope="function")
 def test_db_session(test_engine):
     """Create a test database session that rolls back after each test."""
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=test_engine
+    )
     session = TestingSessionLocal()
 
     try:

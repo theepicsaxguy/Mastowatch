@@ -24,7 +24,9 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
     @patch("app.tasks.jobs._get_bot_client")
-    def test_analyze_and_maybe_report_dry_run(self, mock_bot_client, mock_settings, mock_rule_service, mock_db):
+    def test_analyze_and_maybe_report_dry_run(
+        self, mock_bot_client, mock_settings, mock_rule_service, mock_db
+    ):
         """Test analyze_and_maybe_report in dry run mode"""
         # Setup mocks
         mock_settings.return_value.DRY_RUN = True
@@ -57,7 +59,11 @@ class TestCeleryTasks(unittest.TestCase):
 
         # Test data
         payload = {
-            "account": {"id": "123456", "acct": "suspicious@example.com", "domain": "example.com"},
+            "account": {
+                "id": "123456",
+                "acct": "suspicious@example.com",
+                "domain": "example.com",
+            },
             "statuses": [{"id": "status1", "content": "spam content"}],
         }
 
@@ -77,7 +83,9 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.SessionLocal")
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
-    def test_analyze_and_maybe_report_panic_stop(self, mock_settings, mock_rule_service, mock_db):
+    def test_analyze_and_maybe_report_panic_stop(
+        self, mock_settings, mock_rule_service, mock_db
+    ):
         """Test that panic stop prevents execution"""
         # Setup mocks
         mock_settings.return_value.PANIC_STOP = True
@@ -155,7 +163,9 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
     @patch("app.tasks.jobs._get_bot_client")
-    def test_analyze_and_maybe_report_report_creation(self, mock_bot_client, mock_settings, mock_rule_service, mock_db):
+    def test_analyze_and_maybe_report_report_creation(
+        self, mock_bot_client, mock_settings, mock_rule_service, mock_db
+    ):
         """Test that reports are created when score exceeds threshold"""
         # Setup mocks for non-dry run mode
         mock_settings.return_value.DRY_RUN = False
@@ -171,7 +181,11 @@ class TestCeleryTasks(unittest.TestCase):
                 actions=[{"type": "report"}],
             )
         ]
-        mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
+        mock_rule_service.get_active_rules.return_value = (
+            [],
+            {"report_threshold": 1.0},
+            "test_sha",
+        )
 
         mock_db_session = MagicMock()
         mock_db.return_value.__enter__.return_value = mock_db_session
@@ -179,11 +193,15 @@ class TestCeleryTasks(unittest.TestCase):
         # Mock bot client
         mock_client = MagicMock()
         mock_bot_client.return_value = mock_client
-        mock_client.create_report.return_value = MagicMock(json=lambda: {"id": "report_789"})
+        mock_client.create_report.return_value = {"id": "report_789"}
 
         # Test data
         payload = {
-            "account": {"id": "123456", "acct": "suspicious@example.com", "domain": "example.com"},
+            "account": {
+                "id": "123456",
+                "acct": "suspicious@example.com",
+                "domain": "example.com",
+            },
             "statuses": [{"id": "status1", "content": "suspicious content"}],
         }
 
@@ -197,7 +215,9 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.SessionLocal")
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
-    def test_analyze_and_maybe_report_no_report_low_score(self, mock_settings, mock_rule_service, mock_db):
+    def test_analyze_and_maybe_report_no_report_low_score(
+        self, mock_settings, mock_rule_service, mock_db
+    ):
         """Test that no report is created when score is below threshold"""
         # Setup mocks
         mock_settings.return_value.DRY_RUN = False
@@ -213,14 +233,22 @@ class TestCeleryTasks(unittest.TestCase):
                 actions=[{"type": "report"}],
             )
         ]
-        mock_rule_service.get_active_rules.return_value = ([], {"report_threshold": 1.0}, "test_sha")
+        mock_rule_service.get_active_rules.return_value = (
+            [],
+            {"report_threshold": 1.0},
+            "test_sha",
+        )
 
         mock_db_session = MagicMock()
         mock_db.return_value.__enter__.return_value = mock_db_session
 
         # Test data
         payload = {
-            "account": {"id": "123456", "acct": "normal@example.com", "domain": "example.com"},
+            "account": {
+                "id": "123456",
+                "acct": "normal@example.com",
+                "domain": "example.com",
+            },
             "statuses": [{"id": "status1", "content": "normal content"}],
         }
 
@@ -246,7 +274,9 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.cursor_lag_pages")
     @patch("app.tasks.jobs.SessionLocal")
     @patch("app.tasks.jobs.EnhancedScanningSystem")
-    def test_poll_accounts_metrics(self, mock_scanner, mock_session, mock_metric, mock_persist, mock_analyze):
+    def test_poll_accounts_metrics(
+        self, mock_scanner, mock_session, mock_metric, mock_persist, mock_analyze
+    ):
         jobs.settings.MAX_PAGES_PER_POLL = 1
         jobs.settings.BATCH_SIZE = 1
         db_session = MagicMock()
@@ -260,7 +290,10 @@ class TestCeleryTasks(unittest.TestCase):
         metric = MagicMock()
         mock_metric.labels.return_value = metric
         with patch("app.tasks.jobs._should_pause", return_value=False):
-            for origin, cursor in [("remote", CURSOR_NAME), ("local", CURSOR_NAME_LOCAL)]:
+            for origin, cursor in [
+                ("remote", CURSOR_NAME),
+                ("local", CURSOR_NAME_LOCAL),
+            ]:
                 _poll_accounts(origin, cursor)
         scanner.get_next_accounts_to_scan.assert_has_calls(
             [
@@ -268,7 +301,9 @@ class TestCeleryTasks(unittest.TestCase):
                 call("local", limit=jobs.settings.BATCH_SIZE, cursor=None),
             ]
         )
-        mock_metric.labels.assert_has_calls([call(cursor=CURSOR_NAME), call(cursor=CURSOR_NAME_LOCAL)])
+        mock_metric.labels.assert_has_calls(
+            [call(cursor=CURSOR_NAME), call(cursor=CURSOR_NAME_LOCAL)]
+        )
         self.assertEqual(metric.set.call_count, 2)
 
 
