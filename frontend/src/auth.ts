@@ -23,7 +23,7 @@ export async function getCurrentUser(): Promise<User | null> {
     try {
       return await apiFetch<User>('/api/v1/me', { credentials: 'include' });
     } catch (error: any) {
-      if ((error as any).status === 401) return null;
+      if ((error as any).status === 401 || error.message?.includes('401')) return null;
       if (error.message?.includes('fetch') && retryCount < maxRetries - 1) {
         retryCount++;
         const delay = baseDelay * Math.pow(2, retryCount - 1);
