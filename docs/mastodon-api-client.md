@@ -72,7 +72,7 @@ print(f"Report created with ID: {report.id}")
 ### Admin Operations
 ```python
 # Admin endpoints missing from the OpenAPI spec have helper methods
-accounts, next_cursor = client.get_admin_accounts(origin="remote", limit=100)
+accounts = client.get_admin_accounts(origin="remote", limit=100)
 ```
 
 ## Management Commands
