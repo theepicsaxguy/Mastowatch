@@ -93,7 +93,7 @@ class MastoClient:
             raise ValueError("Failed to verify credentials: API returned None")
         if hasattr(result, "to_dict"):
             return result.to_dict()
-        return result.__dict__
+        return self._to_dict(result)
 
     @classmethod
     async def exchange_code_for_token(cls, code: str, redirect_uri: str) -> dict[str, Any]:
