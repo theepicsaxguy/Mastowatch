@@ -268,7 +268,7 @@ class MastoClient:
         """Return basic instance metadata."""
         result = get_instance_sync(client=self._api_client)
         if result is None:
-            raise httpx.HTTPStatusError("Failed to get instance info", request=None, response=None)
+            raise Exception("Failed to get instance info")
         if hasattr(result, "to_dict"):
             return result.to_dict()
         return result.__dict__
