@@ -28,51 +28,47 @@ Mastowatch/
 ## Mastodon Client
 
 ### MastoClient
-- **Type-safe** methods for common endpoints (accounts, statuses, reports)
+- **JSON dictionary responses** (Python dicts representing JSON objects) for common endpoints (accounts, statuses, reports)
 - **Helper methods** for admin endpoints not in the OpenAPI spec
 - **Full compatibility** with existing rate limiting and metrics
 - **Auto-completion** and validation in IDEs
 
 ## Usage Examples
 
-### Type-safe Account Operations
+### Account Operations
 ```python
-from app.mastodon_client_v2 import MastoClient
+from app.mastodon_client import MastoClient
 
 client = MastoClient(token)
 
-# Get account with full type safety
 account = client.get_account("123456")
-print(f"@{account.username} has {account.followers_count} followers")
+print(f"@{account['username']} has {account['followers_count']} followers")
 
-# Get statuses with typed responses
 statuses = client.get_account_statuses(
     account_id="123456",
     limit=50,
-    exclude_reblogs=True
+    exclude_reblogs=True,
 )
 for status in statuses:
-    print(f"Status {status.id}: {len(status.content)} characters")
+    print(f"Status {status['id']}: {len(status['content'])} characters")
 ```
 
-### Type-safe Report Creation
+### Report Creation
 ```python
-# Create a report with full validation
 report = client.create_report(
     account_id="123456",
     comment="Automated report based on rule violations",
     status_ids=["789", "101112"],
     category="violation",
     forward=True,
-    rule_ids=["rule_1", "rule_2"]
+    rule_ids=["rule_1", "rule_2"],
 )
-print(f"Report created with ID: {report.id}")
+print(f"Report created with ID: {report['id']}")
 ```
 
 ### Admin Operations
 ```python
-# Admin endpoints missing from the OpenAPI spec have helper methods
-accounts = client.get_admin_accounts(origin="remote", limit=100)
+accounts, next_max_id = client.get_admin_accounts(origin="remote", limit=100)
 ```
 
 ## Management Commands
@@ -114,34 +110,26 @@ make update-mastodon-client
 ```python
 from app.mastodon_client import MastoClient
 
-# Initialize client
 admin = MastoClient(settings.ADMIN_TOKEN)
 bot = MastoClient(settings.BOT_TOKEN)
 ```
 
-### Type-safe Operations
+### Common Operations
 
 ```python
-# Get account with full type safety
 account = admin.get_account(account_id)
-# account.username, account.followers_count, etc. are all typed!
-
-# Get account statuses
 statuses = admin.get_account_statuses(account_id, limit=40)
-# statuses is List[Status] with full type information
-
-# Create reports
 report = bot.create_report(
     account_id=account_id,
     comment="Automated moderation report",
-    status_ids=status_ids
+    status_ids=status_ids,
 )
-# report.id is typed and available
+print(account["username"], report["id"])
 ```
 
 ### Benefits
 
-- ✅ **Type Safety**: IDE autocomplete and compile-time validation
+- ✅ **Generated Models**: Uses typed OpenAPI client internally
 - ✅ **Fewer Errors**: No more `.json()` typos or missing fields
 - ✅ **Better Documentation**: Types serve as documentation
 - ✅ **Easier Refactoring**: Type-aware code transformations
