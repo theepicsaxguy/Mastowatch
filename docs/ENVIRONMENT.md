@@ -58,6 +58,12 @@ These variables must be set for MastoWatch to function properly:
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | JSON array of allowed CORS origins |
 | `UI_ORIGIN` | `http://localhost:5173` | Base URL of the dashboard UI |
 
+### Notifications
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SLACK_WEBHOOKS` | `{}` | JSON object mapping event names to Slack webhook URLs |
+
 ### OAuth Configuration (Admin Dashboard)
 
 | Variable | Default | Description |

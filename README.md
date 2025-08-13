@@ -61,6 +61,8 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up
 * `QUEUE_STATS_INTERVAL`: seconds between queue metrics snapshots (default: `15`)
 * `VITE_API_URL`: API base URL for the frontend
 
+To send notifications to Slack, set `SLACK_WEBHOOKS` to a JSON object mapping event names to webhook URLs.
+
 ### Getting Mastodon Access Tokens
 
 This application uses **direct access tokens** rather than OAuth2 client credentials. You need to create two applications in your Mastodon instance:

@@ -38,3 +38,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Example: allow requests in a generic HTTP adapter if you truly need it (not for Mastodon)
 "app/integrations/http_adapter.py" = ["TID251"]
+"app/services/slack_service.py" = ["TID251"]
+
+
