@@ -283,5 +283,5 @@ class MastoClient:
             if hasattr(rule, "to_dict"):
                 rules.append(rule.to_dict())
             else:
-                rules.append(rule.__dict__)
+            rules.append(self._to_dict(rule))
         return rules
