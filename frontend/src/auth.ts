@@ -19,31 +19,11 @@ export async function getCurrentUser(): Promise<User | null> {
   let retryCount = 0;
   const maxRetries = 3;
   const baseDelay = 1000;
-  
-  const apiBase = (import.meta as any).env?.VITE_API_URL;
-  const isDevelopment = (import.meta as any).env?.DEV;
-  const useProxy = isDevelopment && !apiBase?.includes('://');
-  
   while (retryCount < maxRetries) {
     try {
-      // Use session-based auth only, no Bearer token
-      const url = useProxy ? '/api/v1/me' : `${apiBase}/api/v1/me`;
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-        credentials: 'include' // Include cookies
-      });
-      
-      if (!res.ok) {
-        if (res.status === 401) return null;
-        throw new Error(`${res.status} ${res.statusText}`);
-      }
-      
-      return await res.json() as User;
+      return await apiFetch<User>('/api/v1/me', { credentials: 'include' });
     } catch (error: any) {
-      if (error.message?.includes('401')) return null;
+      if ((error as any).status === 401 || error.message?.includes('401')) return null;
       if (error.message?.includes('fetch') && retryCount < maxRetries - 1) {
         retryCount++;
         const delay = baseDelay * Math.pow(2, retryCount - 1);
@@ -58,26 +38,9 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function logout(): Promise<void> {
-  // Clear any stored tokens (though we're primarily using session cookies now)
   localStorage.removeItem('auth_token');
-  
-  const apiBase = (import.meta as any).env?.VITE_API_URL;
-  const isDevelopment = (import.meta as any).env?.DEV;
-  const useProxy = isDevelopment && !apiBase?.includes('://');
-  
   try {
-    const url = useProxy ? '/admin/logout' : `${apiBase}/admin/logout`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-      },
-      credentials: 'include' // Include cookies for session-based auth
-    });
-    
-    if (!res.ok) {
-      throw new Error(`${res.status} ${res.statusText}`);
-    }
+    await apiFetch('/admin/logout', { method: 'POST', credentials: 'include' });
   } catch (error) {
     console.warn('Logout endpoint failed:', error);
   }
@@ -95,12 +58,10 @@ export function clearStoredToken(): void {
   localStorage.removeItem('auth_token');
 }
 
-// Helper function to determine API base URL
 function getApiBase(): string {
   const configuredApiBase = (import.meta as any).env?.VITE_API_URL;
   const isDevelopment = (import.meta as any).env?.DEV;
   const useProxy = isDevelopment && !configuredApiBase?.includes('://');
-  
   return useProxy ? '' : configuredApiBase;
 }
 
@@ -127,43 +88,21 @@ export function loginWithPopup(): Promise<AuthResponse> {
         reject(new Error('OAuth login was cancelled'));
       }
     }, 1000);
-    
+
     const handleMessage = (event: MessageEvent) => {
-      // Only listen to events from the popup
       if (event.source !== popup) return;
-      
       if (event.data.type === 'oauth-success') {
         clearInterval(checkClosed);
         popup.close();
         window.removeEventListener('message', handleMessage);
         const authResponse = event.data.auth as AuthResponse;
-        
-        // Establish session in main window using the access token
-        const apiBase = getApiBase();
-        const isDevelopment = (import.meta as any).env?.DEV;
-        const useProxy = isDevelopment && !apiBase?.includes('://');
-        const url = useProxy ? '/admin/establish-session' : `${apiBase}/admin/establish-session`;
-        
-        fetch(url, {
+        apiFetch('/admin/establish-session', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // Include cookies
+          credentials: 'include',
           body: JSON.stringify({ access_token: authResponse.access_token })
         })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Failed to establish session');
-          }
-          return response.json();
-        })
-        .then(() => {
-          resolve(authResponse);
-        })
-        .catch(error => {
-          reject(new Error(`Failed to establish session: ${error.message}`));
-        });
+          .then(() => resolve(authResponse))
+          .catch(error => reject(new Error(`Failed to establish session: ${error.message}`)));
       } else if (event.data.type === 'oauth-error') {
         clearInterval(checkClosed);
         popup.close();

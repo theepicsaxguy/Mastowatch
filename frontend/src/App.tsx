@@ -86,35 +86,23 @@ export default function App() {
 
   async function checkAuth() {
     try {
-      // Check if we're returning from an OAuth callback
       const urlParams = new URLSearchParams(window.location.search);
       const oauthSuccess = urlParams.get('oauth_success');
       const accessToken = urlParams.get('access_token');
-      
+
       if (oauthSuccess === 'true' && accessToken) {
-        // Establish session using the access token from OAuth callback
         try {
-          const response = await fetch('/admin/establish-session', {
+          await apiFetch('/admin/establish-session', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
             credentials: 'include',
             body: JSON.stringify({ access_token: accessToken })
           });
-          
-          if (response.ok) {
-            // Clear the URL parameters
-            window.history.replaceState({}, document.title, window.location.pathname);
-            // Continue with normal auth check
-          } else {
-            console.error('Failed to establish session from OAuth callback');
-          }
+          window.history.replaceState({}, document.title, window.location.pathname);
         } catch (error) {
           console.error('Error establishing session from OAuth callback:', error);
         }
       }
-      
+
       const user = await getCurrentUser();
       setCurrentUser(user);
     } catch (error) {

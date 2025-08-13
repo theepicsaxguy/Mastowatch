@@ -224,6 +224,7 @@ The frontend now includes:
 - **Analytics dashboard** with account and report metrics
 - **Persistence validation** ensuring settings are properly saved
 - **AutoMod configuration** at `/config/automod` for DRY_RUN overrides, default actions, and defederation limits
+- **apiFetch helper** centralizing headers and credentials for API calls
 
 ### Frontend Development Commands
 ```bash
