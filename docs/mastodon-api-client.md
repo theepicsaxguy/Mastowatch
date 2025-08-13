@@ -29,7 +29,7 @@ Mastowatch/
 
 ### MastoClient
 - **Type-safe** methods for common endpoints (accounts, statuses, reports)
-- **Fallback** to raw HTTP for admin endpoints not in OpenAPI spec
+- **Helper methods** for admin endpoints not in the OpenAPI spec
 - **Full compatibility** with existing rate limiting and metrics
 - **Auto-completion** and validation in IDEs
 
@@ -69,11 +69,10 @@ report = client.create_report(
 print(f"Report created with ID: {report.id}")
 ```
 
-### Admin Operations (Fallback)
+### Admin Operations
 ```python
-# Admin endpoints not in OpenAPI spec use raw HTTP
-response = client.get_admin_accounts(origin="remote", limit=100)
-accounts = response.json()
+# Admin endpoints missing from the OpenAPI spec have helper methods
+accounts = client.get_admin_accounts(origin="remote", limit=100)
 ```
 
 ## Management Commands
@@ -140,21 +139,13 @@ report = bot.create_report(
 # report.id is typed and available
 ```
 
-### Admin Endpoints (Raw HTTP)
-
-```python
-# Admin endpoints not in OpenAPI spec use raw HTTP
-response = admin.get("/api/v1/admin/accounts", params={"origin": "remote"})
-accounts = response.json()
-```
-
 ### Benefits
 
 - ✅ **Type Safety**: IDE autocomplete and compile-time validation
 - ✅ **Fewer Errors**: No more `.json()` typos or missing fields
 - ✅ **Better Documentation**: Types serve as documentation
 - ✅ **Easier Refactoring**: Type-aware code transformations
-- ✅ **Backward Compatibility**: Raw HTTP methods for missing endpoints
+- ✅ **Admin Coverage**: Helper methods handle endpoints outside the OpenAPI spec
 
 ## Automation
 
@@ -181,7 +172,7 @@ The abraham/mastodon-openapi repository is automatically updated weekly via GitH
 
 1. **Missing admin endpoints:**
    - Admin endpoints may not be in the community OpenAPI spec
-   - Use legacy `.get()` and `.post()` methods for these
+   - Add a helper method to `MastoClient`
    - Contribute missing endpoints to abraham/mastodon-openapi
 
 2. **Generation warnings:**
@@ -221,7 +212,7 @@ The abraham/mastodon-openapi repository is automatically updated weekly via GitH
 
 1. **Check if endpoint exists** in generated client
 2. **Add to MastoClient** if available in OpenAPI spec
-3. **Use fallback method** if admin-only or missing from spec
+3. **Add a helper method** if admin-only or missing from spec
 4. **Consider contributing** missing endpoints to abraham/mastodon-openapi
 
 ### Schema Updates
@@ -241,5 +232,5 @@ The abraham/mastodon-openapi repository is automatically updated weekly via GitH
 - [ ] Complete admin endpoint coverage in community OpenAPI spec
 - [ ] Automated weekly submodule updates via CI/CD
 - [ ] Integration testing against live Mastodon instances
-- [ ] Performance benchmarking vs legacy client
+- [ ] Further refine the consolidated `MastoClient` as the single API interface
 - [ ] Generated client caching and optimization
