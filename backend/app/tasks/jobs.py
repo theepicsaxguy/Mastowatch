@@ -74,6 +74,20 @@ def _persist_account(a: dict):
         db.commit()
 
 
+def _schedule_reversal(account_id: str, action: str, duration: int) -> None:
+    expires = datetime.utcnow() + timedelta(seconds=duration)
+    with SessionLocal() as db:
+        existing = (
+            db.query(ScheduledAction).filter_by(mastodon_account_id=account_id, action_to_reverse=action).one_or_none()
+        )
+        if existing:
+            if expires > existing.expires_at:
+                existing.expires_at = expires
+        else:
+            db.add(ScheduledAction(mastodon_account_id=account_id, action_to_reverse=action, expires_at=expires))
+        db.commit()
+
+
 def _poll_accounts(origin: str, cursor_name: str):
     if _should_pause():
         logging.warning(f"PANIC_STOP enabled; skipping {origin} account poll")
@@ -302,21 +316,6 @@ def analyze_and_maybe_report(payload: dict):
         rules, config, ruleset_sha = rule_service.get_active_rules()
         rule_map = {r.name: r for r in rules}
 
-        def schedule(action: str, duration: int) -> None:
-            expires = datetime.utcnow() + timedelta(seconds=duration)
-            with SessionLocal() as db:
-                existing = (
-                    db.query(ScheduledAction)
-                    .filter_by(mastodon_account_id=acct_id, action_to_reverse=action)
-                    .one_or_none()
-                )
-                if existing:
-                    if expires > existing.expires_at:
-                        existing.expires_at = expires
-                else:
-                    db.add(ScheduledAction(mastodon_account_id=acct_id, action_to_reverse=action, expires_at=expires))
-                db.commit()
-
         performed: set[str] = set()
         for name in violated_rule_names:
             rule = rule_map.get(name)
@@ -344,7 +343,7 @@ def analyze_and_maybe_report(payload: dict):
                     )
                     performed.add("silence")
                 if not settings.DRY_RUN and rule.action_duration_seconds:
-                    schedule("silence", rule.action_duration_seconds)
+                    _schedule_reversal(acct_id, "silence", rule.action_duration_seconds)
             elif action == "suspend":
                 if "suspend" not in performed:
                     enforcement_service.suspend_account(
@@ -356,7 +355,7 @@ def analyze_and_maybe_report(payload: dict):
                     )
                     performed.add("suspend")
                 if not settings.DRY_RUN and rule.action_duration_seconds:
-                    schedule("suspend", rule.action_duration_seconds)
+                    _schedule_reversal(acct_id, "suspend", rule.action_duration_seconds)
 
         if float(score) < float(config.get("report_threshold", 1.0)):
             return
@@ -526,7 +525,6 @@ def process_new_report(report_payload: dict):
             except Exception as e:
                 logging.warning(f"Could not fetch statuses for report {report_data.get('id')}: {e}")
 
-        # Evaluate account and statuses against rules
         violations = rule_service.evaluate_account(account_data, statuses)
 
         if violations:
@@ -536,36 +534,38 @@ def process_new_report(report_payload: dict):
                     f"  Violation: {violation.rule_name}, Score: {violation.score}, Action: {violation.action_type}"
                 )
 
-                # Decide on action based on the rule's action_type and trigger_threshold
-                # For 'report' action, we need to ensure it's not already reported
+                comment = f"Automated {violation.action_type}: {violation.rule_name} (Score: {violation.score})"
                 if violation.action_type == "report":
-                    # Check if a report for this account/status combination already exists
-                    # This is a simplified check, a more robust one might involve dedupe_key
-                    if not report_data.get(
-                        "mastodon_report_id"
-                    ):  # Assuming this field indicates if it's already reported
-                        logging.info(
-                            f"Attempting to perform automated report for account {account_data['id']} due to rule {violation.rule_name}"
-                        )
-                        enforcement_service.perform_account_action(
+                    if not report_data.get("mastodon_report_id"):
+                        admin_client.create_report(
                             account_id=account_data["id"],
-                            action_type=violation.action_type,
-                            report_id=report_data.get("id"),  # Pass the original report ID if available
-                            comment=f"Automated report: {violation.rule_name} (Score: {violation.score})",
-                            status_ids=[s.get("id") for s in statuses if s.get("id")],  # Pass relevant status IDs
+                            comment=comment,
+                            status_ids=[s.get("id") for s in statuses if s.get("id")],
                         )
-                elif violation.action_type in ["silence", "suspend", "disable", "sensitive", "domain_block"]:
-                    logging.info(
-                        f"Attempting to perform automated action {violation.action_type} for account {account_data['id']} due to rule {violation.rule_name}"
+                elif violation.action_type == "warn":
+                    enforcement_service.warn_account(
+                        account_data["id"],
+                        text=violation.action_warning_text or comment,
+                        warning_preset_id=violation.warning_preset_id,
                     )
-                    enforcement_service.perform_account_action(
-                        account_id=account_data["id"],
-                        action_type=violation.action_type,
-                        comment=f"Automated action: {violation.rule_name} (Score: {violation.score})",
-                        duration=violation.action_duration_seconds,  # Pass duration if applicable
-                        warning_text=violation.action_warning_text,  # Pass warning text if applicable
-                        warning_preset_id=violation.warning_preset_id,  # Pass warning preset if applicable
+                elif violation.action_type == "silence":
+                    enforcement_service.silence_account(
+                        account_data["id"],
+                        text=violation.action_warning_text or comment,
+                        warning_preset_id=violation.warning_preset_id,
                     )
+                    if not settings.DRY_RUN and violation.action_duration_seconds:
+                        _schedule_reversal(account_data["id"], "silence", violation.action_duration_seconds)
+                elif violation.action_type == "suspend":
+                    enforcement_service.suspend_account(
+                        account_data["id"],
+                        text=violation.action_warning_text or comment,
+                        warning_preset_id=violation.warning_preset_id,
+                    )
+                    if not settings.DRY_RUN and violation.action_duration_seconds:
+                        _schedule_reversal(account_data["id"], "suspend", violation.action_duration_seconds)
+                else:
+                    logging.info(f"Unsupported action type {violation.action_type} for account {account_data['id']}")
         else:
             logging.info(f"Report {report_data.get('id')} did not trigger any violations.")
 
@@ -599,7 +599,6 @@ def process_new_status(status_payload: dict):
         admin_client = _get_admin_client()
         enforcement_service = EnforcementService(mastodon_client=admin_client)
 
-        # Evaluate the account and the new status against rules
         violations = rule_service.evaluate_account(account_data, [status_data])
 
         if violations:
@@ -609,30 +608,37 @@ def process_new_status(status_payload: dict):
                     f"  Violation: {violation.rule_name}, Score: {violation.score}, Action: {violation.action_type}"
                 )
 
-                # Decide on action based on the rule's action_type and trigger_threshold
-                if violation.action_type in ["silence", "suspend", "disable", "sensitive", "domain_block"]:
-                    logging.info(
-                        f"Attempting to perform automated action {violation.action_type} for account {account_data['id']} due to rule {violation.rule_name}"
-                    )
-                    enforcement_service.perform_account_action(
+                comment = f"Automated {violation.action_type}: {violation.rule_name} (Score: {violation.score})"
+                if violation.action_type == "report":
+                    admin_client.create_report(
                         account_id=account_data["id"],
-                        action_type=violation.action_type,
-                        comment=f"Automated action: {violation.rule_name} (Score: {violation.score})",
-                        duration=violation.action_duration_seconds,  # Pass duration if applicable
-                        warning_text=violation.action_warning_text,  # Pass warning text if applicable
-                        warning_preset_id=violation.warning_preset_id,  # Pass warning preset if applicable
+                        comment=comment,
+                        status_ids=[status_data.get("id")],
                     )
-                elif violation.action_type == "report":
-                    # For status-triggered reports, create a new report
-                    logging.info(
-                        f"Attempting to create automated report for account {account_data['id']} due to rule {violation.rule_name}"
+                elif violation.action_type == "warn":
+                    enforcement_service.warn_account(
+                        account_data["id"],
+                        text=violation.action_warning_text or comment,
+                        warning_preset_id=violation.warning_preset_id,
                     )
-                    enforcement_service.perform_account_action(
-                        account_id=account_data["id"],
-                        action_type=violation.action_type,
-                        comment=f"Automated report: {violation.rule_name} (Score: {violation.score})",
-                        status_ids=[status_data.get("id")],  # Report the specific status
+                elif violation.action_type == "silence":
+                    enforcement_service.silence_account(
+                        account_data["id"],
+                        text=violation.action_warning_text or comment,
+                        warning_preset_id=violation.warning_preset_id,
                     )
+                    if not settings.DRY_RUN and violation.action_duration_seconds:
+                        _schedule_reversal(account_data["id"], "silence", violation.action_duration_seconds)
+                elif violation.action_type == "suspend":
+                    enforcement_service.suspend_account(
+                        account_data["id"],
+                        text=violation.action_warning_text or comment,
+                        warning_preset_id=violation.warning_preset_id,
+                    )
+                    if not settings.DRY_RUN and violation.action_duration_seconds:
+                        _schedule_reversal(account_data["id"], "suspend", violation.action_duration_seconds)
+                else:
+                    logging.info(f"Unsupported action type {violation.action_type} for account {account_data['id']}")
         else:
             logging.info(f"Status {status_data.get('id')} did not trigger any violations.")
 
