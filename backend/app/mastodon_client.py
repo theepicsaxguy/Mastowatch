@@ -90,7 +90,7 @@ class MastoClient:
         """Verify the current token and return the associated account."""
         result = await get_accounts_verify_credentials_async(client=self._api_client)
         if result is None:
-            raise httpx.HTTPStatusError("Failed to verify credentials", request=None, response=None)
+            raise ValueError("Failed to verify credentials: API returned None")
         if hasattr(result, "to_dict"):
             return result.to_dict()
         return result.__dict__
