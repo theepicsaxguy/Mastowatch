@@ -28,7 +28,7 @@ Mastowatch/
 ## Mastodon Client
 
 ### MastoClient
-- **Dictionary responses** for common endpoints (accounts, statuses, reports)
+- **JSON dictionary responses** (Python dicts representing JSON objects) for common endpoints (accounts, statuses, reports)
 - **Helper methods** for admin endpoints not in the OpenAPI spec
 - **Full compatibility** with existing rate limiting and metrics
 - **Auto-completion** and validation in IDEs
