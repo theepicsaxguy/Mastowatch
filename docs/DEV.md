@@ -196,6 +196,11 @@ tests/                 # Comprehensive test suite
 
 Remote and local account polling both use a shared helper to keep the code simple.
 
+## Behavioral Detection
+
+- `automation_disclosure`: checks the last twenty posts for templates and steady timing. Non-bot accounts are flagged when more than half of posts look automated. Bots are flagged if they post publicly more than once an hour or twenty-four times a day.
+- `link_spam`: triggers when twenty recent posts all contain links and the content repeats or all links point to one domain. Metrics include link ratios and domain counts.
+
 ## Database Features
 
 ### Production-Ready Database Schema

@@ -53,9 +53,7 @@ def _get_account_sync(*_, **__):
 
 get_account_mod.sync = _get_account_sync
 
-get_account_statuses_mod = types.ModuleType(
-    "app.clients.mastodon.api.accounts.get_account_statuses"
-)
+get_account_statuses_mod = types.ModuleType("app.clients.mastodon.api.accounts.get_account_statuses")
 
 
 def _get_account_statuses_sync(*_, **__):
@@ -79,12 +77,20 @@ get_accounts_verify_credentials_mod.asyncio = _get_accounts_verify_credentials_s
 models_pkg = types.ModuleType("app.clients.mastodon.models")
 models_pkg.__path__ = []
 
-create_report_body_mod = types.ModuleType(
-    "app.clients.mastodon.models.create_report_body"
-)
+create_report_body_mod = types.ModuleType("app.clients.mastodon.models.create_report_body")
 
 
-class CreateReportBody:  # noqa: D401
+class CreateReportBody:
+    """Mock representation of a report body for testing purposes.
+
+    Attributes:
+        account_id: The ID of the account being reported.
+        comment: The comment associated with the report.
+        category: The category of the report.
+        forward: Whether the report should be forwarded.
+        status_ids: List of status IDs related to the report.
+        rule_ids: List of rule IDs related to the report.
+    """
     def __init__(self, account_id, comment, category, forward, status_ids, rule_ids):
         self.account_id = account_id
         self.comment = comment
@@ -117,6 +123,24 @@ def _create_report_sync(*_, **__):
 
 
 create_report_mod.sync = _create_report_sync
+instance_pkg = types.ModuleType("app.clients.mastodon.api.instance")
+instance_pkg.__path__ = []
+get_instance_mod = types.ModuleType("app.clients.mastodon.api.instance.get_instance")
+
+
+def _get_instance_sync(*_, **__):
+    return None
+
+
+get_instance_mod.sync = _get_instance_sync
+get_instance_rules_mod = types.ModuleType("app.clients.mastodon.api.instance.get_instance_rules")
+
+
+def _get_instance_rules_sync(*_, **__):
+    return []
+
+
+get_instance_rules_mod.sync = _get_instance_rules_sync
 
 sys.modules.update(
     {
@@ -131,6 +155,9 @@ sys.modules.update(
         "app.clients.mastodon.models.create_report_body": create_report_body_mod,
         "app.clients.mastodon.api.reports": reports_pkg,
         "app.clients.mastodon.api.reports.create_report": create_report_mod,
+        "app.clients.mastodon.api.instance": instance_pkg,
+        "app.clients.mastodon.api.instance.get_instance": get_instance_mod,
+        "app.clients.mastodon.api.instance.get_instance_rules": get_instance_rules_mod,
     }
 )
 
@@ -182,9 +209,7 @@ def test_engine(test_settings):
 @pytest.fixture(scope="function")
 def test_db_session(test_engine):
     """Create a test database session that rolls back after each test."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=test_engine
-    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
     session = TestingSessionLocal()
 
     try:

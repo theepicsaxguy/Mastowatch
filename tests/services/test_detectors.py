@@ -3,6 +3,7 @@
 import unittest
 from hashlib import sha256
 from unittest.mock import Mock
+from datetime import datetime, timedelta
 
 from app.schemas import Violation
 from app.services.detectors.behavioral_detector import BehavioralDetector
@@ -81,8 +82,6 @@ class TestRegexDetector(unittest.TestCase):
         ]
 
         violations = self.detector.evaluate(rule, account_data, statuses)
-
-        # Should find 2 matches
         self.assertEqual(len(violations), 2)
         for violation in violations:
             self.assertEqual(violation.score, 1.0)
@@ -116,8 +115,6 @@ class TestRegexDetector(unittest.TestCase):
         statuses = [{"content": "urgent message here", "id": "1"}]
 
         violations = self.detector.evaluate(rule, account_data, statuses)
-
-        # Should match both URGENT and urgent
         self.assertEqual(len(violations), 2)
 
 
@@ -141,8 +138,6 @@ class TestKeywordDetector(unittest.TestCase):
         statuses = [{"content": "Get cheap viagra pills online", "id": "1"}]
 
         violations = self.detector.evaluate(rule, account_data, statuses)
-
-        # Should find multiple keyword matches
         self.assertGreater(len(violations), 0)
         for violation in violations:
             self.assertEqual(violation.score, 2.0)
@@ -179,8 +174,6 @@ class TestKeywordDetector(unittest.TestCase):
         statuses = []
 
         violations = self.detector.evaluate(rule, account_data, statuses)
-
-        # Should match "free" within "freedom"
         self.assertEqual(len(violations), 1)
 
     def test_evaluate_no_keyword_match(self):
@@ -207,107 +200,67 @@ class TestBehavioralDetector(unittest.TestCase):
         """Set up test environment."""
         self.detector = BehavioralDetector()
 
-    def test_evaluate_high_posting_frequency(self):
-        """Test detection of accounts with high posting frequency."""
+    def test_automation_disclosure_non_bot(self):
+        """Flag non-bot accounts with templated posts."""
         rule = Mock()
-        rule.pattern = "high_frequency"
+        rule.pattern = "automation_disclosure"
         rule.trigger_threshold = 1.0
-        rule.name = "high_frequency_rule"
-        rule.detector_type = "behavioral"
-        rule.weight = 1.5
-
-        account_data = {
-            "username": "spammer",
-            "statuses_count": 10000,
-            "created_at": "2023-12-01T00:00:00.000Z",  # Recent account
-        }
-        # Many recent statuses
-        statuses = [{"id": str(i), "content": f"Status {i}"} for i in range(50)]
-
-        violations = self.detector.evaluate(rule, account_data, statuses)
-
-        if "high_frequency" in rule.pattern:
-            self.assertGreater(len(violations), 0)
-            self.assertEqual(violations[0].score, 1.5)
-
-    def test_evaluate_low_follower_ratio(self):
-        """Test detection of accounts with suspicious follower ratios."""
-        rule = Mock()
-        rule.pattern = "low_follower_ratio"
-        rule.trigger_threshold = 1.0
-        rule.name = "follower_ratio_rule"
+        rule.name = "automation_disclosure_rule"
         rule.detector_type = "behavioral"
         rule.weight = 1.0
-
-        account_data = {"username": "suspicious", "followers_count": 5, "following_count": 1000, "statuses_count": 500}
+        base_time = datetime.utcnow()
         statuses = []
-
+        for i in range(20):
+            content = f"Scheduled update {i}" if i % 2 == 0 else "Random"
+            created_at = (base_time - timedelta(minutes=i)).isoformat()
+            statuses.append({"id": str(i), "content": content, "created_at": created_at, "visibility": "public"})
+        account_data = {"mastodon_account_id": "1", "bot": False}
         violations = self.detector.evaluate(rule, account_data, statuses)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("automation_percentage", violations[0].evidence.metrics)
 
-        if "low_follower_ratio" in rule.pattern:
-            self.assertGreater(len(violations), 0)
-
-    def test_evaluate_new_account_high_activity(self):
-        """Test detection of new accounts with high activity."""
+    def test_automation_disclosure_bot_rate(self):
+        """Flag bots with high public posting rates."""
         rule = Mock()
-        rule.pattern = "new_account_high_activity"
+        rule.pattern = "automation_disclosure"
         rule.trigger_threshold = 1.0
-        rule.name = "new_account_rule"
-        rule.detector_type = "behavioral"
-        rule.weight = 2.0
-
-        account_data = {
-            "username": "newspammer",
-            "created_at": "2024-01-01T00:00:00.000Z",  # Very recent
-            "statuses_count": 1000,
-        }
-        statuses = []
-
-        violations = self.detector.evaluate(rule, account_data, statuses)
-
-        if "new_account_high_activity" in rule.pattern:
-            self.assertGreater(len(violations), 0)
-
-    def test_evaluate_normal_behavior(self):
-        """Test that normal accounts don't trigger behavioral violations."""
-        rule = Mock()
-        rule.pattern = "high_frequency,low_follower_ratio,new_account_high_activity"
-        rule.trigger_threshold = 1.0
-        rule.name = "behavioral_checks"
+        rule.name = "automation_disclosure_rule"
         rule.detector_type = "behavioral"
         rule.weight = 1.0
-
-        # Normal, established account
-        account_data = {
-            "username": "normal_user",
-            "created_at": "2020-01-01T00:00:00.000Z",  # Old account
-            "followers_count": 500,
-            "following_count": 300,
-            "statuses_count": 1000,
-        }
+        base_time = datetime.utcnow()
         statuses = []
-
+        for i in range(5):
+            created_at = (base_time - timedelta(minutes=i)).isoformat()
+            statuses.append({"id": str(i), "content": f"Update {i}", "created_at": created_at, "visibility": "public"})
+        account_data = {"mastodon_account_id": "2", "bot": True}
         violations = self.detector.evaluate(rule, account_data, statuses)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("hourly_rate", violations[0].evidence.metrics)
 
-        # Normal account should not trigger violations
-        self.assertEqual(len(violations), 0)
-
-    def test_evaluate_invalid_behavioral_pattern(self):
-        """Test handling of invalid behavioral pattern."""
+    def test_link_spam_single_domain(self):
+        """Detect link spam with single domain."""
         rule = Mock()
-        rule.pattern = "invalid_pattern"
+        rule.pattern = "link_spam"
         rule.trigger_threshold = 1.0
-        rule.name = "invalid_rule"
+        rule.name = "link_spam_rule"
         rule.detector_type = "behavioral"
         rule.weight = 1.0
-
-        account_data = {"username": "user"}
+        base_time = datetime.utcnow()
         statuses = []
-
+        for i in range(20):
+            created_at = (base_time - timedelta(minutes=i)).isoformat()
+            statuses.append(
+                {
+                    "id": str(i),
+                    "content": f"Check this out http://example.com/post/{i}",
+                    "created_at": created_at,
+                    "visibility": "public",
+                }
+            )
+        account_data = {"mastodon_account_id": "3", "bot": False}
         violations = self.detector.evaluate(rule, account_data, statuses)
-
-        # Invalid pattern should not cause crashes
-        self.assertEqual(len(violations), 0)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("domain_distribution", violations[0].evidence.metrics)
 
 
 class TestMediaDetector(unittest.TestCase):
