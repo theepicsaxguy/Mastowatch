@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import re
 from urllib.parse import urlparse
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
