@@ -15,6 +15,7 @@ Analyze accounts/statuses and **file reports via API** so human moderators act i
 - ✅ **Audit Logs**: Enforcement actions recorded with rule context and API responses
 - ✅ **User Notifications**: Warnings and suspensions include messages sent through Mastodon
 - ✅ **Media-aware Scanning**: Analyzes attachments for alt text, MIME types, and URL hashes
+- ✅ **Context-aware Status Analysis**: Each new status is checked alongside the account's latest public posts. Unlisted posts don't affect rate rules but are still scanned for shady links.
 
 ## Quick start
 
