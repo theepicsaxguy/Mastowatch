@@ -81,6 +81,16 @@ create_report_body_mod = types.ModuleType("app.clients.mastodon.models.create_re
 
 
 class CreateReportBody:
+    """Mock representation of a report body for testing purposes.
+
+    Attributes:
+        account_id: The ID of the account being reported.
+        comment: The comment associated with the report.
+        category: The category of the report.
+        forward: Whether the report should be forwarded.
+        status_ids: List of status IDs related to the report.
+        rule_ids: List of rule IDs related to the report.
+    """
     def __init__(self, account_id, comment, category, forward, status_ids, rule_ids):
         self.account_id = account_id
         self.comment = comment
