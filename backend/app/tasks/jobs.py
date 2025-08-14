@@ -50,9 +50,7 @@ def _should_pause():
     if settings.PANIC_STOP:
         return True
     with SessionLocal() as db:
-        row = db.execute(
-            text("SELECT value FROM config WHERE key='panic_stop'")
-        ).scalar()
+        row = db.execute(text("SELECT value FROM config WHERE key='panic_stop'")).scalar()
         if isinstance(row, dict):
             return bool(row.get("enabled", False))
     return False
@@ -87,9 +85,7 @@ def _poll_accounts(origin: str, cursor_name: str):
 
     try:
         with SessionLocal() as db:
-            pos = db.execute(
-                text("SELECT position FROM cursors WHERE name=:n"), {"n": cursor_name}
-            ).scalar()
+            pos = db.execute(text("SELECT position FROM cursors WHERE name=:n"), {"n": cursor_name}).scalar()
 
         pages = 0
         next_max = pos
@@ -109,9 +105,7 @@ def _poll_accounts(origin: str, cursor_name: str):
                 try:
                     _persist_account(account_data)
 
-                    scan_result = enhanced_scanner.scan_account_efficiently(
-                        account_data.get("account", {}), session_id
-                    )
+                    scan_result = enhanced_scanner.scan_account_efficiently(account_data.get("account", {}), session_id)
 
                     if scan_result:
                         accounts_processed += 1
@@ -239,9 +233,7 @@ def check_domain_violations():
             "domains_tracked": len(domain_alerts),
             "defederated_domains": defederated_count,
             "high_risk_domains": sum(
-                1
-                for alert in domain_alerts
-                if alert["violation_count"] >= alert["defederation_threshold"] * 0.8
+                1 for alert in domain_alerts if alert["violation_count"] >= alert["defederation_threshold"] * 0.8
             ),
         }
     except Exception as e:
@@ -264,9 +256,7 @@ def analyze_and_maybe_report(payload: dict):
         started = time.time()
 
         # Allow both raw admin object or normalized dict
-        acct = (
-            payload.get("account") or payload.get("admin_obj", {}).get("account") or {}
-        )
+        acct = payload.get("account") or payload.get("admin_obj", {}).get("account") or {}
         acct_id = acct.get("id")
         if not acct_id:
             return
@@ -278,23 +268,15 @@ def analyze_and_maybe_report(payload: dict):
         violated_rule_names: set[str] = set()
         if cached_result:
             score = cached_result.get("score", 0)
-            hits = [
-                (h["rule"], h["weight"], h["evidence"])
-                for h in cached_result.get("rule_hits", [])
-            ]
+            hits = [(h["rule"], h["weight"], h["evidence"]) for h in cached_result.get("rule_hits", [])]
             for rk, _, _ in hits:
                 name = rk.split("/", 1)[1] if "/" in rk else rk
                 violated_rule_names.add(name)
         else:
-            statuses = admin_client.get_account_statuses(
-                account_id=acct_id, limit=settings.MAX_STATUSES_TO_FETCH
-            )
+            statuses = admin_client.get_account_statuses(account_id=acct_id, limit=settings.MAX_STATUSES_TO_FETCH)
             violations = rule_service.evaluate_account(acct, statuses)
             score = sum(v.score for v in violations)
-            hits = [
-                (f"{v.rule_type}/{v.rule_name}", v.score, v.evidence or {})
-                for v in violations
-            ]
+            hits = [(f"{v.rule_type}/{v.rule_name}", v.score, v.evidence or {}) for v in violations]
             violated_rule_names = {v.rule_name for v in violations}
 
         rule_evidence_map: dict[str, dict[str, Any]] = {}
@@ -392,11 +374,7 @@ def analyze_and_maybe_report(payload: dict):
             return
 
         # Track domain violation
-        domain = (
-            acct.get("acct", "").split("@")[-1]
-            if "@" in acct.get("acct", "")
-            else "local"
-        )
+        domain = acct.get("acct", "").split("@")[-1] if "@" in acct.get("acct", "") else "local"
         if domain != "local":
             enhanced_scanner = EnhancedScanningSystem()
             enhanced_scanner._track_domain_violation(domain)
@@ -441,9 +419,7 @@ def analyze_and_maybe_report(payload: dict):
             return
 
         category = settings.REPORT_CATEGORY_DEFAULT
-        forward = (
-            settings.FORWARD_REMOTE_REPORTS if "@" in acct.get("acct", "") else False
-        )
+        forward = settings.FORWARD_REMOTE_REPORTS if "@" in acct.get("acct", "") else False
 
         bot = _get_bot_client()
         result = bot.create_report(
@@ -460,9 +436,7 @@ def analyze_and_maybe_report(payload: dict):
             from sqlalchemy import text
 
             db.execute(
-                text(
-                    "UPDATE reports SET mastodon_report_id = :rid WHERE dedupe_key = :dk"
-                ),
+                text("UPDATE reports SET mastodon_report_id = :rid WHERE dedupe_key = :dk"),
                 {"rid": rep_id, "dk": dedupe},
             )
             db.commit()
@@ -491,17 +465,11 @@ def process_expired_actions():
 
     with SessionLocal() as session:
         now = func.now()
-        expired_actions = (
-            session.query(ScheduledAction)
-            .filter(ScheduledAction.expires_at <= now)
-            .all()
-        )
+        expired_actions = session.query(ScheduledAction).filter(ScheduledAction.expires_at <= now).all()
 
         for action in expired_actions:
             try:
-                logging.info(
-                    f"Reversing action {action.action_to_reverse} for account {action.mastodon_account_id}"
-                )
+                logging.info(f"Reversing action {action.action_to_reverse} for account {action.mastodon_account_id}")
                 if action.action_to_reverse == "silence":
                     enforcement_service.unsilence_account(action.mastodon_account_id)
                 elif action.action_to_reverse == "suspend":
@@ -514,9 +482,7 @@ def process_expired_actions():
                     f"Successfully reversed and deleted scheduled action for account {action.mastodon_account_id}"
                 )
             except Exception as e:
-                logging.error(
-                    f"Error reversing action for account {action.mastodon_account_id}: {e}"
-                )
+                logging.error(f"Error reversing action for account {action.mastodon_account_id}: {e}")
                 session.rollback()  # Rollback in case of error to keep the action in the queue
 
 
@@ -563,17 +529,13 @@ def process_new_report(report_payload: dict):
                 statuses = [s for s in account_statuses if s.get("id") in status_ids]
                 break  # Assuming we only need to fetch once
             except Exception as e:
-                logging.warning(
-                    f"Could not fetch statuses for report {report_data.get('id')}: {e}"
-                )
+                logging.warning(f"Could not fetch statuses for report {report_data.get('id')}: {e}")
 
         # Evaluate account and statuses against rules
         violations = rule_service.evaluate_account(account_data, statuses)
 
         if violations:
-            logging.info(
-                f"Report {report_data.get('id')} triggered {len(violations)} violations."
-            )
+            logging.info(f"Report {report_data.get('id')} triggered {len(violations)} violations.")
             for violation in violations:
                 logging.info(
                     f"  Violation: {violation.rule_name}, Score: {violation.score}, Action: {violation.action_type}"
@@ -593,13 +555,9 @@ def process_new_report(report_payload: dict):
                         enforcement_service.perform_account_action(
                             account_id=account_data["id"],
                             action_type=violation.action_type,
-                            report_id=report_data.get(
-                                "id"
-                            ),  # Pass the original report ID if available
+                            report_id=report_data.get("id"),  # Pass the original report ID if available
                             comment=f"Automated report: {violation.rule_name} (Score: {violation.score})",
-                            status_ids=[
-                                s.get("id") for s in statuses if s.get("id")
-                            ],  # Pass relevant status IDs
+                            status_ids=[s.get("id") for s in statuses if s.get("id")],  # Pass relevant status IDs
                         )
                 elif violation.action_type in [
                     "silence",
@@ -620,9 +578,7 @@ def process_new_report(report_payload: dict):
                         warning_preset_id=violation.warning_preset_id,  # Pass warning preset if applicable
                     )
         else:
-            logging.info(
-                f"Report {report_data.get('id')} did not trigger any violations."
-            )
+            logging.info(f"Report {report_data.get('id')} did not trigger any violations.")
 
     except Exception as e:
         logging.exception(f"Error processing new report: {e}")
@@ -646,21 +602,39 @@ def process_new_status(status_payload: dict):
 
         status_data = status_payload.get("status", {})
         account_data = status_data.get("account", {})
-
         if not account_data.get("id"):
             logging.warning("Status payload missing account ID, skipping processing.")
             return
 
         admin_client = _get_admin_client()
-        enforcement_service = EnforcementService(mastodon_client=admin_client)
+        history = admin_client.get_account_statuses(
+            account_id=account_data["id"],
+            limit=20,
+            exclude_reblogs=True,
+        )
+            limit=MAX_HISTORY_STATUSES,
+            exclude_reblogs=True,
+        )
+        history = [s for s in history if s.get("visibility") in ANALYZABLE_VISIBILITY_TYPES]
+        combined = [status_data]
+        seen = {status_data.get("id")}
+        for s in history:
+            s_id = s.get("id")
+            if s_id and s_id not in seen:
+                combined.append(s)
+                seen.add(s_id)
+        public_only = [s for s in combined if s.get("visibility") == "public"]
 
-        # Evaluate the account and the new status against rules
-        violations = rule_service.evaluate_account(account_data, [status_data])
+        enforcement_service = EnforcementService(mastodon_client=admin_client)
+        violations = rule_service.evaluate_account(
+            {**account_data, "recent_public_statuses": public_only},
+            account_data,
+            combined,
+            public_only,
+        )
 
         if violations:
-            logging.info(
-                f"Status {status_data.get('id')} triggered {len(violations)} violations."
-            )
+            logging.info(f"Status {status_data.get('id')} triggered {len(violations)} violations.")
             for violation in violations:
                 logging.info(
                     f"  Violation: {violation.rule_name}, Score: {violation.score}, Action: {violation.action_type}"
@@ -694,14 +668,10 @@ def process_new_status(status_payload: dict):
                         account_id=account_data["id"],
                         action_type=violation.action_type,
                         comment=f"Automated report: {violation.rule_name} (Score: {violation.score})",
-                        status_ids=[
-                            status_data.get("id")
-                        ],  # Report the specific status
+                        status_ids=[status_data.get("id")],  # Report the specific status
                     )
         else:
-            logging.info(
-                f"Status {status_data.get('id')} did not trigger any violations."
-            )
+            logging.info(f"Status {status_data.get('id')} did not trigger any violations.")
 
     except Exception as e:
         logging.exception(f"Error processing new status: {e}")

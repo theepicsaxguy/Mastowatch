@@ -1,7 +1,9 @@
+"""Tests for Celery task handlers."""
+
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -20,13 +22,13 @@ from app.tasks.jobs import (
 
 
 class TestCeleryTasks(unittest.TestCase):
+    """Celery task tests."""
+
     @patch("app.tasks.jobs.SessionLocal")
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
     @patch("app.tasks.jobs._get_bot_client")
-    def test_analyze_and_maybe_report_dry_run(
-        self, mock_bot_client, mock_settings, mock_rule_service, mock_db
-    ):
+    def test_analyze_and_maybe_report_dry_run(self, mock_bot_client, mock_settings, mock_rule_service, mock_db):
         """Test analyze_and_maybe_report in dry run mode"""
         # Setup mocks
         mock_settings.return_value.DRY_RUN = True
@@ -83,9 +85,7 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.SessionLocal")
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
-    def test_analyze_and_maybe_report_panic_stop(
-        self, mock_settings, mock_rule_service, mock_db
-    ):
+    def test_analyze_and_maybe_report_panic_stop(self, mock_settings, mock_rule_service, mock_db):
         """Test that panic stop prevents execution"""
         # Setup mocks
         mock_settings.return_value.PANIC_STOP = True
@@ -93,10 +93,8 @@ class TestCeleryTasks(unittest.TestCase):
         # Test data
         payload = {"account": {"id": "123456"}, "statuses": []}
 
-        # Call the function
-        result = analyze_and_maybe_report(payload)
+        analyze_and_maybe_report(payload)
 
-        # Should exit early due to panic stop
         mock_rule_service.evaluate_account.assert_not_called()
         mock_db.assert_not_called()
 
@@ -124,28 +122,41 @@ class TestCeleryTasks(unittest.TestCase):
         # Should trigger analysis of the target account
         self.assertIsNotNone(result)
 
-    @patch("app.tasks.jobs.SessionLocal")
-    @patch("app.tasks.jobs.analyze_and_maybe_report")
-    def test_process_new_status(self, mock_analyze, mock_db):
+    @patch("app.tasks.jobs.rule_service")
+    @patch("app.tasks.jobs._get_admin_client")
+    def test_process_new_status(self, mock_get_admin_client, mock_rule_service):
         """Test processing of new status webhook"""
-        mock_db_session = MagicMock()
-        mock_db.return_value.__enter__.return_value = mock_db_session
+        mock_client = MagicMock()
+        mock_client.get_account_statuses.return_value = [
+            {"id": "old1", "visibility": "public"},
+            {"id": "old2", "visibility": "unlisted"},
+            {"id": "status_123", "visibility": "public"},
+            {"id": "old3", "visibility": "private"},
+        ]
+        mock_get_admin_client.return_value = mock_client
+        mock_rule_service.evaluate_account.return_value = []
 
-        mock_analyze.delay.return_value = MagicMock(id="task_456")
-
-        # Mock status payload
         payload = {
-            "id": "status_123",
-            "account": {"id": "account_123", "acct": "user@example.com"},
-            "content": "This is a test status",
-            "visibility": "public",
+            "status": {
+                "id": "status_123",
+                "account": {"id": "account_123", "acct": "user@example.com"},
+                "content": "test",
+                "visibility": "public",
+            }
         }
 
-        # Call the function
-        result = process_new_status(payload)
+        process_new_status(payload)
 
-        # Should trigger analysis of the account
-        self.assertIsNotNone(result)
+        mock_client.get_account_statuses.assert_called_once_with(
+            account_id="account_123", limit=20, exclude_reblogs=True
+        )
+        statuses_arg = mock_rule_service.evaluate_account.call_args[0][1]
+        self.assertEqual({s["id"] for s in statuses_arg}, {"status_123", "old1", "old2"})
+        account_arg = mock_rule_service.evaluate_account.call_args[0][0]
+        self.assertEqual(
+            {s["id"] for s in account_arg["recent_public_statuses"]},
+            {"status_123", "old1"},
+        )
 
     def test_analyze_and_maybe_report_invalid_payload(self):
         """Test handling of invalid payload"""
@@ -163,9 +174,7 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
     @patch("app.tasks.jobs._get_bot_client")
-    def test_analyze_and_maybe_report_report_creation(
-        self, mock_bot_client, mock_settings, mock_rule_service, mock_db
-    ):
+    def test_analyze_and_maybe_report_report_creation(self, mock_bot_client, mock_settings, mock_rule_service, mock_db):
         """Test that reports are created when score exceeds threshold"""
         # Setup mocks for non-dry run mode
         mock_settings.return_value.DRY_RUN = False
@@ -215,9 +224,7 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.SessionLocal")
     @patch("app.tasks.jobs.rule_service")
     @patch("app.tasks.jobs.get_settings")
-    def test_analyze_and_maybe_report_no_report_low_score(
-        self, mock_settings, mock_rule_service, mock_db
-    ):
+    def test_analyze_and_maybe_report_no_report_low_score(self, mock_settings, mock_rule_service, mock_db):
         """Test that no report is created when score is below threshold"""
         # Setup mocks
         mock_settings.return_value.DRY_RUN = False
@@ -261,11 +268,13 @@ class TestCeleryTasks(unittest.TestCase):
 
     @patch("app.tasks.jobs._poll_accounts")
     def test_poll_admin_accounts_wrapper(self, mock_poll):
+        """Ensure poll_admin_accounts calls helper."""
         poll_admin_accounts()
         mock_poll.assert_called_once_with("remote", CURSOR_NAME)
 
     @patch("app.tasks.jobs._poll_accounts")
     def test_poll_admin_accounts_local_wrapper(self, mock_poll):
+        """Ensure local poll uses correct cursor."""
         poll_admin_accounts_local()
         mock_poll.assert_called_once_with("local", CURSOR_NAME_LOCAL)
 
@@ -274,9 +283,8 @@ class TestCeleryTasks(unittest.TestCase):
     @patch("app.tasks.jobs.cursor_lag_pages")
     @patch("app.tasks.jobs.SessionLocal")
     @patch("app.tasks.jobs.EnhancedScanningSystem")
-    def test_poll_accounts_metrics(
-        self, mock_scanner, mock_session, mock_metric, mock_persist, mock_analyze
-    ):
+    def test_poll_accounts_metrics(self, mock_scanner, mock_session, mock_metric, mock_persist, mock_analyze):
+        """Record metrics during polling."""
         jobs.settings.MAX_PAGES_PER_POLL = 1
         jobs.settings.BATCH_SIZE = 1
         db_session = MagicMock()
@@ -301,9 +309,7 @@ class TestCeleryTasks(unittest.TestCase):
                 call("local", limit=jobs.settings.BATCH_SIZE, cursor=None),
             ]
         )
-        mock_metric.labels.assert_has_calls(
-            [call(cursor=CURSOR_NAME), call(cursor=CURSOR_NAME_LOCAL)]
-        )
+        mock_metric.labels.assert_has_calls([call(cursor=CURSOR_NAME), call(cursor=CURSOR_NAME_LOCAL)])
         self.assertEqual(metric.set.call_count, 2)
 
 
