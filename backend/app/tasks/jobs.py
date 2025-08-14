@@ -628,7 +628,9 @@ def process_new_status(status_payload: dict):
         enforcement_service = EnforcementService(mastodon_client=admin_client)
         violations = rule_service.evaluate_account(
             {**account_data, "recent_public_statuses": public_only},
+            account_data,
             combined,
+            public_only,
         )
 
         if violations:
