@@ -172,7 +172,7 @@ class BehavioralDetector(BaseDetector):
             )
         if account_data.get("bot"):
             now = datetime.utcnow()
-            public_items = [s for s in items if s.get("visibility") != "unlisted"]
+            public_items = [s for s in items if s.get("visibility") not in ("unlisted", "private", "direct")]
             posts_last_hour = sum(
                 1 for s in public_items if self._parse_time(s["created_at"]) >= now - timedelta(hours=1)
             )
