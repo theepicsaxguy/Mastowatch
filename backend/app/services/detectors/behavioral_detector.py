@@ -197,7 +197,9 @@ class BehavioralDetector(BaseDetector):
     def _check_link_spam(self, rule: Rule, statuses: list[dict[str, Any]]) -> list[Violation]:
         items = sorted(statuses, key=lambda s: self._parse_time(s["created_at"]), reverse=True)[:20]
         total = len(items)
-        if total != 20:
+        items = sorted(statuses, key=lambda s: self._parse_time(s["created_at"]), reverse=True)[:self.LINK_SPAM_WINDOW_SIZE]
+        total = len(items)
+        if total != self.LINK_SPAM_WINDOW_SIZE:
             return []
         domain_counts: dict[str, int] = {}
         content_map: dict[str, list[int]] = {}
