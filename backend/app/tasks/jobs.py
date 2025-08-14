@@ -612,7 +612,10 @@ def process_new_status(status_payload: dict):
             limit=20,
             exclude_reblogs=True,
         )
-        history = [s for s in history if s.get("visibility") in {"public", "unlisted"}]
+            limit=MAX_HISTORY_STATUSES,
+            exclude_reblogs=True,
+        )
+        history = [s for s in history if s.get("visibility") in ANALYZABLE_VISIBILITY_TYPES]
         combined = [status_data]
         seen = {status_data.get("id")}
         for s in history:
