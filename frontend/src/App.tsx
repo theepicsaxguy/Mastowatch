@@ -56,7 +56,7 @@ export default function App() {
   const [legalNoticeUrl, setLegalNoticeUrl] = useState('');
   const [legalNoticeText, setLegalNoticeText] = useState('');
   useEffect(() => {
-    if (!legalNoticeUrl || !legalNoticeText) return;
+    if (!legalNoticeUrl && !legalNoticeText) return;
     const timeoutId = setTimeout(() => {
       const link = document.querySelector(`a[href="${legalNoticeUrl}"]`);
       if (!link || link.textContent?.trim() !== legalNoticeText) {
