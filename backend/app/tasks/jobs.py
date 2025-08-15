@@ -34,6 +34,8 @@ settings = get_settings()
 CURSOR_NAME = "admin_accounts"
 CURSOR_NAME_LOCAL = "admin_accounts_local"
 
+MAX_HISTORY_STATUSES = 20
+
 
 def _get_admin_client():
     """Get a fresh admin client instance."""
@@ -609,9 +611,6 @@ def process_new_status(status_payload: dict):
         admin_client = _get_admin_client()
         history = admin_client.get_account_statuses(
             account_id=account_data["id"],
-            limit=20,
-            exclude_reblogs=True,
-        )
             limit=MAX_HISTORY_STATUSES,
             exclude_reblogs=True,
         )
