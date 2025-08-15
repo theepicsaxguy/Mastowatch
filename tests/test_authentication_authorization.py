@@ -334,6 +334,8 @@ class TestAuthenticationAuthorization(unittest.TestCase):
             "/analytics/timeline",
             "/config/dry_run",
             "/config/panic_stop",
+            "/config/legal_notice",
+            "/config",
             "/rules",
             "/scanning/federated",
             "/analytics/domains",
@@ -341,7 +343,13 @@ class TestAuthenticationAuthorization(unittest.TestCase):
 
         for endpoint in admin_endpoints:
             # Test unauthenticated access
-            if endpoint in ["/config/dry_run", "/config/panic_stop", "/rules", "/scanning/federated"]:
+            if endpoint in [
+                "/config/dry_run",
+                "/config/panic_stop",
+                "/config/legal_notice",
+                "/rules",
+                "/scanning/federated",
+            ]:
                 response = self.client.post(endpoint, json={})
             else:
                 response = self.client.get(endpoint)

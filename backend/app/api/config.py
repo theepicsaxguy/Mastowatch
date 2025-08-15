@@ -2,7 +2,6 @@
 
 from typing import Any
 
-from app.auth import require_api_key
 from app.config import get_settings
 from app.oauth import User, require_admin_hybrid
 from app.services.config_service import ConfigService, get_config_service
@@ -11,7 +10,6 @@ from pydantic import BaseModel, Field
 
 router = APIRouter()
 
-api_key_dep = Depends(require_api_key)
 admin_dep = Depends(require_admin_hybrid)
 service_dep = Depends(get_config_service)
 MAX_THRESHOLD = 10
@@ -25,11 +23,13 @@ class AutoModSettings(BaseModel):
     defederation_threshold: int | None = Field(default=None)
 
 
+class LegalNotice(BaseModel):
+    url: str
+    text: str
+
+
 @router.get("/config", response_model=dict[str, Any])
-async def get_app_config(
-    user: User = api_key_dep,
-    service: ConfigService = service_dep,
-):
+async def get_app_config(user: User = admin_dep, service: ConfigService = service_dep):
     """Return non-sensitive configuration values."""
     settings = get_settings()
     allowed = {
@@ -51,6 +51,10 @@ async def get_app_config(
     report_threshold = service.get_config("report_threshold")
     if report_threshold:
         config["REPORT_THRESHOLD"] = report_threshold.get("threshold")
+    legal_notice = service.get_config("legal_notice")
+    if legal_notice:
+        config["LEGAL_NOTICE_URL"] = legal_notice.get("url")
+        config["LEGAL_NOTICE_TEXT"] = legal_notice.get("text")
     return config
 
 
@@ -110,7 +114,7 @@ def set_automod_config(
     service: ConfigService = service_dep,
 ):
     """Update AutoMod settings."""
-    allowed_actions = {"report", "suspend", "ignore"}  # Add/modify as needed
+    allowed_actions = {"report", "suspend", "ignore"}
     if settings.defederation_threshold is not None and settings.defederation_threshold < 0:
         raise HTTPException(status_code=400, detail="Threshold must be non-negative")
     if settings.default_action is not None and settings.default_action not in allowed_actions:
@@ -121,3 +125,12 @@ def set_automod_config(
         defederation_threshold=settings.defederation_threshold,
         updated_by=user.username,
     )
+
+
+@router.post("/config/legal_notice", tags=["ops"], response_model=dict[str, str])
+def set_legal_notice(
+    settings: LegalNotice,
+    user: User = admin_dep,
+    service: ConfigService = service_dep,
+):
+    return service.set_legal_notice(url=settings.url, text=settings.text, updated_by=user.username)

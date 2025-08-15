@@ -35,9 +35,6 @@ type Health = {
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
 
-const LEGAL_NOTICE_URL = 'https://goingdark.social';
-const LEGAL_NOTICE_TEXT = 'Made for goingdark.social';
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [health, setHealth] = useState<Health | null>(null);
@@ -56,21 +53,21 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [legalNoticeUrl, setLegalNoticeUrl] = useState('');
+  const [legalNoticeText, setLegalNoticeText] = useState('');
   useEffect(() => {
-    // Check for legal notice after a delay to ensure the footer is rendered
+    if (!legalNoticeUrl || !legalNoticeText) return;
     const timeoutId = setTimeout(() => {
-      const link = document.querySelector(`a[href="${LEGAL_NOTICE_URL}"]`);
-      if (!link || link.textContent?.trim() !== LEGAL_NOTICE_TEXT) {
+      const link = document.querySelector(`a[href="${legalNoticeUrl}"]`);
+      if (!link || link.textContent?.trim() !== legalNoticeText) {
         console.warn('Legal Notice check failed - link not found or incorrect text');
-        // Only throw error in production builds, not during development
         if (process.env.NODE_ENV === 'production') {
           throw new Error('Appropriate Legal Notice missing');
         }
       }
     }, 1000);
-    
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [legalNoticeUrl, legalNoticeText]);
   const [scanningAnalytics, setScanningAnalytics] = useState<ScanningAnalytics | null>(null);
   const [domainAnalytics, setDomainAnalytics] = useState<DomainAnalytics | null>(null);
   const [ruleStatistics, setRuleStatistics] = useState<RuleStatistics | null>(null);
@@ -223,6 +220,16 @@ export default function App() {
     }
   }
 
+  async function loadConfig() {
+    try {
+      const data = await apiFetch<Record<string, any>>('/config');
+      setLegalNoticeUrl(data.LEGAL_NOTICE_URL || '');
+      setLegalNoticeText(data.LEGAL_NOTICE_TEXT || '');
+    } catch (error) {
+      console.error('Failed to load config:', error);
+    }
+  }
+
   async function handleTriggerFederatedScan(domains?: string[]) {
     setLoading(true);
     try {
@@ -280,7 +287,8 @@ export default function App() {
         loadRules(),
         loadScanningAnalytics(),
         loadDomainAnalytics(),
-        loadRuleStatistics()
+        loadRuleStatistics(),
+        loadConfig()
       ]);
     } finally {
       setRefreshing(false);
@@ -320,6 +328,20 @@ export default function App() {
         method: 'POST'
       });
       setHealth((h) => (h ? { ...h, panic_stop: next } : h));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateLegalNotice(url: string, text: string) {
+    setSaving(true);
+    try {
+      await apiFetch('/config/legal_notice', {
+        method: 'POST',
+        body: JSON.stringify({ url, text })
+      });
+      setLegalNoticeUrl(url);
+      setLegalNoticeText(text);
     } finally {
       setSaving(false);
     }
@@ -492,6 +514,9 @@ export default function App() {
                 health={health}
                 onUpdateDryRun={updateDryRun}
                 onUpdatePanic={updatePanic}
+                onUpdateLegalNotice={updateLegalNotice}
+                legalNoticeUrl={legalNoticeUrl}
+                legalNoticeText={legalNoticeText}
                 saving={saving}
               />
             </Tabs.Panel>
@@ -500,9 +525,11 @@ export default function App() {
       </AppShell.Main>
       <AppShell.Footer>
         <Container size="xl">
-          <Anchor href={LEGAL_NOTICE_URL} target="_blank" rel="noopener noreferrer">
-            {LEGAL_NOTICE_TEXT}
-          </Anchor>
+          {legalNoticeUrl && legalNoticeText && (
+            <Anchor href={legalNoticeUrl} target="_blank" rel="noopener noreferrer">
+              {legalNoticeText}
+            </Anchor>
+          )}
         </Container>
       </AppShell.Footer>
 
@@ -1219,16 +1246,37 @@ function RulesTab({ rules, onReload }: {
   );
 }
 
-function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, saving }: {
-  health: Health | null,
-  onUpdateDryRun: (next: boolean) => void,
-  onUpdatePanic: (next: boolean) => void,
-  saving: boolean
+function SettingsTab({
+  health,
+  onUpdateDryRun,
+  onUpdatePanic,
+  onUpdateLegalNotice,
+  legalNoticeUrl,
+  legalNoticeText,
+  saving,
+}: {
+  health: Health | null;
+  onUpdateDryRun: (next: boolean) => void;
+  onUpdatePanic: (next: boolean) => void;
+  onUpdateLegalNotice: (url: string, text: string) => void;
+  legalNoticeUrl: string;
+  legalNoticeText: string;
+  saving: boolean;
 }) {
   const [configError, setConfigError] = useState<string | null>(null);
   const [configSuccess, setConfigSuccess] = useState<string | null>(null);
+  const [url, setUrl] = useState(legalNoticeUrl);
+  const [text, setText] = useState(legalNoticeText);
 
-  const handleConfigUpdate = async (updateFn: () => Promise<void>, successMessage: string) => {
+  useEffect(() => {
+    setUrl(legalNoticeUrl);
+    setText(legalNoticeText);
+  }, [legalNoticeUrl, legalNoticeText]);
+
+  const handleConfigUpdate = async (
+    updateFn: () => Promise<void>,
+    successMessage: string
+  ) => {
     try {
       setConfigError(null);
       setConfigSuccess(null);
@@ -1243,20 +1291,18 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, saving }: {
 
   return (
     <Stack gap="md">
-      {/* Error/Success alerts */}
       {configError && (
         <Alert color="red" withCloseButton onClose={() => setConfigError(null)}>
           <Text size="sm">{configError}</Text>
         </Alert>
       )}
-      
+
       {configSuccess && (
         <Alert color="green" withCloseButton onClose={() => setConfigSuccess(null)}>
           <Text size="sm">{configSuccess}</Text>
         </Alert>
       )}
 
-      {/* System Status Card */}
       <Card withBorder padding="md">
         <Title order={4} mb="md">System Status</Title>
         {!health ? (
@@ -1283,7 +1329,6 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, saving }: {
         )}
       </Card>
 
-      {/* Runtime Controls Card */}
       <Card withBorder padding="md">
         <Title order={4} mb="md">Runtime Controls</Title>
         <Stack gap="md">
@@ -1372,7 +1417,27 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, saving }: {
         </Stack>
       </Card>
 
-      {/* Configuration Information Card */}
+      <Card withBorder padding="md">
+        <Title order={4} mb="md">Legal Notice</Title>
+        <Stack gap="md">
+          <TextInput label="URL" value={url} onChange={(e) => setUrl(e.currentTarget.value)} />
+          <TextInput label="Text" value={text} onChange={(e) => setText(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button
+              onClick={() =>
+                handleConfigUpdate(
+                  () => onUpdateLegalNotice(url, text),
+                  'Legal notice updated'
+                )
+              }
+              disabled={saving}
+            >
+              Save
+            </Button>
+          </Group>
+        </Stack>
+      </Card>
+
       <Card withBorder padding="md">
         <Title order={4} mb="md">Current Configuration</Title>
         <Grid>
@@ -1419,7 +1484,6 @@ function SettingsTab({ health, onUpdateDryRun, onUpdatePanic, saving }: {
         </Grid>
       </Card>
 
-      {/* Help and Documentation Card */}
       <Card withBorder padding="md">
         <Title order={4} mb="md">Help & Documentation</Title>
         <Stack gap="md">

@@ -135,6 +135,20 @@ class TestAPIEndpoints(unittest.TestCase):
 
     @patch("app.api.config.get_config_service")
     @patch("app.api.config.require_admin_hybrid")
+    def test_legal_notice_update(self, mock_auth, mock_service):
+        """Update legal notice via service."""
+        mock_auth.return_value = create_mock_admin_user()
+        service = MagicMock()
+        mock_service.return_value = service
+        payload = {"url": "https://example.com", "text": "Example"}
+        response = self.client.post("/config/legal_notice", json=payload)
+        self.assertEqual(response.status_code, 200)
+        service.set_legal_notice.assert_called_once_with(
+            url="https://example.com", text="Example", updated_by="testadmin"
+        )
+
+    @patch("app.api.config.get_config_service")
+    @patch("app.api.config.require_admin_hybrid")
     def test_automod_config_endpoint(self, mock_auth, mock_service):
         """Manage automod settings via service."""
         mock_auth.return_value = create_mock_admin_user()
@@ -166,17 +180,19 @@ class TestAPIEndpoints(unittest.TestCase):
         )
 
     @patch("app.api.config.get_config_service")
-    def test_get_config_returns_non_sensitive_fields(self, mock_service):
+    @patch("app.api.config.require_admin_hybrid")
+    def test_get_config_returns_non_sensitive_fields(self, mock_auth, mock_service):
         """Expose only safe configuration."""
+        mock_auth.return_value = create_mock_admin_user()
         service = MagicMock()
         service.get_config.side_effect = lambda key: {
             "panic_stop": {"enabled": True},
             "dry_run": {"enabled": False},
             "report_threshold": {"threshold": 2.5},
+            "legal_notice": {"url": "https://example.com", "text": "Example"},
         }.get(key)
         mock_service.return_value = service
-        headers = {"X-API-Key": os.environ["API_KEY"]}
-        response = self.client.get("/config", headers=headers)
+        response = self.client.get("/config")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertNotIn("ADMIN_TOKEN", data)
@@ -184,6 +200,8 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("DRY_RUN", data)
         self.assertEqual(data["PANIC_STOP"], True)
         self.assertEqual(data["REPORT_THRESHOLD"], 2.5)
+        self.assertEqual(data["LEGAL_NOTICE_URL"], "https://example.com")
+        self.assertEqual(data["LEGAL_NOTICE_TEXT"], "Example")
 
     @patch("app.api.analytics.require_admin_hybrid")
     def test_analytics_overview_new_endpoint(self, mock_auth):

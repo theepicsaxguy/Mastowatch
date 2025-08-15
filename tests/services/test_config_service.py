@@ -21,9 +21,7 @@ class TestConfigService(unittest.TestCase):
         Base.metadata.create_all(engine)
         self.SessionLocal = sessionmaker(bind=engine)
         self.service = ConfigService()
-        self.patcher = patch(
-            "app.services.config_service.SessionLocal", self.SessionLocal
-        )
+        self.patcher = patch("app.services.config_service.SessionLocal", self.SessionLocal)
         self.patcher.start()
 
     def tearDown(self):
@@ -55,6 +53,13 @@ class TestConfigService(unittest.TestCase):
         self.assertEqual(value["dry_run_override"], False)
         self.assertEqual(value["default_action"], "suspend")
         self.assertEqual(value["defederation_threshold"], 5)
+
+    def test_set_legal_notice(self):
+        """Store and retrieve legal notice."""
+        self.service.set_legal_notice("https://example.com", "Example", updated_by="tester")
+        value = self.service.get_config("legal_notice")
+        self.assertEqual(value["url"], "https://example.com")
+        self.assertEqual(value["text"], "Example")
 
 
 if __name__ == "__main__":

@@ -180,4 +180,4 @@ All API endpoints return structured error responses with:
 
 ## Legal Notice
 
-Every page shows a footer linking to [goingdark.social](https://goingdark.social). The app refuses to run without it. Don't remove or rename this credit; it's part of the license.
+The footer link and text come from settings stored in the database. Update them under the **Settings** tab. The default credit points to [goingdark.social](https://goingdark.social); keep an appropriate notice to meet the license.
