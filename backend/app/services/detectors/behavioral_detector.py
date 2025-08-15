@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 import re
 from urllib.parse import urlparse
 from typing import Any
-from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +15,9 @@ from app.services.detectors.base import BaseDetector
 
 class BehavioralDetector(BaseDetector):
     """Detector for behavioral patterns in account activity."""
+
+    AUTOMATION_WINDOW = 20
+    LINK_SPAM_WINDOW = 20
 
     def evaluate(self, rule: Rule, account_data: dict[str, Any], statuses: list[dict[str, Any]]) -> list[Violation]:
         violations: list[Violation] = []
@@ -144,7 +146,9 @@ class BehavioralDetector(BaseDetector):
     def _check_automation(
         self, rule: Rule, account_data: dict[str, Any], statuses: list[dict[str, Any]]
     ) -> list[Violation]:
-        items = sorted(statuses, key=lambda s: self._parse_time(s["created_at"]), reverse=True)[:20]
+        items = sorted(statuses, key=lambda s: self._parse_time(s["created_at"]), reverse=True)[
+            : self.AUTOMATION_WINDOW
+        ]
         if not items:
             return []
         texts = [re.sub(r"\d+", "", s.get("content", "")).strip().lower() for s in items]
@@ -195,12 +199,10 @@ class BehavioralDetector(BaseDetector):
         return results
 
     def _check_link_spam(self, rule: Rule, statuses: list[dict[str, Any]]) -> list[Violation]:
-        items = sorted(statuses, key=lambda s: self._parse_time(s["created_at"]), reverse=True)[:20]
-        total = len(items)
-        items = sorted(statuses, key=lambda s: self._parse_time(s["created_at"]), reverse=True)[:self.LINK_SPAM_WINDOW_SIZE]
-        total = len(items)
-        if total != self.LINK_SPAM_WINDOW_SIZE:
+        items = sorted(statuses, key=lambda s: self._parse_time(s["created_at"]), reverse=True)[: self.LINK_SPAM_WINDOW]
+        if len(items) != self.LINK_SPAM_WINDOW:
             return []
+        total = len(items)
         domain_counts: dict[str, int] = {}
         content_map: dict[str, list[int]] = {}
         links: list[tuple[int, list[str]]] = []
